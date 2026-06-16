@@ -308,6 +308,9 @@ a:hover { text-decoration: underline; }
 .modal-box h3 { margin-bottom: 18px; }
 .modal-btns { display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px; }
 
+.campo-remember { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; font-size: .88rem; color: #374151; }
+.campo-remember input { width: 16px; height: 16px; cursor: pointer; }
+
 /* ── Login ── */
 .login-body { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #0f172a; }
 .login-card {
@@ -328,3 +331,72 @@ a:hover { text-decoration: underline; }
 .vazio { text-align: center; padding: 48px; color: #94a3b8; background: #fff; border-radius: 12px; }
 strong { font-weight: 600; }
 small { font-size: .8rem; }
+
+/* ── Documentos do Cliente ── */
+.docs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+.doc-card-full { grid-column: 1 / -1; }
+.doc-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.07);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.doc-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.doc-card-titulo { font-weight: 600; font-size: .9rem; color: #1a1a2e; }
+.badge-doc {
+  font-size: .72rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.badge-doc.ok { background: #dcfce7; color: #166534; }
+.badge-doc.vencido { background: #fee2e2; color: #991b1b; }
+.badge-doc.vencendo { background: #fef3c7; color: #92400e; }
+.badge-doc.pendente { background: #f1f5f9; color: #64748b; }
+.badge-doc.nao-aplica { background: #e0e7ff; color: #3730a3; }
+.badge-doc.sem-val { background: #f8fafc; color: #94a3b8; }
+
+.doc-existente { display: flex; flex-direction: column; gap: 4px; padding: 10px; background: #f8fafc; border-radius: 8px; }
+.doc-nome-link { font-size: .87rem; color: #2563eb; }
+.doc-val { font-size: .78rem; color: #64748b; }
+.txt-vencido { color: #991b1b; font-weight: 600; }
+.txt-vencendo { color: #92400e; font-weight: 600; }
+.doc-obs-text { font-size: .78rem; color: #64748b; font-style: italic; }
+
+.doc-lista-inner { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.doc-item-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px 10px;
+  background: #f8fafc;
+  border-radius: 6px;
+  font-size: .83rem;
+}
+
+.upload-details { margin-top: 4px; }
+.upload-details summary {
+  cursor: pointer;
+  font-size: .82rem;
+  color: #2563eb;
+  font-weight: 500;
+  list-style: none;
+  padding: 4px 0;
+}
+.form-doc { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.campo-check-nao-aplica { display: flex; align-items: center; gap: 6px; font-size: .85rem; }
+.input-file-doc { font-size: .83rem; }

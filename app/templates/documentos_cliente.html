@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block titulo %}Documentos — {{ cliente.nome }}{% endblock %}
+{% block conteudo %}
+
+<div class="page-header">
+  <div>
+    <a href="{{ url_for('main.clientes') }}" class="voltar">← Clientes</a>
+    <h2>{{ cliente.nome }}</h2>
+    <p class="muted">Pasta de Documentos</p>
+  </div>
+</div>
+
+{% if pendencias %}
+<div class="alerta alerta-erro">
+  ⚠️ <strong>{{ pendencias|length }} documento(s) pendente(s):</strong> {{ pendencias|join(', ') }}
+</div>
+{% else %}
+<div class="alerta alerta-ok">
+  ✅ Todos os documentos estão preenchidos ou marcados como não se aplica.
+</div>
+{% endif %}
+
+<div class="docs-grid">
+  {% for slug, label in documentos_tipos %}
+  {% set doc = docs_por_tipo.get(slug) %}
+  {% set is_lista = slug == 'alteracao_contratual' %}
+
+  <div class="doc-card {% if is_lista %}doc-card-full{% endif %}">
+    <div class="doc-card-header">
+      <span class="doc-card-titulo">{{ label }}</span>
+
+      {% if is_lista %}
+        {% set tem = doc and doc|length > 0 %}
+      {% else %}
+        {% set tem = doc is not none %}
+      {% endif %}
+
+      {% if tem %}
+        {% if is_lista %}
+          <span class="badge-doc ok">{{ doc|length }} arquivo(s)</span>
+        {% elif doc.nao_se_aplica %}
+          <span class="badge-doc nao-aplica">Não se aplica</span>
+        {% else %}
+          {% set sv = status_validade(doc.validade) %}
+          {% if sv == 'vencido' %}
+            <span class="badge-doc vencido">Vencido</span>
+          {% elif sv == 'vencendo' %}
+            <span class="badge-doc vencendo">Vence em breve</span>
+          {% elif sv == 'ok' %}
+            <span class="badge-doc ok">OK</span>
+          {% else %}
+            <span class="badge-doc sem-val">Sem validade</span>
+          {% endif %}
+        {% endif %}
+      {% else %}
+        <span class="badge-doc pendente">Pendente</span>
+      {% endif %}
+    </div>
+
+    <!-- Documentos existentes -->
+    {% if is_lista and doc %}
+      <ul class="doc-lista-inner">
+        {% for d in doc %}
+        <li class="doc-item-inner">
+          {% if not d.nao_se_aplica %}
+          <a href="{{ url_for('docs.download', doc_id=d.id) }}" class="doc-nome-link">📄 {{ d.nome_original }}</a>
+          {% else %}
+          <span class="muted">Não se aplica</span>
+          {% endif %}
+          {% if d.validade %}
+          <span class="doc-val {% if status_validade(d.validade) == 'vencido' %}txt-vencido{% elif status_validade(d.validade) == 'vencendo' %}txt-vencendo{% endif %}">
+            Val: {{ d.validade.strftime('%d/%m/%Y') }}
+          </span>
+          {% endif %}
+          {% if d.obs %}<span class="doc-obs-text">Obs: {{ d.obs }}</span>{% endif %}
+          {% if current_user.is_assessor() %}
+          <form method="POST" action="{{ url_for('docs.excluir', doc_id=d.id) }}" class="form-inline">
+            <button type="submit" class="btn-excluir" onclick="return confirm('Excluir?')">✕</button>
+          </form>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    {% elif doc and not is_lista and not doc.nao_se_aplica %}
+      <div class="doc-existente">
+        <a href="{{ url_for('docs.download', doc_id=doc.id) }}" class="doc-nome-link">📄 {{ doc.nome_original }}</a>
+        {% if doc.validade %}
+        <span class="doc-val {% if status_validade(doc.validade) == 'vencido' %}txt-vencido{% elif status_validade(doc.validade) == 'vencendo' %}txt-vencendo{% endif %}">
+          Validade: {{ doc.validade.strftime('%d/%m/%Y') }}
+          {% if status_validade(doc.validade) == 'vencendo' %}
+          ⚠️ Vence em {{ (doc.validade - hoje).days }} dia(s)!
+          {% elif status_validade(doc.validade) == 'vencido' %}
+          🔴 Vencido há {{ (hoje - doc.validade).days }} dia(s)!
+          {% endif %}
+        </span>
+        {% endif %}
+        {% if doc.obs %}<p class="doc-obs-text">Obs: {{ doc.obs }}</p>{% endif %}
+        {% if current_user.is_assessor() %}
+        <form method="POST" action="{{ url_for('docs.excluir', doc_id=doc.id) }}" class="form-inline">
+          <button type="submit" class="btn-excluir" onclick="return confirm('Excluir este documento?')">✕ Remover</button>
+        </form>
+        {% endif %}
+      </div>
+    {% elif doc and not is_lista and doc.nao_se_aplica %}
+      {% if doc.obs %}<p class="doc-obs-text muted">Obs: {{ doc.obs }}</p>{% endif %}
+    {% endif %}
+
+    <!-- Formulário de upload -->
+    {% if current_user.is_assessor() %}
+    <details class="upload-details" {% if not tem %}open{% endif %}>
+      <summary>{% if is_lista %}+ Adicionar alteração{% else %}{% if tem %}🔄 Substituir{% else %}📎 Enviar documento{% endif %}{% endif %}</summary>
+      <form method="POST" action="{{ url_for('docs.upload_doc', cliente_id=cliente.id) }}" enctype="multipart/form-data" class="form-doc">
+        <input type="hidden" name="tipo" value="{{ slug }}">
+
+        <div class="campo-check-nao-aplica">
+          <input type="checkbox" name="nao_se_aplica" id="nao_{{ slug }}" class="check-nao-aplica" data-slug="{{ slug }}">
+          <label for="nao_{{ slug }}">Não se aplica</label>
+        </div>
+
+        <div class="campos-doc" id="campos_{{ slug }}">
+          <div class="campo">
+            <label>Arquivo</label>
+            <input type="file" name="arquivo" class="input-file-doc">
+          </div>
+          <div class="campo">
+            <label>Data de Validade</label>
+            <input type="date" name="validade">
+          </div>
+        </div>
+
+        <div class="campo">
+          <label>Observações</label>
+          <input type="text" name="obs" placeholder="Opcional...">
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-sm">Salvar</button>
+      </form>
+    </details>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<script>
+document.querySelectorAll('.check-nao-aplica').forEach(cb => {
+  cb.addEventListener('change', () => {
+    const campos = document.getElementById('campos_' + cb.dataset.slug);
+    if (campos) campos.style.display = cb.checked ? 'none' : 'block';
+  });
+});
+</script>
+
+{% endblock %}

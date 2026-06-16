@@ -16,7 +16,8 @@ def login():
         senha = request.form.get("senha", "")
         user = User.query.filter_by(email=email).first()
         if user and bcrypt.check_password_hash(user.senha, senha):
-            login_user(user)
+            remember = request.form.get("remember") == "on"
+            login_user(user, remember=remember)
             return redirect(url_for("main.painel"))
         flash("Email ou senha incorretos.", "erro")
     return render_template("login.html")

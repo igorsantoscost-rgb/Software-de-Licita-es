@@ -11,7 +11,7 @@
 <div class="tabela-wrap">
   <table class="tabela">
     <thead>
-      <tr><th>Nome</th><th>CNPJ</th><th>Cadastrado em</th></tr>
+      <tr><th>Nome</th><th>CNPJ</th><th>Cadastrado em</th><th></th></tr>
     </thead>
     <tbody>
       {% for c in clientes %}
@@ -19,6 +19,7 @@
         <td>{{ c.nome }}</td>
         <td>{{ c.cnpj or '—' }}</td>
         <td>{{ c.criado_em.strftime('%d/%m/%Y') }}</td>
+        <td><a href="{{ url_for('docs.documentos', cliente_id=c.id) }}" class="btn btn-sm">📁 Documentos</a></td>
       </tr>
       {% endfor %}
     </tbody>

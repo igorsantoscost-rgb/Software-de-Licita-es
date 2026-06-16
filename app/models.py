@@ -77,6 +77,44 @@ class Documento(db.Model):
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+DOCUMENTOS_CLIENTE = [
+    ("cnd_federal", "CND Federal"),
+    ("cnd_municipal", "CND Municipal"),
+    ("cnd_estadual", "CND Estadual"),
+    ("cnd_fgts", "CND FGTS"),
+    ("tcu", "Consulta Consolidada TCU"),
+    ("cadin", "Consulta CADIN"),
+    ("certidao_falencia", "Certidão Negativa de Falência e Concordata"),
+    ("contrato_social", "Contrato Social / Contrato Consolidado"),
+    ("alteracao_contratual", "Alteração Contratual"),
+    ("inscricao_estado", "Prova de Inscrição no Estado"),
+    ("inscricao_municipio", "Prova de Inscrição no Município"),
+    ("alvara_funcionamento", "Alvará de Funcionamento"),
+    ("alvara_sanitario", "Alvará Sanitário"),
+    ("doc_socio", "Documento de Identificação do Sócio"),
+    ("doc_conjuge", "Identificação do Cônjuge do Sócio"),
+    ("estado_civil", "Comprovação de Estado Civil"),
+    ("atestado_tecnico", "Atestado de Capacidade Técnica"),
+]
+
+DOCUMENTO_TIPOS = [slug for slug, _ in DOCUMENTOS_CLIENTE]
+
+
+class DocumentoCliente(db.Model):
+    __tablename__ = "documentos_cliente"
+    id = db.Column(db.Integer, primary_key=True)
+    cliente_id = db.Column(db.Integer, db.ForeignKey("clientes.id"), nullable=False)
+    tipo = db.Column(db.String(60), nullable=False)
+    nome_original = db.Column(db.String(300), nullable=False)
+    caminho = db.Column(db.String(500), nullable=False)
+    tamanho = db.Column(db.Integer, nullable=True)
+    validade = db.Column(db.Date, nullable=True)
+    nao_se_aplica = db.Column(db.Boolean, default=False)
+    obs = db.Column(db.Text, nullable=True)
+    enviado_por = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 class ItemLicitacao(db.Model):
     __tablename__ = "itens_licitacao"
     id = db.Column(db.Integer, primary_key=True)
