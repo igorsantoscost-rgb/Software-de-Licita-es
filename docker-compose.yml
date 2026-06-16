@@ -1,0 +1,28 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_DB: licitacoes
+      POSTGRES_USER: licitacoes
+      POSTGRES_PASSWORD: licitacoes123
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  app:
+    build: .
+    restart: always
+    ports:
+      - "8080:8000"
+    environment:
+      DATABASE_URL: postgresql://licitacoes:licitacoes123@db:5432/licitacoes
+      SECRET_KEY: troque-esta-chave-secreta-em-producao
+    volumes:
+      - ./uploads:/app/uploads
+    depends_on:
+      - db
+
+volumes:
+  pgdata:

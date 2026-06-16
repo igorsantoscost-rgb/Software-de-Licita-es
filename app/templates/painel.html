@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block titulo %}Painel — Licitações{% endblock %}
+{% block conteudo %}
+
+<div class="page-header">
+  <h2>Painel de Licitações</h2>
+  {% if current_user.is_assessor() %}
+  <a href="{{ url_for('lic.nova') }}" class="btn btn-primary">+ Nova Licitação</a>
+  {% endif %}
+</div>
+
+<!-- Filtro por status -->
+<div class="filtros">
+  <span class="filtros-label">Filtrar por status:</span>
+  <a href="{{ url_for('main.painel', status='todos') }}"
+     class="filtro-pill {% if status_filtro == 'todos' %}ativo{% endif %}">Todos</a>
+  {% for s in status_choices %}
+  <a href="{{ url_for('main.painel', status=s) }}"
+     class="filtro-pill status-{{ s|replace(' ', '-') }} {% if status_filtro == s %}ativo{% endif %}">
+    {{ s|title }}
+  </a>
+  {% endfor %}
+</div>
+
+<!-- Tabela de licitações -->
+{% if licitacoes %}
+<div class="tabela-wrap">
+  <table class="tabela">
+    <thead>
+      <tr>
+        <th>Pregão / UASG</th>
+        <th>Órgão Licitante</th>
+        <th>Portal</th>
+        <th>Data da Disputa</th>
+        <th>Status</th>
+        {% if current_user.is_assessor() %}<th>Cliente</th>{% endif %}
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for l in licitacoes %}
+      <tr>
+        <td>
+          <strong>{{ l.numero_pregao }}</strong>
+          {% if l.uasg %}<br><small class="muted">UASG {{ l.uasg }}</small>{% endif %}
+        </td>
+        <td>{{ l.orgao_licitante }}</td>
+        <td>{{ l.portal or '—' }}</td>
+        <td>
+          {% if l.data_disputa %}
+            {{ l.data_disputa.strftime('%d/%m/%Y') }}<br>
+            <small class="muted">{{ l.data_disputa.strftime('%H:%M') }}</small>
+          {% else %}—{% endif %}
+        </td>
+        <td><span class="badge status-{{ l.status|replace(' ', '-') }}">{{ l.status|title }}</span></td>
+        {% if current_user.is_assessor() %}<td>{{ l.cliente.nome }}</td>{% endif %}
+        <td><a href="{{ url_for('lic.detalhe', id=l.id) }}" class="btn btn-sm">Ver</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="vazio">
+  <p>Nenhuma licitação encontrada{% if status_filtro != 'todos' %} com status <strong>{{ status_filtro }}</strong>{% endif %}.</p>
+</div>
+{% endif %}
+
+{% endblock %}

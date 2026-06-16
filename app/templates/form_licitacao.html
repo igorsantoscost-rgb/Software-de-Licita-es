@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block titulo %}{% if lic %}Editar{% else %}Nova{% endif %} Licitação{% endblock %}
+{% block conteudo %}
+
+<div class="page-header">
+  <h2>{% if lic %}Editar Licitação{% else %}Nova Licitação{% endif %}</h2>
+</div>
+
+<div class="card card-form">
+  <form method="POST">
+
+    <div class="campo">
+      <label>Cliente *</label>
+      <select name="cliente_id" required class="select">
+        <option value="">Selecione...</option>
+        {% for c in clientes %}
+        <option value="{{ c.id }}" {% if lic and lic.cliente_id == c.id %}selected{% endif %}>{{ c.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="campo-row">
+      <div class="campo">
+        <label>Número do Pregão *</label>
+        <input type="text" name="numero_pregao" required value="{{ lic.numero_pregao if lic else '' }}" placeholder="Ex: PE 001/2025">
+      </div>
+      <div class="campo">
+        <label>UASG</label>
+        <input type="text" name="uasg" value="{{ lic.uasg if lic else '' }}" placeholder="Ex: 123456">
+      </div>
+    </div>
+
+    <div class="campo">
+      <label>Órgão Licitante *</label>
+      <input type="text" name="orgao_licitante" required value="{{ lic.orgao_licitante if lic else '' }}" placeholder="Ex: Ministério da Saúde">
+    </div>
+
+    <div class="campo-row">
+      <div class="campo">
+        <label>Portal</label>
+        <select name="portal" class="select">
+          <option value="">Selecione...</option>
+          {% for p in portal_choices %}
+          <option value="{{ p }}" {% if lic and lic.portal == p %}selected{% endif %}>{{ p }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="campo">
+        <label>Data e Hora da Disputa</label>
+        <input type="datetime-local" name="data_disputa"
+               value="{{ lic.data_disputa.strftime('%Y-%m-%dT%H:%M') if lic and lic.data_disputa else '' }}">
+      </div>
+    </div>
+
+    <div class="campo">
+      <label>Objeto da Licitação</label>
+      <textarea name="objeto" rows="4" placeholder="Descreva o objeto...">{{ lic.objeto if lic else '' }}</textarea>
+    </div>
+
+    <div class="campo">
+      <label>Link do Edital</label>
+      <input type="url" name="link_edital" value="{{ lic.link_edital if lic else '' }}" placeholder="https://...">
+    </div>
+
+    <div class="form-btns">
+      <a href="{{ url_for('main.painel') }}" class="btn">Cancelar</a>
+      <button type="submit" class="btn btn-primary">Salvar</button>
+    </div>
+
+  </form>
+</div>
+
+{% endblock %}

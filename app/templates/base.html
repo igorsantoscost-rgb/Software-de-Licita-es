@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block titulo %}Consultoria Licitacoes{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+{% if current_user.is_authenticated %}
+<nav class="navbar">
+  <div class="nav-brand">🏛️ Licitações</div>
+  <div class="nav-links">
+    <a href="{{ url_for('main.painel') }}">Painel</a>
+    <a href="{{ url_for('main.calendario') }}">Calendário</a>
+    {% if current_user.is_assessor() %}
+    <a href="{{ url_for('main.clientes') }}">Clientes</a>
+    <a href="{{ url_for('lic.nova') }}">+ Nova</a>
+    {% endif %}
+  </div>
+  <div class="nav-user">
+    <span>{{ current_user.nome }}</span>
+    <span class="badge-perfil">{{ current_user.perfil }}</span>
+    <a href="{{ url_for('auth.logout') }}">Sair</a>
+  </div>
+</nav>
+{% endif %}
+
+<main class="container">
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in msgs %}
+      <div class="alerta alerta-{{ cat }}">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  {% block conteudo %}{% endblock %}
+</main>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

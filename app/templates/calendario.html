@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block titulo %}Calendário — Licitações{% endblock %}
+{% block conteudo %}
+
+<div class="page-header">
+  <h2>Calendário de Disputas</h2>
+  <div class="nav-mes">
+    <a href="{{ url_for('main.calendario', mes=mes-1, ano=ano) }}" class="btn btn-sm">← Anterior</a>
+    <strong class="mes-label">{{ nome_mes }} {{ ano }}</strong>
+    <a href="{{ url_for('main.calendario', mes=mes+1, ano=ano) }}" class="btn btn-sm">Próximo →</a>
+  </div>
+</div>
+
+<div class="calendario-wrap">
+  <table class="calendario">
+    <thead>
+      <tr>
+        {% for dia in ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'] %}
+        <th>{{ dia }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for semana in semanas %}
+      <tr>
+        {% for dia_num in semana %}
+        {% set dia_date = namespace(d=None) %}
+        {% if dia_num != 0 %}
+          {% set dia_date.d = primeiro_dia.replace(day=dia_num) %}
+        {% endif %}
+        <td class="cel-dia {% if dia_num == 0 %}cel-vazia{% endif %} {% if dia_date.d and dia_date.d in eventos %}cel-com-evento{% endif %}">
+          {% if dia_num != 0 %}
+          <span class="num-dia">{{ dia_num }}</span>
+          {% if dia_date.d and dia_date.d in eventos %}
+          <div class="eventos-dia">
+            {% for l in eventos[dia_date.d] %}
+            <a href="{{ url_for('lic.detalhe', id=l.id) }}" class="evento-pill status-{{ l.status|replace(' ', '-') }}">
+              {{ l.data_disputa.strftime('%H:%M') }} {{ l.numero_pregao }}
+            </a>
+            {% endfor %}
+          </div>
+          {% endif %}
+          {% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="legenda-status">
+  {% for s in ['agendada', 'em disputa', 'em julgamento', 'em habilitacao', 'homologada', 'revogada', 'cancelada'] %}
+  <span class="legenda-item"><span class="badge status-{{ s|replace(' ', '-') }}">{{ s|title }}</span></span>
+  {% endfor %}
+</div>
+
+{% endblock %}

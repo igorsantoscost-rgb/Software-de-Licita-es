@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — Consultoria Licitacoes</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="login-body">
+  <div class="login-card">
+    <div class="login-logo">🏛️</div>
+    <h1 class="login-titulo">Consultoria Licitações</h1>
+    <p class="login-sub">Acesse sua conta</p>
+
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in msgs %}
+        <div class="alerta alerta-{{ cat }}">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('auth.login') }}">
+      <div class="campo">
+        <label>E-mail</label>
+        <input type="email" name="email" required autofocus placeholder="seu@email.com">
+      </div>
+      <div class="campo">
+        <label>Senha</label>
+        <input type="password" name="senha" required placeholder="••••••••">
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Entrar</button>
+    </form>
+  </div>
+</body>
+</html>

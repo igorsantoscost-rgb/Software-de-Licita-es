@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% block titulo %}{{ lic.numero_pregao }} — Licitação{% endblock %}
+{% block conteudo %}
+
+<div class="page-header">
+  <div>
+    <a href="{{ url_for('main.painel') }}" class="voltar">← Painel</a>
+    <h2>{{ lic.orgao_licitante }}</h2>
+    <p class="muted">Pregão {{ lic.numero_pregao }}{% if lic.uasg %} · UASG {{ lic.uasg }}{% endif %}{% if lic.portal %} · {{ lic.portal }}{% endif %}</p>
+  </div>
+  <div class="acoes-header">
+    <span class="badge badge-lg status-{{ lic.status|replace(' ', '-') }}">{{ lic.status|title }}</span>
+    {% if current_user.is_assessor() %}
+    <a href="{{ url_for('lic.editar', id=lic.id) }}" class="btn btn-sm">Editar</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="grid-2">
+
+  <!-- Coluna esquerda -->
+  <div>
+
+    <!-- Info principal -->
+    <div class="card">
+      <h3>Informações</h3>
+      <div class="info-grid">
+        <span class="info-label">Data da Disputa</span>
+        <span>{% if lic.data_disputa %}{{ lic.data_disputa.strftime('%d/%m/%Y às %H:%M') }}{% else %}—{% endif %}</span>
+        <span class="info-label">Portal</span>
+        <span>{{ lic.portal or '—' }}</span>
+        <span class="info-label">UASG</span>
+        <span>{{ lic.uasg or '—' }}</span>
+        {% if lic.link_edital %}
+        <span class="info-label">Edital</span>
+        <span><a href="{{ lic.link_edital }}" target="_blank">Abrir edital ↗</a></span>
+        {% endif %}
+      </div>
+      {% if lic.objeto %}
+      <div class="objeto-box">
+        <strong>Objeto:</strong>
+        <p>{{ lic.objeto }}</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Alterar status (assessor) -->
+    {% if current_user.is_assessor() %}
+    <div class="card">
+      <h3>Atualizar Status</h3>
+      <form method="POST" action="{{ url_for('lic.atualizar_status', id=lic.id) }}" class="form-inline">
+        <select name="status" class="select">
+          {% for s in status_choices %}
+          <option value="{{ s }}" {% if lic.status == s %}selected{% endif %}>{{ s|title }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-primary">Salvar</button>
+      </form>
+    </div>
+    {% endif %}
+
+    <!-- Resumo IA -->
+    <div class="card">
+      <div class="card-header-row">
+        <h3>Resumo da Oportunidade</h3>
+        {% if current_user.is_assessor() %}
+        <form method="POST" action="{{ url_for('lic.gerar_resumo', id=lic.id) }}">
+          <button type="submit" class="btn btn-sm btn-ia">✨ Gerar com IA</button>
+        </form>
+        {% endif %}
+      </div>
+      {% if lic.resumo_ia %}
+      <div class="resumo-ia">{{ lic.resumo_ia }}</div>
+      {% else %}
+      <p class="muted">Nenhum resumo gerado ainda.{% if current_user.is_assessor() %} Clique em "Gerar com IA" para criar.{% endif %}</p>
+      {% endif %}
+    </div>
+
+  </div>
+
+  <!-- Coluna direita -->
+  <div>
+
+    <!-- Documentos -->
+    <div class="card">
+      <h3>Documentos</h3>
+      {% if current_user.is_assessor() %}
+      <form method="POST" action="{{ url_for('lic.upload', id=lic.id) }}" enctype="multipart/form-data" class="upload-form">
+        <input type="file" name="arquivos" multiple class="input-file" id="input-file">
+        <label for="input-file" class="btn btn-upload">📎 Selecionar arquivos</label>
+        <button type="submit" class="btn btn-primary btn-sm">Enviar</button>
+      </form>
+      {% endif %}
+
+      {% if lic.documentos %}
+      <ul class="doc-lista">
+        {% for doc in lic.documentos %}
+        <li class="doc-item">
+          <span class="doc-icon">📄</span>
+          <a href="{{ url_for('lic.download_doc', doc_id=doc.id) }}" class="doc-nome">{{ doc.nome_original }}</a>
+          <span class="doc-tamanho muted">{{ (doc.tamanho / 1024)|round(1) }} KB</span>
+          {% if current_user.is_assessor() %}
+          <form method="POST" action="{{ url_for('lic.excluir_doc', doc_id=doc.id) }}" class="form-inline">
+            <button type="submit" class="btn-excluir" onclick="return confirm('Excluir documento?')">✕</button>
+          </form>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">Nenhum documento enviado.</p>
+      {% endif %}
+    </div>
+
+    <!-- Itens / Lotes -->
+    <div class="card">
+      <h3>Itens / Lotes</h3>
+      <p class="muted-sm">Preencha os valores mínimos para orientar a disputa.</p>
+
+      {% if lic.itens %}
+      <table class="tabela tabela-sm">
+        <thead>
+          <tr>
+            <th>Descrição</th>
+            <th>Lote/Grupo</th>
+            <th>Qtd</th>
+            <th>Un.</th>
+            <th>Valor Mín.</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in lic.itens %}
+          <tr>
+            <td>{{ item.descricao }}</td>
+            <td>{{ item.lote_grupo or '—' }}</td>
+            <td>{{ item.quantidade or '—' }}</td>
+            <td>{{ item.unidade or '—' }}</td>
+            <td>
+              {% if item.valor_minimo %}
+                R$ {{ "%.2f"|format(item.valor_minimo)|replace('.', ',') }}
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              <button class="btn-editar-item btn btn-sm" data-id="{{ item.id }}"
+                data-descricao="{{ item.descricao }}"
+                data-lote="{{ item.lote_grupo or '' }}"
+                data-qtd="{{ item.quantidade or '' }}"
+                data-un="{{ item.unidade or '' }}"
+                data-valor="{{ item.valor_minimo or '' }}">✏️</button>
+              <form method="POST" action="{{ url_for('lic.excluir_item', item_id=item.id) }}" class="form-inline">
+                <button type="submit" class="btn-excluir" onclick="return confirm('Excluir item?')">✕</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+
+      <!-- Adicionar item -->
+      <details class="add-item-form" {% if not lic.itens %}open{% endif %}>
+        <summary class="btn btn-sm">+ Adicionar item</summary>
+        <form method="POST" action="{{ url_for('lic.adicionar_item', id=lic.id) }}" class="form-item">
+          <div class="campo">
+            <label>Descrição *</label>
+            <input type="text" name="descricao" required placeholder="Ex: Caixas de papel A4">
+          </div>
+          <div class="campo-row">
+            <div class="campo">
+              <label>Lote/Grupo</label>
+              <input type="text" name="lote_grupo" placeholder="Ex: Lote 1">
+            </div>
+            <div class="campo">
+              <label>Qtd</label>
+              <input type="number" name="quantidade" placeholder="100">
+            </div>
+            <div class="campo">
+              <label>Unidade</label>
+              <input type="text" name="unidade" placeholder="Resma">
+            </div>
+          </div>
+          <div class="campo">
+            <label>Valor Mínimo (R$)</label>
+            <input type="text" name="valor_minimo" placeholder="0,00">
+          </div>
+          <button type="submit" class="btn btn-primary">Salvar item</button>
+        </form>
+      </details>
+    </div>
+
+  </div>
+</div>
+
+<!-- Modal editar item -->
+<div id="modal-item" class="modal" style="display:none">
+  <div class="modal-box">
+    <h3>Editar Item</h3>
+    <form method="POST" id="form-editar-item">
+      <input type="hidden" name="item_id" id="edit-id">
+      <div class="campo">
+        <label>Descrição</label>
+        <input type="text" name="descricao" id="edit-descricao" required>
+      </div>
+      <div class="campo-row">
+        <div class="campo">
+          <label>Lote/Grupo</label>
+          <input type="text" name="lote_grupo" id="edit-lote">
+        </div>
+        <div class="campo">
+          <label>Qtd</label>
+          <input type="number" name="quantidade" id="edit-qtd">
+        </div>
+        <div class="campo">
+          <label>Unidade</label>
+          <input type="text" name="unidade" id="edit-un">
+        </div>
+      </div>
+      <div class="campo">
+        <label>Valor Mínimo (R$)</label>
+        <input type="text" name="valor_minimo" id="edit-valor">
+      </div>
+      <div class="modal-btns">
+        <button type="button" id="fechar-modal" class="btn">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block titulo %}Clientes{% endblock %}
+{% block conteudo %}
+
+<div class="page-header">
+  <h2>Clientes</h2>
+  <a href="{{ url_for('main.novo_cliente') }}" class="btn btn-primary">+ Novo Cliente</a>
+</div>
+
+{% if clientes %}
+<div class="tabela-wrap">
+  <table class="tabela">
+    <thead>
+      <tr><th>Nome</th><th>CNPJ</th><th>Cadastrado em</th></tr>
+    </thead>
+    <tbody>
+      {% for c in clientes %}
+      <tr>
+        <td>{{ c.nome }}</td>
+        <td>{{ c.cnpj or '—' }}</td>
+        <td>{{ c.criado_em.strftime('%d/%m/%Y') }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="vazio"><p>Nenhum cliente cadastrado ainda.</p></div>
+{% endif %}
+
+{% endblock %}
