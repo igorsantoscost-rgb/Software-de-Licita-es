@@ -9,5 +9,5 @@ Sistema de gestao de licitacoes para consultoria.
 **Troque a senha apos o primeiro login.**
 
 ## Porta
-O sistema roda na porta 8080.
-Acesse: http://IP_DA_VPS:8080
+O sistema roda na porta 8092.
+Acesse: http://IP_DA_VPS:8092

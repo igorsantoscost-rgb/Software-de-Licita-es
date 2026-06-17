@@ -15,7 +15,7 @@ services:
     build: .
     restart: always
     ports:
-      - "8080:8000"
+      - "8092:8000"
     environment:
       DATABASE_URL: postgresql://licitacoes:licitacoes123@db:5432/licitacoes
       SECRET_KEY: troque-esta-chave-secreta-em-producao
