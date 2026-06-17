@@ -62,7 +62,7 @@
     {% set doc = docs_por_tipo.get(slug) %}
     {% set is_lista = slug in tipos_multiplos %}
 
-    <div class="doc-card {% if is_lista %}doc-card-full{% endif %}">
+    <div class="doc-card">
       <div class="doc-card-header">
         <span class="doc-card-titulo">{{ label }}</span>
 
