@@ -77,27 +77,55 @@ class Documento(db.Model):
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+# Documentos organizados por setor.
+# Cada setor: (nome_do_setor, [(slug, rotulo), ...])
+SETORES_DOCUMENTOS = [
+    ("Regularidade Fiscal", [
+        ("cnd_federal", "CND Federal"),
+        ("cnd_municipal", "CND Municipal"),
+        ("cnd_estadual", "CND Estadual"),
+        ("cnd_fgts", "CND FGTS"),
+        ("tcu", "Consulta Consolidada TCU"),
+        ("cadin", "Consulta CADIN"),
+    ]),
+    ("Qualificação Técnica", [
+        ("atestado_tecnico", "Atestado de Capacidade Técnica"),
+        ("alvara_sanitario", "Alvará Sanitário"),
+        ("alvara_funcionamento", "Alvará de Funcionamento"),
+    ]),
+    ("Qualificação Econômico-Financeira", [
+        ("certidao_falencia", "Certidão Negativa de Falência e Concordata"),
+        ("balanco_ultimo", "Último Balanço Patrimonial"),
+        ("balanco_penultimo", "Penúltimo Balanço Patrimonial"),
+    ]),
+    ("Contrato e Credenciamento", [
+        ("contrato_social", "Contrato Social / Contrato Consolidado"),
+        ("alteracao_contratual", "Alteração Contratual"),
+        ("inscricao_estado", "Prova de Inscrição no Estado"),
+        ("inscricao_municipio", "Prova de Inscrição no Município"),
+        ("doc_socio", "Documento de Identificação do Sócio"),
+        ("doc_conjuge", "Identificação do Cônjuge do Sócio"),
+        ("estado_civil", "Comprovação de Estado Civil"),
+    ]),
+    ("Outros Documentos", [
+        ("outros_documentos", "Outros Documentos"),
+    ]),
+]
+
+# Lista achatada (mantida para compatibilidade com o resto do código)
 DOCUMENTOS_CLIENTE = [
-    ("cnd_federal", "CND Federal"),
-    ("cnd_municipal", "CND Municipal"),
-    ("cnd_estadual", "CND Estadual"),
-    ("cnd_fgts", "CND FGTS"),
-    ("tcu", "Consulta Consolidada TCU"),
-    ("cadin", "Consulta CADIN"),
-    ("certidao_falencia", "Certidão Negativa de Falência e Concordata"),
-    ("contrato_social", "Contrato Social / Contrato Consolidado"),
-    ("alteracao_contratual", "Alteração Contratual"),
-    ("inscricao_estado", "Prova de Inscrição no Estado"),
-    ("inscricao_municipio", "Prova de Inscrição no Município"),
-    ("alvara_funcionamento", "Alvará de Funcionamento"),
-    ("alvara_sanitario", "Alvará Sanitário"),
-    ("doc_socio", "Documento de Identificação do Sócio"),
-    ("doc_conjuge", "Identificação do Cônjuge do Sócio"),
-    ("estado_civil", "Comprovação de Estado Civil"),
-    ("atestado_tecnico", "Atestado de Capacidade Técnica"),
+    (slug, label)
+    for _setor, _docs in SETORES_DOCUMENTOS
+    for slug, label in _docs
 ]
 
 DOCUMENTO_TIPOS = [slug for slug, _ in DOCUMENTOS_CLIENTE]
+
+# Tipos que aceitam VÁRIOS arquivos (não substituem o anterior)
+TIPOS_MULTIPLOS = {"alteracao_contratual", "outros_documentos"}
+
+# Tipos opcionais — nunca contam como pendência
+TIPOS_OPCIONAIS = {"outros_documentos"}
 
 
 class DocumentoCliente(db.Model):

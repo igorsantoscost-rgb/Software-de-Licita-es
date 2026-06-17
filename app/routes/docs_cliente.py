@@ -1,9 +1,12 @@
-from flask import Blueprint, render_template, redirect, url_for, request, flash, send_from_directory, abort
+from flask import Blueprint, render_template, redirect, url_for, request, flash, send_from_directory, send_file, abort
 from flask_login import login_required, current_user
-from app.models import Cliente, DocumentoCliente, DOCUMENTOS_CLIENTE, DOCUMENTO_TIPOS
+from app.models import (
+    Cliente, DocumentoCliente, DOCUMENTOS_CLIENTE, DOCUMENTO_TIPOS,
+    SETORES_DOCUMENTOS, TIPOS_MULTIPLOS, TIPOS_OPCIONAIS,
+)
 from app import db
 from datetime import datetime, date
-import os, uuid
+import os, uuid, io, zipfile
 
 docs_bp = Blueprint("docs", __name__, url_prefix="/clientes")
 
@@ -32,18 +35,20 @@ def documentos(cliente_id):
 
     todos_docs = DocumentoCliente.query.filter_by(cliente_id=cliente_id).order_by(DocumentoCliente.criado_em.desc()).all()
 
-    # Agrupa por tipo — pega o mais recente de cada tipo (exceto alteracao que pode ter multiplos)
+    # Agrupa por tipo — tipos múltiplos viram lista; os demais pegam o mais recente
     docs_por_tipo = {}
     for doc in todos_docs:
-        if doc.tipo == "alteracao_contratual":
+        if doc.tipo in TIPOS_MULTIPLOS:
             docs_por_tipo.setdefault(doc.tipo, []).append(doc)
         else:
             if doc.tipo not in docs_por_tipo:
                 docs_por_tipo[doc.tipo] = doc
 
-    # Calcula status geral (pendencias)
+    # Calcula pendências (ignora tipos opcionais)
     pendencias = []
     for slug, label in DOCUMENTOS_CLIENTE:
+        if slug in TIPOS_OPCIONAIS:
+            continue
         doc = docs_por_tipo.get(slug)
         nao_aplica = False
         if isinstance(doc, list):
@@ -60,13 +65,54 @@ def documentos(cliente_id):
     return render_template(
         "documentos_cliente.html",
         cliente=cliente,
-        documentos_tipos=DOCUMENTOS_CLIENTE,
+        setores=SETORES_DOCUMENTOS,
+        tipos_multiplos=list(TIPOS_MULTIPLOS),
         docs_por_tipo=docs_por_tipo,
         pendencias=pendencias,
         status_validade=_status_validade,
         hoje=date.today(),
         aviso_dias=AVISO_DIAS,
     )
+
+
+@docs_bp.route("/<int:cliente_id>/documentos/baixar-zip")
+@login_required
+def baixar_zip(cliente_id):
+    cliente = Cliente.query.get_or_404(cliente_id)
+    if not current_user.is_assessor() and current_user.cliente_id != cliente_id:
+        abort(403)
+
+    docs = (DocumentoCliente.query
+            .filter_by(cliente_id=cliente_id)
+            .order_by(DocumentoCliente.criado_em)
+            .all())
+
+    label_por_slug = {slug: label for slug, label in DOCUMENTOS_CLIENTE}
+
+    buf = io.BytesIO()
+    adicionados = 0
+    usados = {}
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for d in docs:
+            if d.nao_se_aplica or not d.caminho or not os.path.exists(d.caminho):
+                continue
+            label = label_por_slug.get(d.tipo, d.tipo)
+            ext = os.path.splitext(d.nome_original)[1] or os.path.splitext(d.caminho)[1]
+            # Evita nomes repetidos quando há vários do mesmo tipo
+            usados[label] = usados.get(label, 0) + 1
+            base = label if usados[label] == 1 else f"{label} ({usados[label]})"
+            zf.write(d.caminho, f"{base}{ext}")
+            adicionados += 1
+
+    if adicionados == 0:
+        flash("Nenhum documento disponível para baixar.", "erro")
+        return redirect(url_for("docs.documentos", cliente_id=cliente_id))
+
+    buf.seek(0)
+    data_hoje = date.today().strftime("%d-%m-%Y")
+    nome_zip = f"Habilitação - {cliente.nome} - {data_hoje}.zip"
+    return send_file(buf, mimetype="application/zip",
+                     as_attachment=True, download_name=nome_zip)
 
 
 @docs_bp.route("/<int:cliente_id>/documentos/upload", methods=["POST"])
@@ -95,7 +141,7 @@ def upload_doc(cliente_id):
 
     if nao_aplica:
         # Remove docs anteriores do mesmo tipo e registra nao_se_aplica
-        if tipo != "alteracao_contratual":
+        if tipo not in TIPOS_MULTIPLOS:
             DocumentoCliente.query.filter_by(cliente_id=cliente_id, tipo=tipo).delete()
         doc = DocumentoCliente(
             cliente_id=cliente_id,
@@ -124,7 +170,7 @@ def upload_doc(cliente_id):
     arquivo.save(caminho)
 
     # Para tipos únicos, remove o anterior
-    if tipo != "alteracao_contratual":
+    if tipo not in TIPOS_MULTIPLOS:
         antigos = DocumentoCliente.query.filter_by(cliente_id=cliente_id, tipo=tipo).all()
         for a in antigos:
             if a.caminho and os.path.exists(a.caminho):
