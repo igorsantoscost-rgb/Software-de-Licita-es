@@ -158,8 +158,21 @@ class ItemLicitacao(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     licitacao_id = db.Column(db.Integer, db.ForeignKey("licitacoes.id"), nullable=False)
     descricao = db.Column(db.String(500), nullable=False)
+    marca = db.Column(db.String(200), nullable=True)
     lote_grupo = db.Column(db.String(100), nullable=True)
     valor_minimo = db.Column(db.Numeric(14, 2), nullable=True)
     unidade = db.Column(db.String(50), nullable=True)
     quantidade = db.Column(db.Integer, nullable=True)
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class ComentarioLicitacao(db.Model):
+    __tablename__ = "comentarios_licitacao"
+    id = db.Column(db.Integer, primary_key=True)
+    licitacao_id = db.Column(db.Integer, db.ForeignKey("licitacoes.id"), nullable=False)
+    autor_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    texto = db.Column(db.Text, nullable=False)
+    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+
+    licitacao = db.relationship("Licitacao", backref=db.backref("comentarios", lazy=True, order_by="ComentarioLicitacao.criado_em", cascade="all, delete-orphan"))
+    autor = db.relationship("User")

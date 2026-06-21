@@ -504,3 +504,19 @@ small { font-size: .8rem; }
 .form-doc { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 .campo-check-nao-aplica { display: flex; align-items: center; gap: 6px; font-size: .85rem; }
 .input-file-doc { font-size: .83rem; }
+
+/* ── Obs. ao Cliente ── */
+.form-obs-cliente { display: flex; flex-direction: column; gap: 8px; }
+.form-obs-cliente textarea { width: 100%; resize: vertical; }
+
+/* ── Comentários ── */
+.form-comentario { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.form-comentario textarea { width: 100%; resize: vertical; }
+.comentario-lista { display: flex; flex-direction: column; gap: 12px; }
+.comentario-item {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.comentario-topo { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.comentario-texto { margin: 0; font-size: .9rem; white-space: pre-wrap; }

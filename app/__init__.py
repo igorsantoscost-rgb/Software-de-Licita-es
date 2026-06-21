@@ -71,6 +71,16 @@ def _migrar_coluna_tipo_documento():
                     "ALTER TABLE licitacoes ADD COLUMN obs_cliente TEXT"
                 ))
                 conn.commit()
+
+            resultado3 = conn.execute(text("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'itens_licitacao' AND column_name = 'marca'
+            """))
+            if resultado3.first() is None:
+                conn.execute(text(
+                    "ALTER TABLE itens_licitacao ADD COLUMN marca VARCHAR(200)"
+                ))
+                conn.commit()
     except Exception:
         # Se for sqlite ou outro banco sem information_schema, ignora
         # (db.create_all() ja cobre o caso de banco novo/vazio).

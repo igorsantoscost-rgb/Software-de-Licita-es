@@ -2,7 +2,8 @@ from flask import (Blueprint, render_template, redirect, url_for,
                    request, flash, send_from_directory, abort, jsonify)
 from flask_login import login_required, current_user
 from app.models import (Licitacao, Documento, ItemLicitacao, Cliente,
-                        STATUS_CHOICES, PORTAL_CHOICES, TIPOS_DOC_LICITACAO_UNICOS)
+                        STATUS_CHOICES, PORTAL_CHOICES, TIPOS_DOC_LICITACAO_UNICOS,
+                        ComentarioLicitacao)
 from app import db
 from datetime import datetime
 import os, uuid, requests
@@ -166,6 +167,18 @@ def atualizar_status(id):
     return redirect(url_for("lic.detalhe", id=lic.id))
 
 
+@lic_bp.route("/<int:id>/obs-cliente", methods=["POST"])
+@login_required
+def atualizar_obs_cliente(id):
+    if not current_user.is_assessor():
+        abort(403)
+    lic = Licitacao.query.get_or_404(id)
+    lic.obs_cliente = request.form.get("obs_cliente", "").strip()
+    db.session.commit()
+    flash("Observação ao cliente atualizada.", "ok")
+    return redirect(url_for("lic.detalhe", id=lic.id))
+
+
 # ─── Documentos ──────────────────────────────────────────────────────────────
 
 @lic_bp.route("/<int:id>/upload", methods=["POST"])
@@ -250,6 +263,7 @@ def adicionar_item(id):
     item = ItemLicitacao(
         licitacao_id=id,
         descricao=descricao,
+        marca=request.form.get("marca", "").strip(),
         lote_grupo=request.form.get("lote_grupo", "").strip(),
         valor_minimo=valor,
         unidade=request.form.get("unidade", "").strip(),
@@ -269,6 +283,7 @@ def editar_item(item_id):
     if not _pode_ver(lic):
         abort(403)
     item.descricao = request.form.get("descricao", item.descricao).strip()
+    item.marca = request.form.get("marca", "").strip()
     item.lote_grupo = request.form.get("lote_grupo", "").strip()
     item.unidade = request.form.get("unidade", "").strip()
     valor_str = request.form.get("valor_minimo", "").replace(",", ".")
@@ -295,6 +310,29 @@ def excluir_item(item_id):
     db.session.commit()
     flash("Item removido.", "ok")
     return redirect(url_for("lic.detalhe", id=lic_id))
+
+
+# ─── Comentários ──────────────────────────────────────────────────────────────
+
+@lic_bp.route("/<int:id>/comentar", methods=["POST"])
+@login_required
+def comentar(id):
+    lic = Licitacao.query.get_or_404(id)
+    if not _pode_ver(lic):
+        abort(403)
+    texto = request.form.get("texto", "").strip()
+    if not texto:
+        flash("Escreva algo antes de enviar.", "erro")
+        return redirect(url_for("lic.detalhe", id=id))
+    comentario = ComentarioLicitacao(
+        licitacao_id=id,
+        autor_id=current_user.id,
+        texto=texto,
+    )
+    db.session.add(comentario)
+    db.session.commit()
+    flash("Comentário enviado.", "ok")
+    return redirect(url_for("lic.detalhe", id=id))
 
 
 # ─── Resumo com IA ───────────────────────────────────────────────────────────
