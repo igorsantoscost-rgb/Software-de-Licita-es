@@ -42,6 +42,7 @@ a:hover { text-decoration: underline; }
 
 /* ── Container ── */
 .container { max-width: 1200px; margin: 0 auto; padding: 24px 20px; }
+.container.container-full { max-width: 100%; padding: 24px 28px; }
 
 /* ── Page header ── */
 .page-header {
@@ -341,16 +342,15 @@ a:hover { text-decoration: underline; }
 .semana-wrap {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 10px;
-  width: 90vw;
-  max-width: 100%;
+  gap: 14px;
+  width: 100%;
   margin: 0 auto;
 }
 .semana-coluna {
   background: #fff;
   border-radius: 10px;
   box-shadow: 0 1px 4px rgba(0,0,0,.07);
-  min-height: 320px;
+  min-height: 560px;
   display: flex;
   flex-direction: column;
 }
@@ -359,24 +359,24 @@ a:hover { text-decoration: underline; }
   background: #1a1a2e;
   color: #fff;
   border-radius: 10px 10px 0 0;
-  padding: 10px;
+  padding: 14px;
   text-align: center;
 }
-.semana-dia-nome { display: block; font-size: .78rem; font-weight: 600; opacity: .85; }
-.semana-dia-num { display: block; font-size: 1rem; font-weight: 700; margin-top: 2px; }
+.semana-dia-nome { display: block; font-size: .85rem; font-weight: 600; opacity: .85; }
+.semana-dia-num { display: block; font-size: 1.2rem; font-weight: 700; margin-top: 2px; }
 .semana-coluna-corpo {
-  padding: 8px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   flex: 1;
 }
-.semana-vazio { text-align: center; font-size: .78rem; margin-top: 16px; }
+.semana-vazio { text-align: center; font-size: .82rem; margin-top: 16px; }
 .evento-card {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px 10px;
+  gap: 5px;
+  padding: 12px 14px;
   border-radius: 8px;
   text-decoration: none;
   color: inherit;
@@ -384,12 +384,12 @@ a:hover { text-decoration: underline; }
 }
 .evento-card:hover { text-decoration: none; opacity: .9; }
 .evento-card-topo { display: flex; align-items: center; justify-content: space-between; }
-.evento-card-hora { font-size: .8rem; font-weight: 700; }
-.evento-card-pregao { font-size: .8rem; font-weight: 600; }
-.evento-card-orgao { font-size: .74rem; opacity: .85; line-height: 1.3; }
+.evento-card-hora { font-size: .88rem; font-weight: 700; }
+.evento-card-pregao { font-size: .86rem; font-weight: 600; }
+.evento-card-orgao { font-size: .78rem; opacity: .85; line-height: 1.3; }
 
 @media (max-width: 1000px) {
-  .semana-wrap { grid-template-columns: repeat(7, minmax(130px, 1fr)); overflow-x: auto; width: 100%; }
+  .semana-wrap { grid-template-columns: repeat(7, minmax(150px, 1fr)); overflow-x: auto; width: 100%; }
 }
 
 /* ── Modal ── */
