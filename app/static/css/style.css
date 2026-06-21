@@ -253,7 +253,16 @@ a:hover { text-decoration: underline; }
 /* ── Calendário ── */
 .nav-mes { display: flex; align-items: center; gap: 12px; }
 .mes-label { font-size: 1.1rem; font-weight: 600; min-width: 160px; text-align: center; }
-.calendario-wrap { overflow-x: auto; background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.07); }
+.calendario-wrap {
+  overflow-x: auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.07);
+  width: 60vw;
+  min-width: 760px;
+  max-width: 100%;
+  margin: 0 auto;
+}
 .calendario { width: 100%; border-collapse: collapse; }
 .calendario th {
   background: #1a1a2e;
@@ -267,26 +276,47 @@ a:hover { text-decoration: underline; }
   vertical-align: top;
   padding: 8px;
   border: 1px solid #f1f5f9;
-  min-width: 120px;
-  min-height: 90px;
+  min-width: 140px;
+  height: 130px;
 }
 .cel-vazia { background: #f8fafc; }
 .cel-com-evento { background: #eff6ff; }
-.num-dia { font-size: .8rem; color: #64748b; font-weight: 600; display: block; margin-bottom: 4px; }
-.eventos-dia { display: flex; flex-direction: column; gap: 3px; }
-.evento-pill {
+.num-dia {
+  font-size: .85rem;
+  color: #64748b;
+  font-weight: 600;
   display: block;
-  padding: 2px 6px;
+  text-align: center;
+  margin: 0 auto 6px;
+}
+.eventos-dia { display: flex; flex-direction: column; gap: 4px; overflow-y: auto; max-height: 95px; }
+.evento-pill {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 6px;
   border-radius: 4px;
   font-size: .72rem;
   font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+.evento-pill-topo { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.evento-hora { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.evento-recado-icon { font-size: .8rem; flex-shrink: 0; }
+.evento-orgao {
+  font-size: .68rem;
+  font-weight: 400;
+  opacity: .85;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.25;
 }
 .evento-pill:hover { text-decoration: none; opacity: .85; }
 .legenda-status { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; align-items: center; }
 .legenda-item { font-size: .8rem; }
+
+@media (max-width: 900px) {
+  .calendario-wrap { width: 100%; min-width: 0; }
+}
 
 /* ── Modal ── */
 .modal {

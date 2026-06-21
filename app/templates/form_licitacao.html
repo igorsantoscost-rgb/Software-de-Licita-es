@@ -63,6 +63,12 @@
     </div>
 
     <div class="campo">
+      <label>Obs. ao Cliente</label>
+      <textarea name="obs_cliente" rows="2" placeholder="Recado rapido que vai aparecer no card desta licitacao no calendario...">{{ lic.obs_cliente if lic else '' }}</textarea>
+      <small class="muted">Aparece como um aviso no card do calendário de disputas.</small>
+    </div>
+
+    <div class="campo">
       <label>Documentos da Licitação</label>
     </div>
 

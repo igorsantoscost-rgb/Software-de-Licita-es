@@ -97,6 +97,7 @@ def nova():
             status="agendada",
             objeto=request.form.get("objeto", "").strip(),
             link_edital=request.form.get("link_edital", "").strip(),
+            obs_cliente=request.form.get("obs_cliente", "").strip(),
         )
         db.session.add(lic)
         db.session.commit()
@@ -140,6 +141,7 @@ def editar(id):
         lic.portal = request.form.get("portal", "").strip()
         lic.objeto = request.form.get("objeto", "").strip()
         lic.link_edital = request.form.get("link_edital", "").strip()
+        lic.obs_cliente = request.form.get("obs_cliente", "").strip()
         _processar_uploads_form(lic.id)
         db.session.commit()
         flash("Licitacao atualizada.", "ok")

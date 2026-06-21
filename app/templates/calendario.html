@@ -35,7 +35,11 @@
           <div class="eventos-dia">
             {% for l in eventos[dia_date.d] %}
             <a href="{{ url_for('lic.detalhe', id=l.id) }}" class="evento-pill status-{{ l.status|replace(' ', '-') }}">
-              {{ l.data_disputa.strftime('%H:%M') }} {{ l.numero_pregao }}
+              <span class="evento-pill-topo">
+                <span class="evento-hora">{{ l.data_disputa.strftime('%H:%M') }} {{ l.numero_pregao }}</span>
+                {% if l.obs_cliente %}<span class="evento-recado-icon" title="Tem recado para o cliente">💬</span>{% endif %}
+              </span>
+              <span class="evento-orgao">{{ l.orgao_licitante }}</span>
             </a>
             {% endfor %}
           </div>

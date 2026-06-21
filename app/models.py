@@ -58,6 +58,7 @@ class Licitacao(db.Model):
     status = db.Column(db.String(30), nullable=False, default="agendada")
     objeto = db.Column(db.Text, nullable=True)
     link_edital = db.Column(db.String(500), nullable=True)
+    obs_cliente = db.Column(db.Text, nullable=True)
     resumo_ia = db.Column(db.Text, nullable=True)
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
     atualizado_em = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

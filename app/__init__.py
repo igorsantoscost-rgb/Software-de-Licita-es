@@ -48,7 +48,7 @@ def create_app():
 
 
 def _migrar_coluna_tipo_documento():
-    """Adiciona a coluna 'tipo' na tabela documentos se o banco for de uma versao anterior."""
+    """Adiciona colunas novas se o banco for de uma versao anterior."""
     from sqlalchemy import text
     try:
         with db.engine.connect() as conn:
@@ -59,6 +59,16 @@ def _migrar_coluna_tipo_documento():
             if resultado.first() is None:
                 conn.execute(text(
                     "ALTER TABLE documentos ADD COLUMN tipo VARCHAR(30) NOT NULL DEFAULT 'outros'"
+                ))
+                conn.commit()
+
+            resultado2 = conn.execute(text("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'licitacoes' AND column_name = 'obs_cliente'
+            """))
+            if resultado2.first() is None:
+                conn.execute(text(
+                    "ALTER TABLE licitacoes ADD COLUMN obs_cliente TEXT"
                 ))
                 conn.commit()
     except Exception:
