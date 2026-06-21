@@ -41,9 +41,30 @@ def create_app():
 
     with app.app_context():
         db.create_all()
+        _migrar_coluna_tipo_documento()
         _seed_admin(app)
 
     return app
+
+
+def _migrar_coluna_tipo_documento():
+    """Adiciona a coluna 'tipo' na tabela documentos se o banco for de uma versao anterior."""
+    from sqlalchemy import text
+    try:
+        with db.engine.connect() as conn:
+            resultado = conn.execute(text("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'documentos' AND column_name = 'tipo'
+            """))
+            if resultado.first() is None:
+                conn.execute(text(
+                    "ALTER TABLE documentos ADD COLUMN tipo VARCHAR(30) NOT NULL DEFAULT 'outros'"
+                ))
+                conn.commit()
+    except Exception:
+        # Se for sqlite ou outro banco sem information_schema, ignora
+        # (db.create_all() ja cobre o caso de banco novo/vazio).
+        pass
 
 def _seed_admin(app):
     from app.models import User

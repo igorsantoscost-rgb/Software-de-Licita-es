@@ -70,11 +70,20 @@ class Documento(db.Model):
     __tablename__ = "documentos"
     id = db.Column(db.Integer, primary_key=True)
     licitacao_id = db.Column(db.Integer, db.ForeignKey("licitacoes.id"), nullable=False)
+    tipo = db.Column(db.String(30), nullable=False, default="outros")  # edital | termo_referencia | outros
     nome_original = db.Column(db.String(300), nullable=False)
     caminho = db.Column(db.String(500), nullable=False)
     tamanho = db.Column(db.Integer, nullable=True)
     enviado_por = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+# Tipos de documento da licitação que tem um slot fixo no formulário
+# (apenas 1 arquivo cada, pode ser substituido). "outros" e a lista livre.
+TIPOS_DOC_LICITACAO_UNICOS = {
+    "edital": "Edital",
+    "termo_referencia": "Termo de Referência",
+}
 
 
 # Documentos organizados por setor.

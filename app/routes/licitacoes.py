@@ -1,7 +1,8 @@
 from flask import (Blueprint, render_template, redirect, url_for,
                    request, flash, send_from_directory, abort, jsonify)
 from flask_login import login_required, current_user
-from app.models import Licitacao, Documento, ItemLicitacao, Cliente, STATUS_CHOICES, PORTAL_CHOICES
+from app.models import (Licitacao, Documento, ItemLicitacao, Cliente,
+                        STATUS_CHOICES, PORTAL_CHOICES, TIPOS_DOC_LICITACAO_UNICOS)
 from app import db
 from datetime import datetime
 import os, uuid, requests
@@ -15,6 +16,59 @@ def _pode_ver(licitacao):
     if current_user.is_assessor():
         return True
     return licitacao.cliente_id == current_user.cliente_id
+
+
+def _salvar_arquivo(f, licitacao_id):
+    """Salva um arquivo enviado e retorna o caminho no disco."""
+    pasta = os.path.join(UPLOAD_FOLDER, str(licitacao_id))
+    os.makedirs(pasta, exist_ok=True)
+    ext = os.path.splitext(f.filename)[1]
+    nome_salvo = f"{uuid.uuid4().hex}{ext}"
+    caminho = os.path.join(pasta, nome_salvo)
+    f.save(caminho)
+    return caminho
+
+
+def _processar_uploads_form(lic_id):
+    """Le os arquivos do form (edital, termo_referencia, outros[]) e cria os Documentos.
+    Para edital/termo_referencia, substitui o arquivo anterior se houver um novo."""
+    # Slots unicos: edital, termo_referencia
+    for tipo in TIPOS_DOC_LICITACAO_UNICOS:
+        f = request.files.get(tipo)
+        if f and f.filename:
+            # remove o anterior desse tipo (slot unico, sempre o mais recente vale)
+            anterior = Documento.query.filter_by(licitacao_id=lic_id, tipo=tipo).all()
+            for doc_antigo in anterior:
+                try:
+                    os.remove(doc_antigo.caminho)
+                except FileNotFoundError:
+                    pass
+                db.session.delete(doc_antigo)
+            caminho = _salvar_arquivo(f, lic_id)
+            doc = Documento(
+                licitacao_id=lic_id,
+                tipo=tipo,
+                nome_original=f.filename,
+                caminho=caminho,
+                tamanho=os.path.getsize(caminho),
+                enviado_por=current_user.id,
+            )
+            db.session.add(doc)
+
+    # Lista livre: outros[] (varios arquivos, sem limite, nunca substitui)
+    for f in request.files.getlist("outros"):
+        if not f.filename:
+            continue
+        caminho = _salvar_arquivo(f, lic_id)
+        doc = Documento(
+            licitacao_id=lic_id,
+            tipo="outros",
+            nome_original=f.filename,
+            caminho=caminho,
+            tamanho=os.path.getsize(caminho),
+            enviado_por=current_user.id,
+        )
+        db.session.add(doc)
 
 
 # ─── Lista / painel (redireciona para main) ──────────────────────────────────
@@ -46,10 +100,13 @@ def nova():
         )
         db.session.add(lic)
         db.session.commit()
+        _processar_uploads_form(lic.id)
+        db.session.commit()
         flash("Licitacao criada.", "ok")
         return redirect(url_for("lic.detalhe", id=lic.id))
     return render_template("form_licitacao.html", clientes=clientes,
-                           status_choices=STATUS_CHOICES, portal_choices=PORTAL_CHOICES, lic=None)
+                           status_choices=STATUS_CHOICES, portal_choices=PORTAL_CHOICES, lic=None,
+                           tipos_doc_unicos=TIPOS_DOC_LICITACAO_UNICOS, docs_existentes={})
 
 
 @lic_bp.route("/<int:id>")
@@ -83,11 +140,14 @@ def editar(id):
         lic.portal = request.form.get("portal", "").strip()
         lic.objeto = request.form.get("objeto", "").strip()
         lic.link_edital = request.form.get("link_edital", "").strip()
+        _processar_uploads_form(lic.id)
         db.session.commit()
         flash("Licitacao atualizada.", "ok")
         return redirect(url_for("lic.detalhe", id=lic.id))
+    docs_existentes = {d.tipo: d for d in lic.documentos if d.tipo in TIPOS_DOC_LICITACAO_UNICOS}
     return render_template("form_licitacao.html", clientes=clientes,
-                           status_choices=STATUS_CHOICES, portal_choices=PORTAL_CHOICES, lic=lic)
+                           status_choices=STATUS_CHOICES, portal_choices=PORTAL_CHOICES, lic=lic,
+                           tipos_doc_unicos=TIPOS_DOC_LICITACAO_UNICOS, docs_existentes=docs_existentes)
 
 
 @lic_bp.route("/<int:id>/status", methods=["POST"])
@@ -113,17 +173,13 @@ def upload(id):
         abort(403)
     lic = Licitacao.query.get_or_404(id)
     arquivos = request.files.getlist("arquivos")
-    pasta = os.path.join(UPLOAD_FOLDER, str(id))
-    os.makedirs(pasta, exist_ok=True)
     for f in arquivos:
         if not f.filename:
             continue
-        ext = os.path.splitext(f.filename)[1]
-        nome_salvo = f"{uuid.uuid4().hex}{ext}"
-        caminho = os.path.join(pasta, nome_salvo)
-        f.save(caminho)
+        caminho = _salvar_arquivo(f, id)
         doc = Documento(
             licitacao_id=id,
+            tipo="outros",
             nome_original=f.filename,
             caminho=caminho,
             tamanho=os.path.getsize(caminho),

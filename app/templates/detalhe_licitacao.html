@@ -98,6 +98,11 @@
         <li class="doc-item">
           <span class="doc-icon">📄</span>
           <a href="{{ url_for('lic.download_doc', doc_id=doc.id) }}" class="doc-nome">{{ doc.nome_original }}</a>
+          {% if doc.tipo == 'edital' %}
+          <span class="filtro-pill">Edital</span>
+          {% elif doc.tipo == 'termo_referencia' %}
+          <span class="filtro-pill">Termo de Referência</span>
+          {% endif %}
           <span class="doc-tamanho muted">{{ (doc.tamanho / 1024)|round(1) }} KB</span>
           {% if current_user.is_assessor() %}
           <form method="POST" action="{{ url_for('lic.excluir_doc', doc_id=doc.id) }}" class="form-inline">
