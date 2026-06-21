@@ -74,6 +74,55 @@ def calendario():
     )
 
 
+@main_bp.route("/calendario/semana")
+@login_required
+def calendario_semana():
+    inicio_str = request.args.get("inicio")
+    if inicio_str:
+        try:
+            inicio = datetime.strptime(inicio_str, "%Y-%m-%d").date()
+        except ValueError:
+            inicio = date.today()
+    else:
+        inicio = date.today()
+
+    # Volta para o domingo da semana de 'inicio' (igual ao calendario mensal: domingo primeiro)
+    inicio = inicio - timedelta(days=(inicio.weekday() + 1) % 7)
+    fim = inicio + timedelta(days=6)
+
+    dias_semana = [inicio + timedelta(days=i) for i in range(7)]
+
+    q = Licitacao.query.filter(
+        Licitacao.data_disputa >= datetime(inicio.year, inicio.month, inicio.day),
+        Licitacao.data_disputa <= datetime(fim.year, fim.month, fim.day, 23, 59, 59),
+    )
+    if not current_user.is_assessor():
+        q = q.filter(Licitacao.cliente_id == current_user.cliente_id)
+    licitacoes_semana = q.order_by(Licitacao.data_disputa.asc()).all()
+
+    eventos = {}
+    for l in licitacoes_semana:
+        d = l.data_disputa.date()
+        eventos.setdefault(d, []).append(l)
+
+    nomes_meses_curto = [
+        "", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
+        "Jul", "Ago", "Set", "Out", "Nov", "Dez"
+    ]
+
+    return render_template(
+        "calendario_semana.html",
+        dias_semana=dias_semana,
+        eventos=eventos,
+        inicio=inicio,
+        fim=fim,
+        semana_anterior=inicio - timedelta(days=7),
+        semana_seguinte=inicio + timedelta(days=7),
+        nomes_meses_curto=nomes_meses_curto,
+        hoje=date.today(),
+    )
+
+
 # ─── Gerenciar clientes (assessor) ───────────────────────────────────────────
 
 @main_bp.route("/clientes")

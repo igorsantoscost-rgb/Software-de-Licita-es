@@ -318,6 +318,80 @@ a:hover { text-decoration: underline; }
   .calendario-wrap { width: 100%; min-width: 0; }
 }
 
+/* ── Toggle Mensal / Semanal ── */
+.toggle-visao {
+  display: flex;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-right: 8px;
+}
+.toggle-btn {
+  padding: 7px 14px;
+  font-size: .83rem;
+  font-weight: 600;
+  color: #475569;
+  text-decoration: none;
+  background: #fff;
+}
+.toggle-btn:hover { background: #f1f5f9; text-decoration: none; }
+.toggle-btn.ativo { background: #1a1a2e; color: #fff; }
+
+/* ── Calendário — visão semanal ── */
+.semana-wrap {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px;
+  width: 90vw;
+  max-width: 100%;
+  margin: 0 auto;
+}
+.semana-coluna {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.07);
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+}
+.semana-coluna-hoje { box-shadow: 0 0 0 2px #1a1a2e inset; }
+.semana-coluna-header {
+  background: #1a1a2e;
+  color: #fff;
+  border-radius: 10px 10px 0 0;
+  padding: 10px;
+  text-align: center;
+}
+.semana-dia-nome { display: block; font-size: .78rem; font-weight: 600; opacity: .85; }
+.semana-dia-num { display: block; font-size: 1rem; font-weight: 700; margin-top: 2px; }
+.semana-coluna-corpo {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+.semana-vazio { text-align: center; font-size: .78rem; margin-top: 16px; }
+.evento-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  border: 1px solid rgba(0,0,0,.06);
+}
+.evento-card:hover { text-decoration: none; opacity: .9; }
+.evento-card-topo { display: flex; align-items: center; justify-content: space-between; }
+.evento-card-hora { font-size: .8rem; font-weight: 700; }
+.evento-card-pregao { font-size: .8rem; font-weight: 600; }
+.evento-card-orgao { font-size: .74rem; opacity: .85; line-height: 1.3; }
+
+@media (max-width: 1000px) {
+  .semana-wrap { grid-template-columns: repeat(7, minmax(130px, 1fr)); overflow-x: auto; width: 100%; }
+}
+
 /* ── Modal ── */
 .modal {
   position: fixed; inset: 0;

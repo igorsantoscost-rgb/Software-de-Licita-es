@@ -5,6 +5,10 @@
 <div class="page-header">
   <h2>Calendário de Disputas</h2>
   <div class="nav-mes">
+    <div class="toggle-visao">
+      <a href="{{ url_for('main.calendario', mes=mes, ano=ano) }}" class="toggle-btn ativo">Mensal</a>
+      <a href="{{ url_for('main.calendario_semana') }}" class="toggle-btn">Semanal</a>
+    </div>
     <a href="{{ url_for('main.calendario', mes=mes-1, ano=ano) }}" class="btn btn-sm">← Anterior</a>
     <strong class="mes-label">{{ nome_mes }} {{ ano }}</strong>
     <a href="{{ url_for('main.calendario', mes=mes+1, ano=ano) }}" class="btn btn-sm">Próximo →</a>
