@@ -56,6 +56,7 @@ def calendario():
         d = l.data_disputa.date()
         eventos.setdefault(d, []).append(l)
 
+    calendar.setfirstweekday(6)  # 6 = domingo (calendar usa 0=segunda por padrao)
     semanas = calendar.monthcalendar(ano, mes)
     nomes_meses = [
         "", "Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho",
