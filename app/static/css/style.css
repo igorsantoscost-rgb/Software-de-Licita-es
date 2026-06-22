@@ -144,6 +144,7 @@ a:hover { text-decoration: underline; }
   font-weight: 500;
   border: 1px solid #e2e8f0;
   transition: all .15s;
+  flex-shrink: 0;
 }
 .filtro-pill:hover { text-decoration: none; background: #e2e8f0; }
 .filtro-pill.ativo { background: #16a34a; color: #fff; border-color: #16a34a; }
@@ -268,7 +269,7 @@ a:hover { text-decoration: underline; }
 }
 .campo textarea { resize: vertical; }
 .campo-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0 16px; }
-.form-inline { display: inline-flex; align-items: center; gap: 8px; }
+.form-inline { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .form-status { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
 .form-status .select { width: 100%; }
 .campo-condicional { width: 100%; margin-bottom: 0; }
@@ -293,7 +294,8 @@ a:hover { text-decoration: underline; }
 .doc-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px 8px;
   padding: 8px 10px;
   background: #f8fafc;
   border-radius: 8px;
@@ -301,7 +303,7 @@ a:hover { text-decoration: underline; }
 }
 .doc-icon { font-size: 1rem; flex-shrink: 0; }
 .doc-nome {
-  flex: 1;
+  flex: 1 1 100px;
   min-width: 0;
   display: block;
   color: #16a34a;
