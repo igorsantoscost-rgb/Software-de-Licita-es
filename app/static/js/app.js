@@ -5,6 +5,7 @@ document.querySelectorAll('.btn-editar-item').forEach(btn => {
     document.getElementById('edit-id').value = id;
     document.getElementById('edit-descricao').value = btn.dataset.descricao;
     document.getElementById('edit-marca').value = btn.dataset.marca;
+    document.getElementById('edit-numero-item').value = btn.dataset.numeroItem;
     document.getElementById('edit-lote').value = btn.dataset.lote;
     document.getElementById('edit-qtd').value = btn.dataset.qtd;
     document.getElementById('edit-un').value = btn.dataset.un;
@@ -37,4 +38,25 @@ if (inputFile) {
     const n = inputFile.files.length;
     if (n > 0) label.textContent = `${n} arquivo(s) selecionado(s)`;
   });
+}
+
+// Mostrar campo de valor homologado ou motivo de encerramento conforme o status escolhido
+const selectStatus = document.getElementById('select-status');
+const campoValorHomologado = document.getElementById('campo-valor-homologado');
+const campoMotivoEncerramento = document.getElementById('campo-motivo-encerramento');
+
+function atualizarCamposCondicionaisStatus() {
+  if (!selectStatus) return;
+  const valor = selectStatus.value;
+  if (campoValorHomologado) {
+    campoValorHomologado.style.display = (valor === 'homologada') ? 'flex' : 'none';
+  }
+  if (campoMotivoEncerramento) {
+    campoMotivoEncerramento.style.display = (valor === 'encerrada') ? 'flex' : 'none';
+  }
+}
+
+if (selectStatus) {
+  selectStatus.addEventListener('change', atualizarCamposCondicionaisStatus);
+  atualizarCamposCondicionaisStatus(); // estado inicial, ao carregar a pagina
 }

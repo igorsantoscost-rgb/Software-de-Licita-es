@@ -44,6 +44,7 @@ STATUS_CHOICES = [
     "homologada",
     "revogada",
     "cancelada",
+    "encerrada",
 ]
 
 PORTAL_CHOICES = [
@@ -69,6 +70,8 @@ class Licitacao(db.Model):
     objeto = db.Column(db.Text, nullable=True)
     link_edital = db.Column(db.String(500), nullable=True)
     obs_cliente = db.Column(db.Text, nullable=True)
+    valor_homologado = db.Column(db.Numeric(14, 2), nullable=True)
+    motivo_encerramento = db.Column(db.String(300), nullable=True)
     resumo_ia = db.Column(db.Text, nullable=True)
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
     atualizado_em = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -167,6 +170,7 @@ class ItemLicitacao(db.Model):
     __tablename__ = "itens_licitacao"
     id = db.Column(db.Integer, primary_key=True)
     licitacao_id = db.Column(db.Integer, db.ForeignKey("licitacoes.id"), nullable=False)
+    numero_item = db.Column(db.String(20), nullable=True)
     descricao = db.Column(db.String(500), nullable=False)
     marca = db.Column(db.String(200), nullable=True)
     lote_grupo = db.Column(db.String(100), nullable=True)

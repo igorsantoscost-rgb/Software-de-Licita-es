@@ -101,6 +101,36 @@ def _migrar_coluna_tipo_documento():
                     "ALTER TABLE itens_licitacao ADD COLUMN marca VARCHAR(200)"
                 ))
                 conn.commit()
+
+            resultado4 = conn.execute(text("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'itens_licitacao' AND column_name = 'numero_item'
+            """))
+            if resultado4.first() is None:
+                conn.execute(text(
+                    "ALTER TABLE itens_licitacao ADD COLUMN numero_item VARCHAR(20)"
+                ))
+                conn.commit()
+
+            resultado5 = conn.execute(text("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'licitacoes' AND column_name = 'valor_homologado'
+            """))
+            if resultado5.first() is None:
+                conn.execute(text(
+                    "ALTER TABLE licitacoes ADD COLUMN valor_homologado NUMERIC(14,2)"
+                ))
+                conn.commit()
+
+            resultado6 = conn.execute(text("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'licitacoes' AND column_name = 'motivo_encerramento'
+            """))
+            if resultado6.first() is None:
+                conn.execute(text(
+                    "ALTER TABLE licitacoes ADD COLUMN motivo_encerramento VARCHAR(300)"
+                ))
+                conn.commit()
     except Exception:
         # Se for sqlite ou outro banco sem information_schema, ignora
         # (db.create_all() ja cobre o caso de banco novo/vazio).

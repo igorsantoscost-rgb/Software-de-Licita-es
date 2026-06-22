@@ -160,10 +160,30 @@ def atualizar_status(id):
         abort(403)
     lic = Licitacao.query.get_or_404(id)
     novo = request.form.get("status")
-    if novo in STATUS_CHOICES:
-        lic.status = novo
-        db.session.commit()
-        flash(f"Status atualizado para '{novo}'.", "ok")
+    if novo not in STATUS_CHOICES:
+        return redirect(url_for("lic.detalhe", id=lic.id))
+
+    if novo == "homologada":
+        valor_str = request.form.get("valor_homologado", "").strip().replace(".", "").replace(",", ".")
+        if not valor_str:
+            flash("Para marcar como Homologada, informe o valor total homologado.", "erro")
+            return redirect(url_for("lic.detalhe", id=lic.id))
+        try:
+            lic.valor_homologado = float(valor_str)
+        except ValueError:
+            flash("Valor homologado inválido.", "erro")
+            return redirect(url_for("lic.detalhe", id=lic.id))
+
+    elif novo == "encerrada":
+        motivo = request.form.get("motivo_encerramento", "").strip()
+        if not motivo:
+            flash("Para marcar como Encerrada, informe o motivo (ex: 2º colocado).", "erro")
+            return redirect(url_for("lic.detalhe", id=lic.id))
+        lic.motivo_encerramento = motivo
+
+    lic.status = novo
+    db.session.commit()
+    flash(f"Status atualizado para '{novo}'.", "ok")
     return redirect(url_for("lic.detalhe", id=lic.id))
 
 
@@ -262,6 +282,7 @@ def adicionar_item(id):
         pass
     item = ItemLicitacao(
         licitacao_id=id,
+        numero_item=request.form.get("numero_item", "").strip(),
         descricao=descricao,
         marca=request.form.get("marca", "").strip(),
         lote_grupo=request.form.get("lote_grupo", "").strip(),
@@ -282,6 +303,7 @@ def editar_item(item_id):
     lic = Licitacao.query.get_or_404(item.licitacao_id)
     if not _pode_ver(lic):
         abort(403)
+    item.numero_item = request.form.get("numero_item", "").strip()
     item.descricao = request.form.get("descricao", item.descricao).strip()
     item.marca = request.form.get("marca", "").strip()
     item.lote_grupo = request.form.get("lote_grupo", "").strip()

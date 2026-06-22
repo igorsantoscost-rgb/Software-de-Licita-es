@@ -52,7 +52,14 @@
             <small class="muted">{{ l.data_disputa.strftime('%H:%M') }}</small>
           {% else %}—{% endif %}
         </td>
-        <td><span class="badge status-{{ l.status|replace(' ', '-') }}">{{ l.status|title }}</span></td>
+        <td>
+          <span class="badge status-{{ l.status|replace(' ', '-') }}">{{ l.status|title }}</span>
+          {% if l.status == 'homologada' and l.valor_homologado %}
+          <br><span class="valor-destaque-homologado">R$ {{ "%.2f"|format(l.valor_homologado)|replace('.', ',') }}</span>
+          {% elif l.status == 'encerrada' and l.motivo_encerramento %}
+          <br><span class="motivo-encerramento-info">{{ l.motivo_encerramento }}</span>
+          {% endif %}
+        </td>
         {% if current_user.is_assessor() %}<td>{{ l.cliente.nome }}</td>{% endif %}
         <td><a href="{{ url_for('lic.detalhe', id=l.id) }}" class="btn btn-sm">Ver</a></td>
       </tr>

@@ -92,6 +92,7 @@
           <tr>
             <th>Descrição</th>
             <th>Marca</th>
+            <th>Nº Item</th>
             <th>Lote/Grupo</th>
             <th>Qtd</th>
             <th>Un.</th>
@@ -104,6 +105,7 @@
           <tr>
             <td>{{ item.descricao }}</td>
             <td>{{ item.marca or '—' }}</td>
+            <td>{{ item.numero_item or '—' }}</td>
             <td>{{ item.lote_grupo or '—' }}</td>
             <td>{{ item.quantidade or '—' }}</td>
             <td>{{ item.unidade or '—' }}</td>
@@ -116,6 +118,7 @@
               <button class="btn-editar-item btn btn-sm" data-id="{{ item.id }}"
                 data-descricao="{{ item.descricao }}"
                 data-marca="{{ item.marca or '' }}"
+                data-numero-item="{{ item.numero_item or '' }}"
                 data-lote="{{ item.lote_grupo or '' }}"
                 data-qtd="{{ item.quantidade or '' }}"
                 data-un="{{ item.unidade or '' }}"
@@ -142,6 +145,10 @@
             <div class="campo">
               <label>Marca</label>
               <input type="text" name="marca" placeholder="Ex: Chamex">
+            </div>
+            <div class="campo">
+              <label>Nº Item</label>
+              <input type="text" name="numero_item" placeholder="Ex: 1">
             </div>
             <div class="campo">
               <label>Lote/Grupo</label>
@@ -176,12 +183,25 @@
     {% if current_user.is_assessor() %}
     <div class="card">
       <h3>Atualizar Status</h3>
-      <form method="POST" action="{{ url_for('lic.atualizar_status', id=lic.id) }}" class="form-inline">
-        <select name="status" class="select">
+      <form method="POST" action="{{ url_for('lic.atualizar_status', id=lic.id) }}" id="form-status" class="form-status">
+        <select name="status" id="select-status" class="select">
           {% for s in status_choices %}
           <option value="{{ s }}" {% if lic.status == s %}selected{% endif %}>{{ s|title }}</option>
           {% endfor %}
         </select>
+
+        <div class="campo campo-condicional" id="campo-valor-homologado" style="display: none;">
+          <label>Valor Total Homologado (R$) *</label>
+          <input type="text" name="valor_homologado" placeholder="0,00"
+                 value="{{ lic.valor_homologado or '' }}">
+        </div>
+
+        <div class="campo campo-condicional" id="campo-motivo-encerramento" style="display: none;">
+          <label>Motivo do Encerramento *</label>
+          <input type="text" name="motivo_encerramento" placeholder="Ex: 2º colocado"
+                 value="{{ lic.motivo_encerramento or '' }}">
+        </div>
+
         <button type="submit" class="btn btn-primary">Salvar</button>
       </form>
     </div>
@@ -270,6 +290,10 @@
         <div class="campo">
           <label>Marca</label>
           <input type="text" name="marca" id="edit-marca">
+        </div>
+        <div class="campo">
+          <label>Nº Item</label>
+          <input type="text" name="numero_item" id="edit-numero-item">
         </div>
         <div class="campo">
           <label>Lote/Grupo</label>
