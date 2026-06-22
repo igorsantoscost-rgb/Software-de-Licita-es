@@ -48,7 +48,8 @@
 
   <form method="POST" action="{{ url_for('main.adicionar_palavra_chave', id=cliente.id) }}" class="form-add-palavra">
     <div class="campo">
-      <input type="text" name="palavra" placeholder="Ex: uniforme, cama hospitalar, software (separe por vírgula para adicionar várias)" required>
+      <input type="text" name="palavra" placeholder="Ex: uniforme, cama hospitalar, software" required>
+      <small class="muted">Para adicionar várias de uma vez, separe por vírgula e espaço. Ex: uniforme, cama hospitalar, software</small>
     </div>
     <button type="submit" class="btn btn-primary btn-sm">+ Adicionar</button>
   </form>
