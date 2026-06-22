@@ -153,6 +153,34 @@ def editar(id):
                            tipos_doc_unicos=TIPOS_DOC_LICITACAO_UNICOS, docs_existentes=docs_existentes)
 
 
+@lic_bp.route("/<int:id>/excluir", methods=["POST"])
+@login_required
+def excluir(id):
+    if not current_user.is_assessor():
+        abort(403)
+    lic = Licitacao.query.get_or_404(id)
+
+    # Remove os arquivos fisicos de todos os documentos da licitacao (processo + apoio)
+    for doc in lic.documentos:
+        try:
+            os.remove(doc.caminho)
+        except FileNotFoundError:
+            pass
+
+    # Remove a pasta de uploads da licitacao, se existir e estiver vazia
+    pasta_lic = os.path.join(UPLOAD_FOLDER, str(id))
+    try:
+        os.rmdir(pasta_lic)
+    except OSError:
+        pass
+
+    numero_pregao = lic.numero_pregao
+    db.session.delete(lic)
+    db.session.commit()
+    flash(f"Licitação '{numero_pregao}' excluída.", "ok")
+    return redirect(url_for("main.painel"))
+
+
 @lic_bp.route("/<int:id>/status", methods=["POST"])
 @login_required
 def atualizar_status(id):

@@ -3,13 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block titulo %}Consultoria Licitacoes{% endblock %}</title>
+  <title>{% block titulo %}Bidfy — Plataforma de Licitações{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
 {% if current_user.is_authenticated %}
 <nav class="navbar">
-  <div class="nav-brand">🏛️ Licitações</div>
+  <a href="{{ url_for('main.painel') }}" class="nav-brand nav-brand-link">
+    <span class="nav-brand-bid">BID</span><span class="nav-brand-fy">FY</span>
+  </a>
   <div class="nav-links">
     <a href="{{ url_for('main.painel') }}">Painel</a>
     <a href="{{ url_for('main.calendario') }}">Calendário</a>

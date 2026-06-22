@@ -13,6 +13,12 @@
     <span class="badge badge-lg status-{{ lic.status|replace(' ', '-') }}">{{ lic.status|title }}</span>
     {% if current_user.is_assessor() %}
     <a href="{{ url_for('lic.editar', id=lic.id) }}" class="btn btn-sm">Editar</a>
+    <form method="POST" action="{{ url_for('lic.excluir', id=lic.id) }}" class="form-inline">
+      <button type="submit" class="btn btn-sm btn-excluir-licitacao"
+              onclick="return confirm('Excluir esta licitação? Esta ação não pode ser desfeita e vai remover todos os documentos, itens, comentários e observações associados.')">
+        Excluir
+      </button>
+    </form>
     {% endif %}
   </div>
 </div>

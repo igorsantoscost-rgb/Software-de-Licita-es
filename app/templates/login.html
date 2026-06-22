@@ -3,13 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login — Consultoria Licitacoes</title>
+  <title>Login — Bidfy</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body class="login-body">
   <div class="login-card">
-    <div class="login-logo">🏛️</div>
-    <h1 class="login-titulo">Consultoria Licitações</h1>
+    <img src="{{ url_for('static', filename='img/logo-bidfy.png') }}" alt="Bidfy" class="login-logo-img">
     <p class="login-sub">Acesse sua conta</p>
 
     {% with msgs = get_flashed_messages(with_categories=true) %}
