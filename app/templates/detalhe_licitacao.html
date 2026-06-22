@@ -218,9 +218,10 @@
       </form>
       {% endif %}
 
-      {% if lic.documentos %}
+      {% set docs_processo = lic.documentos|selectattr('categoria', 'equalto', 'processo')|list %}
+      {% if docs_processo %}
       <ul class="doc-lista">
-        {% for doc in lic.documentos %}
+        {% for doc in docs_processo %}
         <li class="doc-item">
           <span class="doc-icon">📄</span>
           <a href="{{ url_for('lic.download_doc', doc_id=doc.id) }}" class="doc-nome">{{ doc.nome_original }}</a>
@@ -243,6 +244,70 @@
       {% endif %}
     </div>
 
+    <!-- Documentos de Apoio (cliente) -->
+    <div class="card">
+      <h3>Documentos de Apoio</h3>
+      <p class="muted-sm">Tabelas de preço, notas fiscais de referência, e-mails e outros materiais para auxiliar na precificação e gestão do contrato.</p>
+
+      {% if not current_user.is_assessor() %}
+      <form method="POST" action="{{ url_for('lic.upload_apoio', id=lic.id) }}" enctype="multipart/form-data" class="upload-form-apoio">
+        <div class="campo">
+          <input type="file" name="arquivos" id="input-file-apoio">
+        </div>
+        <div class="campo">
+          <label>Renomear arquivo (opcional)</label>
+          <input type="text" name="nome_personalizado" placeholder="Ex: Tabela de preços - Junho">
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm">Enviar</button>
+      </form>
+      {% endif %}
+
+      {% set docs_apoio = lic.documentos|selectattr('categoria', 'equalto', 'apoio')|list %}
+      {% if docs_apoio %}
+      <ul class="doc-lista">
+        {% for doc in docs_apoio %}
+        <li class="doc-item">
+          <span class="doc-icon">📎</span>
+          <a href="{{ url_for('lic.download_doc', doc_id=doc.id) }}" class="doc-nome">{{ doc.nome_original }}</a>
+          <span class="doc-tamanho muted">{{ (doc.tamanho / 1024)|round(1) }} KB</span>
+          {% if not current_user.is_assessor() %}
+          <form method="POST" action="{{ url_for('lic.excluir_doc_apoio', doc_id=doc.id) }}" class="form-inline">
+            <button type="submit" class="btn-excluir" onclick="return confirm('Excluir documento?')">✕</button>
+          </form>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">Nenhum documento de apoio enviado ainda.</p>
+      {% endif %}
+
+      <!-- Observacoes de apoio -->
+      <div class="observacoes-apoio-bloco">
+        <h4>Observações</h4>
+        <form method="POST" action="{{ url_for('lic.adicionar_observacao_apoio', id=lic.id) }}" class="form-comentario">
+          <textarea name="texto" rows="2" placeholder="Escreva uma observação..." required></textarea>
+          <button type="submit" class="btn btn-primary btn-sm">Enviar</button>
+        </form>
+
+        {% if lic.observacoes_apoio %}
+        <ul class="comentario-lista">
+          {% for o in lic.observacoes_apoio %}
+          <li class="comentario-item">
+            <div class="comentario-topo">
+              <strong>{{ o.autor.nome }}</strong>
+              <span class="muted small">{{ o.criado_em.strftime('%d/%m/%Y às %H:%M') }}</span>
+            </div>
+            <p class="comentario-texto">{{ o.texto }}</p>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="muted">Nenhuma observação ainda.</p>
+        {% endif %}
+      </div>
+    </div>
+
   </div>
 
   <!-- Coluna direita: Comentários -->
@@ -259,12 +324,32 @@
       {% if lic.comentarios %}
       <ul class="comentario-lista">
         {% for c in lic.comentarios %}
-        <li class="comentario-item">
+        <li class="comentario-item" id="comentario-{{ c.id }}">
           <div class="comentario-topo">
             <strong>{{ c.autor.nome }}</strong>
-            <span class="muted small">{{ c.criado_em.strftime('%d/%m/%Y às %H:%M') }}</span>
+            <span class="muted small">
+              {{ c.criado_em.strftime('%d/%m/%Y às %H:%M') }}
+              {% if c.editado_em %}<em>(editado)</em>{% endif %}
+            </span>
           </div>
-          <p class="comentario-texto">{{ c.texto }}</p>
+          <p class="comentario-texto" id="comentario-texto-{{ c.id }}">{{ c.texto }}</p>
+
+          {% if current_user.is_assessor() and c.autor_id == current_user.id %}
+          <div class="comentario-acoes">
+            <button type="button" class="btn-link-mini btn-editar-comentario" data-id="{{ c.id }}">Editar</button>
+            <form method="POST" action="{{ url_for('lic.excluir_comentario', comentario_id=c.id) }}" class="form-inline">
+              <button type="submit" class="btn-link-mini btn-link-mini-excluir" onclick="return confirm('Excluir comentário?')">Excluir</button>
+            </form>
+          </div>
+          <form method="POST" action="{{ url_for('lic.editar_comentario', comentario_id=c.id) }}"
+                class="form-editar-comentario" id="form-editar-comentario-{{ c.id }}" style="display: none;">
+            <textarea name="texto" rows="2" required>{{ c.texto }}</textarea>
+            <div class="comentario-acoes">
+              <button type="submit" class="btn btn-primary btn-sm">Salvar</button>
+              <button type="button" class="btn btn-sm btn-cancelar-edicao-comentario" data-id="{{ c.id }}">Cancelar</button>
+            </div>
+          </form>
+          {% endif %}
         </li>
         {% endfor %}
       </ul>

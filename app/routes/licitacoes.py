@@ -3,7 +3,7 @@ from flask import (Blueprint, render_template, redirect, url_for,
 from flask_login import login_required, current_user
 from app.models import (Licitacao, Documento, ItemLicitacao, Cliente,
                         STATUS_CHOICES, PORTAL_CHOICES, TIPOS_DOC_LICITACAO_UNICOS,
-                        ComentarioLicitacao)
+                        ComentarioLicitacao, ObservacaoApoio)
 from app import db
 from datetime import datetime
 import os, uuid, requests
@@ -334,6 +334,92 @@ def excluir_item(item_id):
     return redirect(url_for("lic.detalhe", id=lic_id))
 
 
+# ─── Documentos de Apoio (cliente) ────────────────────────────────────────────
+
+EXTENSOES_APOIO_PERMITIDAS = {
+    ".pdf", ".html", ".htm", ".ppt", ".pptx", ".xls", ".xlsx", ".csv", ".txt"
+}
+
+
+@lic_bp.route("/<int:id>/apoio/upload", methods=["POST"])
+@login_required
+def upload_apoio(id):
+    lic = Licitacao.query.get_or_404(id)
+    if current_user.is_assessor() or lic.cliente_id != current_user.cliente_id:
+        abort(403)
+    arquivos = request.files.getlist("arquivos")
+    nome_personalizado = request.form.get("nome_personalizado", "").strip()
+    enviados = 0
+    for f in arquivos:
+        if not f.filename:
+            continue
+        ext = os.path.splitext(f.filename)[1].lower()
+        if ext not in EXTENSOES_APOIO_PERMITIDAS:
+            flash(f"Tipo de arquivo não permitido: {f.filename}. "
+                  "Use PDF, HTML, PPT, XLS, CSV ou TXT.", "erro")
+            continue
+        caminho = _salvar_arquivo(f, id)
+        # Se o cliente renomeou o arquivo, usa o nome dado (mantendo a extensao original)
+        if nome_personalizado and len(arquivos) == 1:
+            nome_exibido = nome_personalizado
+            if not nome_exibido.lower().endswith(ext):
+                nome_exibido += ext
+        else:
+            nome_exibido = f.filename
+        doc = Documento(
+            licitacao_id=id,
+            categoria="apoio",
+            tipo="outros",
+            nome_original=nome_exibido,
+            caminho=caminho,
+            tamanho=os.path.getsize(caminho),
+            enviado_por=current_user.id,
+        )
+        db.session.add(doc)
+        enviados += 1
+    if enviados:
+        db.session.commit()
+        flash("Documento(s) de apoio enviado(s).", "ok")
+    return redirect(url_for("lic.detalhe", id=id))
+
+
+@lic_bp.route("/apoio/<int:doc_id>/excluir", methods=["POST"])
+@login_required
+def excluir_doc_apoio(doc_id):
+    doc = Documento.query.get_or_404(doc_id)
+    lic = Licitacao.query.get_or_404(doc.licitacao_id)
+    if doc.categoria != "apoio":
+        abort(404)
+    if current_user.is_assessor() or lic.cliente_id != current_user.cliente_id:
+        abort(403)
+    lic_id = doc.licitacao_id
+    try:
+        os.remove(doc.caminho)
+    except FileNotFoundError:
+        pass
+    db.session.delete(doc)
+    db.session.commit()
+    flash("Documento de apoio removido.", "ok")
+    return redirect(url_for("lic.detalhe", id=lic_id))
+
+
+@lic_bp.route("/<int:id>/apoio/observacao", methods=["POST"])
+@login_required
+def adicionar_observacao_apoio(id):
+    lic = Licitacao.query.get_or_404(id)
+    if not _pode_ver(lic):
+        abort(403)
+    texto = request.form.get("texto", "").strip()
+    if not texto:
+        flash("Escreva algo antes de enviar.", "erro")
+        return redirect(url_for("lic.detalhe", id=id))
+    obs = ObservacaoApoio(licitacao_id=id, autor_id=current_user.id, texto=texto)
+    db.session.add(obs)
+    db.session.commit()
+    flash("Observação enviada.", "ok")
+    return redirect(url_for("lic.detalhe", id=id))
+
+
 # ─── Comentários ──────────────────────────────────────────────────────────────
 
 @lic_bp.route("/<int:id>/comentar", methods=["POST"])
@@ -355,6 +441,36 @@ def comentar(id):
     db.session.commit()
     flash("Comentário enviado.", "ok")
     return redirect(url_for("lic.detalhe", id=id))
+
+
+@lic_bp.route("/comentario/<int:comentario_id>/editar", methods=["POST"])
+@login_required
+def editar_comentario(comentario_id):
+    comentario = ComentarioLicitacao.query.get_or_404(comentario_id)
+    if not current_user.is_assessor() or comentario.autor_id != current_user.id:
+        abort(403)
+    texto = request.form.get("texto", "").strip()
+    if not texto:
+        flash("O comentário não pode ficar vazio.", "erro")
+        return redirect(url_for("lic.detalhe", id=comentario.licitacao_id))
+    comentario.texto = texto
+    comentario.editado_em = datetime.utcnow()
+    db.session.commit()
+    flash("Comentário atualizado.", "ok")
+    return redirect(url_for("lic.detalhe", id=comentario.licitacao_id))
+
+
+@lic_bp.route("/comentario/<int:comentario_id>/excluir", methods=["POST"])
+@login_required
+def excluir_comentario(comentario_id):
+    comentario = ComentarioLicitacao.query.get_or_404(comentario_id)
+    if not current_user.is_assessor() or comentario.autor_id != current_user.id:
+        abort(403)
+    lic_id = comentario.licitacao_id
+    db.session.delete(comentario)
+    db.session.commit()
+    flash("Comentário removido.", "ok")
+    return redirect(url_for("lic.detalhe", id=lic_id))
 
 
 # ─── Resumo com IA ───────────────────────────────────────────────────────────

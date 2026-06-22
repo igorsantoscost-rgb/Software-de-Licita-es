@@ -84,6 +84,7 @@ class Documento(db.Model):
     __tablename__ = "documentos"
     id = db.Column(db.Integer, primary_key=True)
     licitacao_id = db.Column(db.Integer, db.ForeignKey("licitacoes.id"), nullable=False)
+    categoria = db.Column(db.String(20), nullable=False, default="processo")  # processo | apoio
     tipo = db.Column(db.String(30), nullable=False, default="outros")  # edital | termo_referencia | outros
     nome_original = db.Column(db.String(300), nullable=False)
     caminho = db.Column(db.String(500), nullable=False)
@@ -187,6 +188,19 @@ class ComentarioLicitacao(db.Model):
     autor_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     texto = db.Column(db.Text, nullable=False)
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+    editado_em = db.Column(db.DateTime, nullable=True)
 
     licitacao = db.relationship("Licitacao", backref=db.backref("comentarios", lazy=True, order_by="ComentarioLicitacao.criado_em", cascade="all, delete-orphan"))
+    autor = db.relationship("User")
+
+
+class ObservacaoApoio(db.Model):
+    __tablename__ = "observacoes_apoio"
+    id = db.Column(db.Integer, primary_key=True)
+    licitacao_id = db.Column(db.Integer, db.ForeignKey("licitacoes.id"), nullable=False)
+    autor_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    texto = db.Column(db.Text, nullable=False)
+    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+
+    licitacao = db.relationship("Licitacao", backref=db.backref("observacoes_apoio", lazy=True, order_by="ObservacaoApoio.criado_em", cascade="all, delete-orphan"))
     autor = db.relationship("User")

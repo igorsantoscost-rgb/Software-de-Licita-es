@@ -606,3 +606,37 @@ small { font-size: .8rem; }
 }
 .comentario-topo { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
 .comentario-texto { margin: 0; font-size: .9rem; white-space: pre-wrap; }
+.comentario-acoes { display: flex; gap: 10px; margin-top: 6px; }
+.btn-link-mini {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: .76rem;
+  color: #2563eb;
+  cursor: pointer;
+  font-weight: 600;
+}
+.btn-link-mini:hover { text-decoration: underline; }
+.btn-link-mini-excluir { color: #b91c1c; }
+.form-editar-comentario { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.form-editar-comentario textarea {
+  width: 100%;
+  resize: vertical;
+  padding: 9px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: .88rem;
+  font-family: inherit;
+  background: #fff;
+}
+.form-editar-comentario textarea:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+}
+
+/* ── Documentos de apoio ── */
+.upload-form-apoio { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 14px; }
+.upload-form-apoio .campo { margin-bottom: 0; flex: 1; min-width: 160px; }
+.observacoes-apoio-bloco { margin-top: 18px; padding-top: 16px; border-top: 1px solid #e5e7eb; }
+.observacoes-apoio-bloco h4 { font-size: .88rem; font-weight: 600; margin-bottom: 10px; color: #374151; }

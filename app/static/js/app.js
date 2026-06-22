@@ -60,3 +60,24 @@ if (selectStatus) {
   selectStatus.addEventListener('change', atualizarCamposCondicionaisStatus);
   atualizarCamposCondicionaisStatus(); // estado inicial, ao carregar a pagina
 }
+
+// Editar comentario inline (abre o form de edicao, esconde o texto)
+document.querySelectorAll('.btn-editar-comentario').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const id = btn.dataset.id;
+    const texto = document.getElementById(`comentario-texto-${id}`);
+    const form = document.getElementById(`form-editar-comentario-${id}`);
+    if (texto) texto.style.display = 'none';
+    if (form) form.style.display = 'flex';
+  });
+});
+
+document.querySelectorAll('.btn-cancelar-edicao-comentario').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const id = btn.dataset.id;
+    const texto = document.getElementById(`comentario-texto-${id}`);
+    const form = document.getElementById(`form-editar-comentario-${id}`);
+    if (form) form.style.display = 'none';
+    if (texto) texto.style.display = 'block';
+  });
+});
