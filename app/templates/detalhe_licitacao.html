@@ -225,7 +225,7 @@
         {% for doc in docs_processo %}
         <li class="doc-item">
           <span class="doc-icon">📄</span>
-          <a href="{{ url_for('lic.download_doc', doc_id=doc.id) }}" class="doc-nome">{{ doc.nome_original }}</a>
+          <a href="{{ url_for('lic.download_doc', doc_id=doc.id) }}" class="doc-nome" title="{{ doc.nome_original }}">{{ doc.nome_original }}</a>
           {% if doc.tipo == 'edital' %}
           <span class="filtro-pill">Edital</span>
           {% elif doc.tipo == 'termo_referencia' %}
@@ -319,7 +319,7 @@
         {% for doc in docs_apoio %}
         <li class="doc-item">
           <span class="doc-icon">📎</span>
-          <a href="{{ url_for('lic.download_doc', doc_id=doc.id) }}" class="doc-nome">{{ doc.nome_original }}</a>
+          <a href="{{ url_for('lic.download_doc', doc_id=doc.id) }}" class="doc-nome" title="{{ doc.nome_original }}">{{ doc.nome_original }}</a>
           <span class="doc-tamanho muted">{{ (doc.tamanho / 1024)|round(1) }} KB</span>
           {% if not current_user.is_assessor() %}
           <form method="POST" action="{{ url_for('lic.excluir_doc_apoio', doc_id=doc.id) }}" class="form-inline">
