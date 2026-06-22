@@ -244,6 +244,56 @@
       {% endif %}
     </div>
 
+  </div>
+
+  <!-- Coluna direita: Comentários -->
+  <div>
+
+    <!-- Comentarios -->
+    <div class="card">
+      <h3>Comentários</h3>
+      <form method="POST" action="{{ url_for('lic.comentar', id=lic.id) }}" class="form-comentario">
+        <textarea name="texto" rows="2" placeholder="Escreva um comentário..." required></textarea>
+        <button type="submit" class="btn btn-primary btn-sm">Enviar</button>
+      </form>
+
+      {% if lic.comentarios %}
+      <ul class="comentario-lista">
+        {% for c in lic.comentarios %}
+        <li class="comentario-item" id="comentario-{{ c.id }}">
+          <div class="comentario-topo">
+            <strong>{{ c.autor.nome }}</strong>
+            <span class="muted small">
+              {{ c.criado_em.strftime('%d/%m/%Y às %H:%M') }}
+              {% if c.editado_em %}<em>(editado)</em>{% endif %}
+            </span>
+          </div>
+          <p class="comentario-texto" id="comentario-texto-{{ c.id }}">{{ c.texto }}</p>
+
+          {% if current_user.is_assessor() and c.autor_id == current_user.id %}
+          <div class="comentario-acoes">
+            <button type="button" class="btn-link-mini btn-editar-comentario" data-id="{{ c.id }}">Editar</button>
+            <form method="POST" action="{{ url_for('lic.excluir_comentario', comentario_id=c.id) }}" class="form-inline">
+              <button type="submit" class="btn-link-mini btn-link-mini-excluir" onclick="return confirm('Excluir comentário?')">Excluir</button>
+            </form>
+          </div>
+          <form method="POST" action="{{ url_for('lic.editar_comentario', comentario_id=c.id) }}"
+                class="form-editar-comentario" id="form-editar-comentario-{{ c.id }}" style="display: none;">
+            <textarea name="texto" rows="2" required>{{ c.texto }}</textarea>
+            <div class="comentario-acoes">
+              <button type="submit" class="btn btn-primary btn-sm">Salvar</button>
+              <button type="button" class="btn btn-sm btn-cancelar-edicao-comentario" data-id="{{ c.id }}">Cancelar</button>
+            </div>
+          </form>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">Nenhum comentário ainda.</p>
+      {% endif %}
+    </div>
+
     <!-- Documentos de Apoio (cliente) -->
     <div class="card">
       <h3>Documentos de Apoio</h3>
@@ -306,56 +356,6 @@
         <p class="muted">Nenhuma observação ainda.</p>
         {% endif %}
       </div>
-    </div>
-
-  </div>
-
-  <!-- Coluna direita: Comentários -->
-  <div>
-
-    <!-- Comentarios -->
-    <div class="card">
-      <h3>Comentários</h3>
-      <form method="POST" action="{{ url_for('lic.comentar', id=lic.id) }}" class="form-comentario">
-        <textarea name="texto" rows="2" placeholder="Escreva um comentário..." required></textarea>
-        <button type="submit" class="btn btn-primary btn-sm">Enviar</button>
-      </form>
-
-      {% if lic.comentarios %}
-      <ul class="comentario-lista">
-        {% for c in lic.comentarios %}
-        <li class="comentario-item" id="comentario-{{ c.id }}">
-          <div class="comentario-topo">
-            <strong>{{ c.autor.nome }}</strong>
-            <span class="muted small">
-              {{ c.criado_em.strftime('%d/%m/%Y às %H:%M') }}
-              {% if c.editado_em %}<em>(editado)</em>{% endif %}
-            </span>
-          </div>
-          <p class="comentario-texto" id="comentario-texto-{{ c.id }}">{{ c.texto }}</p>
-
-          {% if current_user.is_assessor() and c.autor_id == current_user.id %}
-          <div class="comentario-acoes">
-            <button type="button" class="btn-link-mini btn-editar-comentario" data-id="{{ c.id }}">Editar</button>
-            <form method="POST" action="{{ url_for('lic.excluir_comentario', comentario_id=c.id) }}" class="form-inline">
-              <button type="submit" class="btn-link-mini btn-link-mini-excluir" onclick="return confirm('Excluir comentário?')">Excluir</button>
-            </form>
-          </div>
-          <form method="POST" action="{{ url_for('lic.editar_comentario', comentario_id=c.id) }}"
-                class="form-editar-comentario" id="form-editar-comentario-{{ c.id }}" style="display: none;">
-            <textarea name="texto" rows="2" required>{{ c.texto }}</textarea>
-            <div class="comentario-acoes">
-              <button type="submit" class="btn btn-primary btn-sm">Salvar</button>
-              <button type="button" class="btn btn-sm btn-cancelar-edicao-comentario" data-id="{{ c.id }}">Cancelar</button>
-            </div>
-          </form>
-          {% endif %}
-        </li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <p class="muted">Nenhum comentário ainda.</p>
-      {% endif %}
     </div>
 
   </div>
