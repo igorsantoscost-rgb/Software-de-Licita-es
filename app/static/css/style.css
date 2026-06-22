@@ -260,15 +260,30 @@ a:hover { text-decoration: underline; }
 .doc-tamanho { font-size: .78rem; }
 
 /* ── Resumo IA ── */
+.card-resumo-ia { margin-top: 20px; }
 .resumo-ia {
   background: #f5f3ff;
   border-left: 3px solid #7c3aed;
-  padding: 14px 16px;
+  padding: 18px 22px;
   border-radius: 0 8px 8px 0;
-  font-size: .9rem;
+  font-size: .92rem;
   line-height: 1.7;
-  white-space: pre-line;
+  max-width: 900px;
 }
+.resumo-ia h2, .resumo-ia h3 {
+  color: #5b21b6;
+  font-size: 1.05rem;
+  margin: 18px 0 8px;
+}
+.resumo-ia h2:first-child, .resumo-ia h3:first-child { margin-top: 0; }
+.resumo-ia p { margin: 0 0 10px; }
+.resumo-ia ul, .resumo-ia ol { margin: 0 0 12px; padding-left: 22px; }
+.resumo-ia li { margin-bottom: 5px; }
+.resumo-ia strong { color: #4c1d95; }
+.resumo-ia hr { border: none; border-top: 1px solid #ddd6fe; margin: 14px 0; }
+.resumo-ia table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: .88rem; }
+.resumo-ia th, .resumo-ia td { border: 1px solid #ddd6fe; padding: 6px 10px; text-align: left; }
+.resumo-ia th { background: #ede9fe; }
 
 /* ── Itens ── */
 .add-item-form { margin-top: 14px; }

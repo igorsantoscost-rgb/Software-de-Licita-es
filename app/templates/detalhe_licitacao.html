@@ -228,24 +228,24 @@
       {% endif %}
     </div>
 
-    <!-- Resumo IA -->
-    <div class="card">
-      <div class="card-header-row">
-        <h3>Resumo da Oportunidade</h3>
-        {% if current_user.is_assessor() %}
-        <form method="POST" action="{{ url_for('lic.gerar_resumo', id=lic.id) }}">
-          <button type="submit" class="btn btn-sm btn-ia">✨ Gerar com IA</button>
-        </form>
-        {% endif %}
-      </div>
-      {% if lic.resumo_ia %}
-      <div class="resumo-ia">{{ lic.resumo_ia }}</div>
-      {% else %}
-      <p class="muted">Nenhum resumo gerado ainda.{% if current_user.is_assessor() %} Clique em "Gerar com IA" para criar.{% endif %}</p>
-      {% endif %}
-    </div>
-
   </div>
+</div>
+
+<!-- Resumo IA — card de largura cheia, fora do grid de 2 colunas -->
+<div class="card card-resumo-ia">
+  <div class="card-header-row">
+    <h3>Resumo da Oportunidade</h3>
+    {% if current_user.is_assessor() %}
+    <form method="POST" action="{{ url_for('lic.gerar_resumo', id=lic.id) }}">
+      <button type="submit" class="btn btn-sm btn-ia">✨ Gerar com IA</button>
+    </form>
+    {% endif %}
+  </div>
+  {% if lic.resumo_ia %}
+  <div class="resumo-ia">{{ lic.resumo_ia|markdown_seguro }}</div>
+  {% else %}
+  <p class="muted">Nenhum resumo gerado ainda.{% if current_user.is_assessor() %} Clique em "Gerar com IA" para criar.{% endif %}</p>
+  {% endif %}
 </div>
 
 <!-- Modal editar item -->

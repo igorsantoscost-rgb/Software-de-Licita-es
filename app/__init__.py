@@ -39,6 +39,26 @@ def create_app():
     app.register_blueprint(lic_bp)
     app.register_blueprint(docs_bp)
 
+    @app.template_filter("markdown_seguro")
+    def markdown_seguro(texto):
+        """Converte markdown (texto gerado por IA) em HTML seguro para exibicao.
+        Usa markupsafe para evitar reescapar o HTML ja gerado pelo markdown."""
+        import markdown as md_lib
+        from markupsafe import Markup
+        import bleach
+
+        if not texto:
+            return ""
+        html = md_lib.markdown(texto, extensions=["extra", "nl2br", "sane_lists"])
+        tags_permitidas = [
+            "h1", "h2", "h3", "h4", "p", "strong", "em", "ul", "ol", "li",
+            "br", "hr", "blockquote", "code", "pre", "table", "thead",
+            "tbody", "tr", "th", "td", "a",
+        ]
+        atributos_permitidos = {"a": ["href", "title", "target"]}
+        html_limpo = bleach.clean(html, tags=tags_permitidas, attributes=atributos_permitidos, strip=True)
+        return Markup(html_limpo)
+
     with app.app_context():
         db.create_all()
         _migrar_coluna_tipo_documento()

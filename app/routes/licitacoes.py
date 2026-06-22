@@ -456,7 +456,15 @@ de participar.
 Quaisquer prazos, riscos ou exigências que mereçam atenção especial do cliente ou do assessor.
 
 Seja direto, use bullet points quando fizer sentido, e NÃO invente informação que não esteja nos
-documentos ou dados acima — se não encontrar algo, diga que não foi encontrado no documento."""
+documentos ou dados acima — se não encontrar algo, diga que não foi encontrado no documento.
+
+FORMATAÇÃO (importante, será renderizada como Markdown):
+- Use "##" para os títulos das seções acima (exatamente como escritos).
+- Sempre deixe uma linha vazia antes de iniciar uma lista com "-" e uma linha vazia depois da lista.
+- Não use "---" (linha horizontal) para separar itens dentro de uma lista — use apenas entre seções,
+  se necessário, e sempre com linha vazia antes e depois.
+- Não coloque mais de uma informação por linha de lista; cada "-" deve estar em sua própria linha,
+  separada por quebra de linha real (não use "\\n" literal nem junte itens na mesma linha)."""
 
     if texto_extraido:
         instrucoes += f"\n\n--- TEXTO EXTRAÍDO DOS DOCUMENTOS ANEXADOS (não-PDF) ---\n{texto_extraido}"
