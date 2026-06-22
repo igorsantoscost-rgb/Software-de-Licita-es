@@ -226,6 +226,8 @@ a:hover { text-decoration: underline; }
   padding: 20px;
   margin-bottom: 20px;
   box-shadow: 0 1px 4px rgba(0,0,0,.07);
+  min-width: 0;
+  overflow-wrap: break-word;
 }
 .card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 14px; color: #14532d; }
 .card-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
@@ -236,7 +238,7 @@ a:hover { text-decoration: underline; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; }
 @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
 
-.grid-4 { display: grid; grid-template-columns: 0.85fr 1fr 0.65fr 1.35fr; gap: 0 24px; align-items: start; }
+.grid-4 { display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1fr) minmax(0, 0.65fr) minmax(0, 1.35fr); gap: 0 24px; align-items: start; }
 @media (max-width: 1300px) { .grid-4 { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 768px) { .grid-4 { grid-template-columns: 1fr; } }
 
@@ -297,9 +299,15 @@ a:hover { text-decoration: underline; }
   border-radius: 8px;
   font-size: .87rem;
 }
-.doc-icon { font-size: 1rem; }
-.doc-nome { flex: 1; color: #16a34a; }
-.doc-tamanho { font-size: .78rem; }
+.doc-icon { font-size: 1rem; flex-shrink: 0; }
+.doc-nome {
+  flex: 1;
+  min-width: 0;
+  color: #16a34a;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+.doc-tamanho { font-size: .78rem; flex-shrink: 0; }
 
 /* ── Resumo IA ── */
 .resumo-ia {
