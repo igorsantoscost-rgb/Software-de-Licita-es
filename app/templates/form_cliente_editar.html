@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block titulo %}Editar Cliente{% endblock %}
+{% block conteudo %}
+
+<div class="page-header">
+  <h2>Editar Cliente</h2>
+</div>
+
+<div class="card card-form">
+  <form method="POST">
+    <h3>Empresa</h3>
+    <div class="campo">
+      <label>Nome da Empresa *</label>
+      <input type="text" name="nome" required value="{{ cliente.nome }}">
+    </div>
+    <div class="campo">
+      <label>CNPJ</label>
+      <input type="text" name="cnpj" value="{{ cliente.cnpj or '' }}" placeholder="00.000.000/0001-00">
+    </div>
+    <div class="form-btns">
+      <a href="{{ url_for('main.clientes') }}" class="btn">Cancelar</a>
+      <button type="submit" class="btn btn-primary">Salvar</button>
+    </div>
+  </form>
+</div>
+
+<div class="card card-form">
+  <h3>Palavras-chave de Interesse</h3>
+  <p class="muted-sm">
+    Itens de licitações cuja descrição contenha alguma dessas palavras serão destacados
+    automaticamente no Resumo da Oportunidade gerado por IA.
+  </p>
+
+  {% if cliente.palavras_chave %}
+  <div class="palavras-chave-lista">
+    {% for p in cliente.palavras_chave %}
+    <span class="filtro-pill palavra-chave-pill">
+      {{ p.palavra }}
+      <form method="POST" action="{{ url_for('main.excluir_palavra_chave', palavra_id=p.id) }}" class="form-inline">
+        <button type="submit" class="btn-excluir-mini" title="Remover" onclick="return confirm('Remover esta palavra-chave?')">✕</button>
+      </form>
+    </span>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="muted">Nenhuma palavra-chave cadastrada ainda.</p>
+  {% endif %}
+
+  <form method="POST" action="{{ url_for('main.adicionar_palavra_chave', id=cliente.id) }}" class="form-add-palavra">
+    <div class="campo">
+      <input type="text" name="palavra" placeholder="Ex: uniforme, cama hospitalar, software (separe por vírgula para adicionar várias)" required>
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm">+ Adicionar</button>
+  </form>
+</div>
+
+{% endblock %}

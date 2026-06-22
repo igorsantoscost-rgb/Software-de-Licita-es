@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, request, flash
 from flask_login import login_required, current_user
-from app.models import Licitacao, Cliente, User, STATUS_CHOICES
+from app.models import Licitacao, Cliente, User, STATUS_CHOICES, PalavraChaveCliente
 from app import db, bcrypt
 from datetime import datetime, date, timedelta
 import calendar
@@ -56,6 +56,7 @@ def calendario():
         d = l.data_disputa.date()
         eventos.setdefault(d, []).append(l)
 
+    calendar.setfirstweekday(6)  # 6 = domingo (calendar usa 0=segunda por padrao)
     semanas = calendar.monthcalendar(ano, mes)
     nomes_meses = [
         "", "Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho",
@@ -70,6 +71,55 @@ def calendario():
         ano=ano,
         nome_mes=nomes_meses[mes],
         primeiro_dia=primeiro_dia,
+    )
+
+
+@main_bp.route("/calendario/semana")
+@login_required
+def calendario_semana():
+    inicio_str = request.args.get("inicio")
+    if inicio_str:
+        try:
+            inicio = datetime.strptime(inicio_str, "%Y-%m-%d").date()
+        except ValueError:
+            inicio = date.today()
+    else:
+        inicio = date.today()
+
+    # Volta para o domingo da semana de 'inicio' (igual ao calendario mensal: domingo primeiro)
+    inicio = inicio - timedelta(days=(inicio.weekday() + 1) % 7)
+    fim = inicio + timedelta(days=6)
+
+    dias_semana = [inicio + timedelta(days=i) for i in range(7)]
+
+    q = Licitacao.query.filter(
+        Licitacao.data_disputa >= datetime(inicio.year, inicio.month, inicio.day),
+        Licitacao.data_disputa <= datetime(fim.year, fim.month, fim.day, 23, 59, 59),
+    )
+    if not current_user.is_assessor():
+        q = q.filter(Licitacao.cliente_id == current_user.cliente_id)
+    licitacoes_semana = q.order_by(Licitacao.data_disputa.asc()).all()
+
+    eventos = {}
+    for l in licitacoes_semana:
+        d = l.data_disputa.date()
+        eventos.setdefault(d, []).append(l)
+
+    nomes_meses_curto = [
+        "", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
+        "Jul", "Ago", "Set", "Out", "Nov", "Dez"
+    ]
+
+    return render_template(
+        "calendario_semana.html",
+        dias_semana=dias_semana,
+        eventos=eventos,
+        inicio=inicio,
+        fim=fim,
+        semana_anterior=inicio - timedelta(days=7),
+        semana_seguinte=inicio + timedelta(days=7),
+        nomes_meses_curto=nomes_meses_curto,
+        hoje=date.today(),
     )
 
 
@@ -113,3 +163,56 @@ def novo_cliente():
         flash("Cliente criado com sucesso.", "ok")
         return redirect(url_for("main.clientes"))
     return render_template("form_cliente.html")
+
+
+@main_bp.route("/clientes/<int:id>/editar", methods=["GET", "POST"])
+@login_required
+def editar_cliente(id):
+    if not current_user.is_assessor():
+        return redirect(url_for("main.painel"))
+    cliente = Cliente.query.get_or_404(id)
+    if request.method == "POST":
+        nome = request.form.get("nome", "").strip()
+        cnpj = request.form.get("cnpj", "").strip()
+        if not nome:
+            flash("O nome da empresa é obrigatório.", "erro")
+            return render_template("form_cliente_editar.html", cliente=cliente)
+        cliente.nome = nome
+        cliente.cnpj = cnpj
+        db.session.commit()
+        flash("Cliente atualizado.", "ok")
+        return redirect(url_for("main.clientes"))
+    return render_template("form_cliente_editar.html", cliente=cliente)
+
+
+@main_bp.route("/clientes/<int:id>/palavras-chave/adicionar", methods=["POST"])
+@login_required
+def adicionar_palavra_chave(id):
+    if not current_user.is_assessor():
+        return redirect(url_for("main.painel"))
+    cliente = Cliente.query.get_or_404(id)
+    texto = request.form.get("palavra", "").strip()
+    if texto:
+        # Permite colar varias palavras separadas por virgula de uma vez
+        novas = [p.strip() for p in texto.split(",") if p.strip()]
+        existentes = {p.palavra.lower() for p in cliente.palavras_chave}
+        for p in novas:
+            if p.lower() not in existentes:
+                db.session.add(PalavraChaveCliente(cliente_id=cliente.id, palavra=p))
+                existentes.add(p.lower())
+        db.session.commit()
+        flash("Palavra(s)-chave adicionada(s).", "ok")
+    return redirect(url_for("main.editar_cliente", id=id))
+
+
+@main_bp.route("/clientes/palavras-chave/<int:palavra_id>/excluir", methods=["POST"])
+@login_required
+def excluir_palavra_chave(palavra_id):
+    if not current_user.is_assessor():
+        return redirect(url_for("main.painel"))
+    palavra = PalavraChaveCliente.query.get_or_404(palavra_id)
+    cliente_id = palavra.cliente_id
+    db.session.delete(palavra)
+    db.session.commit()
+    flash("Palavra-chave removida.", "ok")
+    return redirect(url_for("main.editar_cliente", id=cliente_id))

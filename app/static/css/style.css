@@ -42,6 +42,7 @@ a:hover { text-decoration: underline; }
 
 /* ── Container ── */
 .container { max-width: 1200px; margin: 0 auto; padding: 24px 20px; }
+.container.container-full { max-width: 100%; padding: 24px 28px; }
 
 /* ── Page header ── */
 .page-header {
@@ -123,6 +124,29 @@ a:hover { text-decoration: underline; }
 }
 .filtro-pill:hover { text-decoration: none; background: #e2e8f0; }
 .filtro-pill.ativo { background: #2563eb; color: #fff; border-color: #2563eb; }
+
+/* ── Palavras-chave do cliente ── */
+.palavras-chave-lista { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.palavra-chave-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1e40af;
+}
+.btn-excluir-mini {
+  background: none;
+  border: none;
+  color: #1e40af;
+  opacity: .6;
+  cursor: pointer;
+  font-size: .75rem;
+  padding: 0 2px;
+}
+.btn-excluir-mini:hover { opacity: 1; color: #b91c1c; }
+.form-add-palavra { display: flex; gap: 8px; align-items: flex-start; }
+.form-add-palavra .campo { flex: 1; margin-bottom: 0; }
 
 /* ── Badges de status ── */
 .badge {
@@ -253,7 +277,16 @@ a:hover { text-decoration: underline; }
 /* ── Calendário ── */
 .nav-mes { display: flex; align-items: center; gap: 12px; }
 .mes-label { font-size: 1.1rem; font-weight: 600; min-width: 160px; text-align: center; }
-.calendario-wrap { overflow-x: auto; background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.07); }
+.calendario-wrap {
+  overflow-x: auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.07);
+  width: 60vw;
+  min-width: 760px;
+  max-width: 100%;
+  margin: 0 auto;
+}
 .calendario { width: 100%; border-collapse: collapse; }
 .calendario th {
   background: #1a1a2e;
@@ -267,26 +300,120 @@ a:hover { text-decoration: underline; }
   vertical-align: top;
   padding: 8px;
   border: 1px solid #f1f5f9;
-  min-width: 120px;
-  min-height: 90px;
+  min-width: 140px;
+  height: 130px;
 }
 .cel-vazia { background: #f8fafc; }
 .cel-com-evento { background: #eff6ff; }
-.num-dia { font-size: .8rem; color: #64748b; font-weight: 600; display: block; margin-bottom: 4px; }
-.eventos-dia { display: flex; flex-direction: column; gap: 3px; }
-.evento-pill {
+.num-dia {
+  font-size: .85rem;
+  color: #64748b;
+  font-weight: 600;
   display: block;
-  padding: 2px 6px;
+  text-align: center;
+  margin: 0 auto 6px;
+}
+.eventos-dia { display: flex; flex-direction: column; gap: 4px; overflow-y: auto; max-height: 95px; }
+.evento-pill {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 6px;
   border-radius: 4px;
   font-size: .72rem;
   font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+.evento-pill-topo { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.evento-hora { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.evento-recado-icon { font-size: .8rem; flex-shrink: 0; }
+.evento-orgao {
+  font-size: .68rem;
+  font-weight: 400;
+  opacity: .85;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.25;
 }
 .evento-pill:hover { text-decoration: none; opacity: .85; }
 .legenda-status { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; align-items: center; }
 .legenda-item { font-size: .8rem; }
+
+@media (max-width: 900px) {
+  .calendario-wrap { width: 100%; min-width: 0; }
+}
+
+/* ── Toggle Mensal / Semanal ── */
+.toggle-visao {
+  display: flex;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-right: 8px;
+}
+.toggle-btn {
+  padding: 7px 14px;
+  font-size: .83rem;
+  font-weight: 600;
+  color: #475569;
+  text-decoration: none;
+  background: #fff;
+}
+.toggle-btn:hover { background: #f1f5f9; text-decoration: none; }
+.toggle-btn.ativo { background: #1a1a2e; color: #fff; }
+
+/* ── Calendário — visão semanal ── */
+.semana-wrap {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 14px;
+  width: 100%;
+  margin: 0 auto;
+}
+.semana-coluna {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.07);
+  min-height: 560px;
+  display: flex;
+  flex-direction: column;
+}
+.semana-coluna-hoje { box-shadow: 0 0 0 2px #1a1a2e inset; }
+.semana-coluna-header {
+  background: #1a1a2e;
+  color: #fff;
+  border-radius: 10px 10px 0 0;
+  padding: 14px;
+  text-align: center;
+}
+.semana-dia-nome { display: block; font-size: .85rem; font-weight: 600; opacity: .85; }
+.semana-dia-num { display: block; font-size: 1.2rem; font-weight: 700; margin-top: 2px; }
+.semana-coluna-corpo {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+.semana-vazio { text-align: center; font-size: .82rem; margin-top: 16px; }
+.evento-card {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  border: 1px solid rgba(0,0,0,.06);
+}
+.evento-card:hover { text-decoration: none; opacity: .9; }
+.evento-card-topo { display: flex; align-items: center; justify-content: space-between; }
+.evento-card-hora { font-size: .88rem; font-weight: 700; }
+.evento-card-pregao { font-size: .86rem; font-weight: 600; }
+.evento-card-orgao { font-size: .78rem; opacity: .85; line-height: 1.3; }
+
+@media (max-width: 1000px) {
+  .semana-wrap { grid-template-columns: repeat(7, minmax(150px, 1fr)); overflow-x: auto; width: 100%; }
+}
 
 /* ── Modal ── */
 .modal {
@@ -400,3 +527,19 @@ small { font-size: .8rem; }
 .form-doc { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 .campo-check-nao-aplica { display: flex; align-items: center; gap: 6px; font-size: .85rem; }
 .input-file-doc { font-size: .83rem; }
+
+/* ── Obs. ao Cliente ── */
+.form-obs-cliente { display: flex; flex-direction: column; gap: 8px; }
+.form-obs-cliente textarea { width: 100%; resize: vertical; }
+
+/* ── Comentários ── */
+.form-comentario { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.form-comentario textarea { width: 100%; resize: vertical; }
+.comentario-lista { display: flex; flex-direction: column; gap: 12px; }
+.comentario-item {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.comentario-topo { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.comentario-texto { margin: 0; font-size: .9rem; white-space: pre-wrap; }

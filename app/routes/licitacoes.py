@@ -1,7 +1,9 @@
 from flask import (Blueprint, render_template, redirect, url_for,
                    request, flash, send_from_directory, abort, jsonify)
 from flask_login import login_required, current_user
-from app.models import Licitacao, Documento, ItemLicitacao, Cliente, STATUS_CHOICES, PORTAL_CHOICES
+from app.models import (Licitacao, Documento, ItemLicitacao, Cliente,
+                        STATUS_CHOICES, PORTAL_CHOICES, TIPOS_DOC_LICITACAO_UNICOS,
+                        ComentarioLicitacao)
 from app import db
 from datetime import datetime
 import os, uuid, requests
@@ -15,6 +17,59 @@ def _pode_ver(licitacao):
     if current_user.is_assessor():
         return True
     return licitacao.cliente_id == current_user.cliente_id
+
+
+def _salvar_arquivo(f, licitacao_id):
+    """Salva um arquivo enviado e retorna o caminho no disco."""
+    pasta = os.path.join(UPLOAD_FOLDER, str(licitacao_id))
+    os.makedirs(pasta, exist_ok=True)
+    ext = os.path.splitext(f.filename)[1]
+    nome_salvo = f"{uuid.uuid4().hex}{ext}"
+    caminho = os.path.join(pasta, nome_salvo)
+    f.save(caminho)
+    return caminho
+
+
+def _processar_uploads_form(lic_id):
+    """Le os arquivos do form (edital, termo_referencia, outros[]) e cria os Documentos.
+    Para edital/termo_referencia, substitui o arquivo anterior se houver um novo."""
+    # Slots unicos: edital, termo_referencia
+    for tipo in TIPOS_DOC_LICITACAO_UNICOS:
+        f = request.files.get(tipo)
+        if f and f.filename:
+            # remove o anterior desse tipo (slot unico, sempre o mais recente vale)
+            anterior = Documento.query.filter_by(licitacao_id=lic_id, tipo=tipo).all()
+            for doc_antigo in anterior:
+                try:
+                    os.remove(doc_antigo.caminho)
+                except FileNotFoundError:
+                    pass
+                db.session.delete(doc_antigo)
+            caminho = _salvar_arquivo(f, lic_id)
+            doc = Documento(
+                licitacao_id=lic_id,
+                tipo=tipo,
+                nome_original=f.filename,
+                caminho=caminho,
+                tamanho=os.path.getsize(caminho),
+                enviado_por=current_user.id,
+            )
+            db.session.add(doc)
+
+    # Lista livre: outros[] (varios arquivos, sem limite, nunca substitui)
+    for f in request.files.getlist("outros"):
+        if not f.filename:
+            continue
+        caminho = _salvar_arquivo(f, lic_id)
+        doc = Documento(
+            licitacao_id=lic_id,
+            tipo="outros",
+            nome_original=f.filename,
+            caminho=caminho,
+            tamanho=os.path.getsize(caminho),
+            enviado_por=current_user.id,
+        )
+        db.session.add(doc)
 
 
 # ─── Lista / painel (redireciona para main) ──────────────────────────────────
@@ -43,13 +98,17 @@ def nova():
             status="agendada",
             objeto=request.form.get("objeto", "").strip(),
             link_edital=request.form.get("link_edital", "").strip(),
+            obs_cliente=request.form.get("obs_cliente", "").strip(),
         )
         db.session.add(lic)
+        db.session.commit()
+        _processar_uploads_form(lic.id)
         db.session.commit()
         flash("Licitacao criada.", "ok")
         return redirect(url_for("lic.detalhe", id=lic.id))
     return render_template("form_licitacao.html", clientes=clientes,
-                           status_choices=STATUS_CHOICES, portal_choices=PORTAL_CHOICES, lic=None)
+                           status_choices=STATUS_CHOICES, portal_choices=PORTAL_CHOICES, lic=None,
+                           tipos_doc_unicos=TIPOS_DOC_LICITACAO_UNICOS, docs_existentes={})
 
 
 @lic_bp.route("/<int:id>")
@@ -83,11 +142,15 @@ def editar(id):
         lic.portal = request.form.get("portal", "").strip()
         lic.objeto = request.form.get("objeto", "").strip()
         lic.link_edital = request.form.get("link_edital", "").strip()
+        lic.obs_cliente = request.form.get("obs_cliente", "").strip()
+        _processar_uploads_form(lic.id)
         db.session.commit()
         flash("Licitacao atualizada.", "ok")
         return redirect(url_for("lic.detalhe", id=lic.id))
+    docs_existentes = {d.tipo: d for d in lic.documentos if d.tipo in TIPOS_DOC_LICITACAO_UNICOS}
     return render_template("form_licitacao.html", clientes=clientes,
-                           status_choices=STATUS_CHOICES, portal_choices=PORTAL_CHOICES, lic=lic)
+                           status_choices=STATUS_CHOICES, portal_choices=PORTAL_CHOICES, lic=lic,
+                           tipos_doc_unicos=TIPOS_DOC_LICITACAO_UNICOS, docs_existentes=docs_existentes)
 
 
 @lic_bp.route("/<int:id>/status", methods=["POST"])
@@ -104,6 +167,18 @@ def atualizar_status(id):
     return redirect(url_for("lic.detalhe", id=lic.id))
 
 
+@lic_bp.route("/<int:id>/obs-cliente", methods=["POST"])
+@login_required
+def atualizar_obs_cliente(id):
+    if not current_user.is_assessor():
+        abort(403)
+    lic = Licitacao.query.get_or_404(id)
+    lic.obs_cliente = request.form.get("obs_cliente", "").strip()
+    db.session.commit()
+    flash("Observação ao cliente atualizada.", "ok")
+    return redirect(url_for("lic.detalhe", id=lic.id))
+
+
 # ─── Documentos ──────────────────────────────────────────────────────────────
 
 @lic_bp.route("/<int:id>/upload", methods=["POST"])
@@ -113,17 +188,13 @@ def upload(id):
         abort(403)
     lic = Licitacao.query.get_or_404(id)
     arquivos = request.files.getlist("arquivos")
-    pasta = os.path.join(UPLOAD_FOLDER, str(id))
-    os.makedirs(pasta, exist_ok=True)
     for f in arquivos:
         if not f.filename:
             continue
-        ext = os.path.splitext(f.filename)[1]
-        nome_salvo = f"{uuid.uuid4().hex}{ext}"
-        caminho = os.path.join(pasta, nome_salvo)
-        f.save(caminho)
+        caminho = _salvar_arquivo(f, id)
         doc = Documento(
             licitacao_id=id,
+            tipo="outros",
             nome_original=f.filename,
             caminho=caminho,
             tamanho=os.path.getsize(caminho),
@@ -192,6 +263,7 @@ def adicionar_item(id):
     item = ItemLicitacao(
         licitacao_id=id,
         descricao=descricao,
+        marca=request.form.get("marca", "").strip(),
         lote_grupo=request.form.get("lote_grupo", "").strip(),
         valor_minimo=valor,
         unidade=request.form.get("unidade", "").strip(),
@@ -211,6 +283,7 @@ def editar_item(item_id):
     if not _pode_ver(lic):
         abort(403)
     item.descricao = request.form.get("descricao", item.descricao).strip()
+    item.marca = request.form.get("marca", "").strip()
     item.lote_grupo = request.form.get("lote_grupo", "").strip()
     item.unidade = request.form.get("unidade", "").strip()
     valor_str = request.form.get("valor_minimo", "").replace(",", ".")
@@ -239,7 +312,74 @@ def excluir_item(item_id):
     return redirect(url_for("lic.detalhe", id=lic_id))
 
 
+# ─── Comentários ──────────────────────────────────────────────────────────────
+
+@lic_bp.route("/<int:id>/comentar", methods=["POST"])
+@login_required
+def comentar(id):
+    lic = Licitacao.query.get_or_404(id)
+    if not _pode_ver(lic):
+        abort(403)
+    texto = request.form.get("texto", "").strip()
+    if not texto:
+        flash("Escreva algo antes de enviar.", "erro")
+        return redirect(url_for("lic.detalhe", id=id))
+    comentario = ComentarioLicitacao(
+        licitacao_id=id,
+        autor_id=current_user.id,
+        texto=texto,
+    )
+    db.session.add(comentario)
+    db.session.commit()
+    flash("Comentário enviado.", "ok")
+    return redirect(url_for("lic.detalhe", id=id))
+
+
 # ─── Resumo com IA ───────────────────────────────────────────────────────────
+
+# Extensoes de PDF sao enviadas como documento nativo para a API (ela le PDF
+# diretamente). As demais extensoes suportadas tem o texto extraido aqui no
+# servidor antes de ir para o prompt.
+EXTENSOES_TEXTO_SUPORTADAS = {".docx", ".xlsx", ".xlsm", ".csv", ".html", ".htm", ".txt"}
+
+
+def _montar_conteudo_resumo(lic):
+    """Monta a lista de blocos de conteudo (texto + documentos PDF nativos)
+    enviados a API, a partir dos documentos anexados a licitacao
+    (edital, termo_referencia, outros)."""
+    from app.doc_extractor import extrair_texto_documento, ler_pdf_base64
+
+    blocos = []
+    textos_extraidos = []
+    pdfs_anexados = 0
+    arquivos_ignorados = []
+
+    for doc in lic.documentos:
+        if doc.tipo not in ("edital", "termo_referencia", "outros"):
+            continue
+        ext = os.path.splitext(doc.nome_original)[1].lower()
+        if ext == ".pdf":
+            b64 = ler_pdf_base64(doc)
+            if b64:
+                blocos.append({
+                    "type": "document",
+                    "source": {"type": "base64", "media_type": "application/pdf", "data": b64},
+                    "title": doc.nome_original,
+                })
+                pdfs_anexados += 1
+            else:
+                arquivos_ignorados.append(doc.nome_original)
+        elif ext in EXTENSOES_TEXTO_SUPORTADAS:
+            texto = extrair_texto_documento(doc)
+            if texto:
+                textos_extraidos.append(f"\n--- Conteudo de {doc.nome_original} ---\n{texto}")
+            else:
+                arquivos_ignorados.append(doc.nome_original)
+        else:
+            arquivos_ignorados.append(doc.nome_original)
+
+    return blocos, "\n".join(textos_extraidos), pdfs_anexados, arquivos_ignorados
+
 
 @lic_bp.route("/<int:id>/resumo-ia", methods=["POST"])
 @login_required
@@ -248,41 +388,107 @@ def gerar_resumo(id):
         abort(403)
     lic = Licitacao.query.get_or_404(id)
 
-    texto_base = f"""
-Orgao: {lic.orgao_licitante}
-Pregao: {lic.numero_pregao}
-UASG: {lic.uasg or 'nao informado'}
-Portal: {lic.portal or 'nao informado'}
-Data da disputa: {lic.data_disputa.strftime('%d/%m/%Y %H:%M') if lic.data_disputa else 'nao informada'}
-Objeto: {lic.objeto or 'nao informado'}
-Link do edital: {lic.link_edital or 'nao informado'}
-Itens:
-"""
-    for item in lic.itens:
-        texto_base += f"- {item.descricao} | Lote/Grupo: {item.lote_grupo or '-'} | Qtd: {item.quantidade or '-'} {item.unidade or ''}\n"
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        flash("Chave de API da Anthropic não configurada no servidor. Avise o suporte técnico.", "erro")
+        return redirect(url_for("lic.detalhe", id=id))
 
-    prompt = f"""Voce e um especialista em licitacoes publicas brasileiras.
-Com base nas informacoes abaixo, gere um resumo executivo claro e objetivo da oportunidade para o cliente.
-Destaque: objeto do pregao, data e horario da disputa, prazo estimado de entrega (se possivel inferir), 
-prazo de pagamento (se disponivel), se ha lotes ou grupos, pontos de atencao e proximo passo recomendado.
-Escreva em portugues, de forma direta, em no maximo 250 palavras.
+    palavras_chave = [p.palavra for p in lic.cliente.palavras_chave] if lic.cliente else []
 
-{texto_base}
-"""
+    blocos_documento, texto_extraido, pdfs_anexados, arquivos_ignorados = _montar_conteudo_resumo(lic)
+
+    if not blocos_documento and not texto_extraido:
+        flash("Nenhum documento legível foi encontrado (Edital, Termo de Referência ou Outros). "
+              "Anexe ao menos um arquivo PDF, DOCX, XLSX, CSV ou HTML antes de gerar o resumo.", "erro")
+        return redirect(url_for("lic.detalhe", id=id))
+
+    itens_cadastrados = "\n".join(
+        f"- {item.descricao} | Marca: {item.marca or '-'} | Lote/Grupo: {item.lote_grupo or '-'} | "
+        f"Qtd: {item.quantidade or '-'} {item.unidade or ''} | Valor mínimo: "
+        f"{('R$ ' + str(item.valor_minimo)) if item.valor_minimo else 'não informado'}"
+        for item in lic.itens
+    ) or "Nenhum item cadastrado manualmente no sistema."
+
+    palavras_txt = ", ".join(palavras_chave) if palavras_chave else "(nenhuma palavra-chave cadastrada para este cliente)"
+
+    instrucoes = f"""Você é um especialista em licitações públicas brasileiras, ajudando uma consultoria a
+analisar uma oportunidade para seu cliente.
+
+DADOS DO PROCESSO (cadastrados no sistema):
+Órgão: {lic.orgao_licitante}
+Pregão: {lic.numero_pregao}
+UASG: {lic.uasg or 'não informado'}
+Portal: {lic.portal or 'não informado'}
+Data da disputa: {lic.data_disputa.strftime('%d/%m/%Y %H:%M') if lic.data_disputa else 'não informada'}
+Objeto (cadastrado): {lic.objeto or 'não informado'}
+
+ITENS CADASTRADOS MANUALMENTE NO SISTEMA (podem ser parciais ou estar ausentes):
+{itens_cadastrados}
+
+PALAVRAS-CHAVE DE INTERESSE DESTE CLIENTE:
+{palavras_txt}
+
+Os documentos anexados (edital, termo de referência e/ou outros arquivos) estão inclusos abaixo
+ou em anexo a esta mensagem. Leia-os com atenção e produza um resumo executivo em português,
+direto e objetivo, com EXATAMENTE estas seções, usando estes títulos:
+
+## Itens Relacionados ao Interesse do Cliente
+Liste apenas os itens/lotes do edital ou termo de referência cuja DESCRIÇÃO contenha (mesmo que
+parcialmente ou com sinônimo próximo) alguma das palavras-chave de interesse listadas acima.
+Para cada item relacionado, informe: descrição, número do item/lote, quantidade e valor estimado
+(se disponível no documento). Se nenhuma palavra-chave foi cadastrada para este cliente, ou se
+nenhum item corresponder, diga isso explicitamente nesta seção.
+
+## Modo de Disputa
+Informe o modo de disputa (ex: aberto, fechado, aberto e fechado, menor preço, melhor técnica etc.),
+se ha lotes/grupos ou itens isolados, e qualquer regra relevante de julgamento encontrada no edital.
+
+## Prazo de Pagamento
+Informe o prazo de pagamento ao fornecedor descrito no edital/termo de referência (ex: "30 dias após
+liquidação da nota fiscal"). Se não encontrar essa informação no documento, diga isso explicitamente.
+
+## Requisitos de Habilitação e Qualificação Técnica
+Resuma os principais requisitos de habilitação/qualificação técnica exigidos (atestados de capacidade
+técnica, registros, certidões específicas, patrimônio mínimo etc.) que sejam relevantes para a decisão
+de participar.
+
+## Pontos de Atenção
+Quaisquer prazos, riscos ou exigências que mereçam atenção especial do cliente ou do assessor.
+
+Seja direto, use bullet points quando fizer sentido, e NÃO invente informação que não esteja nos
+documentos ou dados acima — se não encontrar algo, diga que não foi encontrado no documento."""
+
+    if texto_extraido:
+        instrucoes += f"\n\n--- TEXTO EXTRAÍDO DOS DOCUMENTOS ANEXADOS (não-PDF) ---\n{texto_extraido}"
+
+    conteudo_mensagem = blocos_documento + [{"type": "text", "text": instrucoes}]
 
     try:
         resp = requests.post(
             "https://api.anthropic.com/v1/messages",
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+            },
             json={
                 "model": "claude-sonnet-4-6",
-                "max_tokens": 600,
-                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 1500,
+                "messages": [{"role": "user", "content": conteudo_mensagem}],
             },
-            timeout=30,
+            timeout=90,
         )
         data = resp.json()
-        resumo = data["content"][0]["text"]
+        if resp.status_code != 200:
+            erro_msg = data.get("error", {}).get("message", str(data))
+            resumo = f"Erro ao gerar resumo (HTTP {resp.status_code}): {erro_msg}"
+        else:
+            resumo = "".join(
+                bloco.get("text", "") for bloco in data.get("content", []) if bloco.get("type") == "text"
+            )
+            if arquivos_ignorados:
+                resumo += ("\n\n---\n*Observação: os seguintes arquivos não puderam ser lidos e foram "
+                          f"ignorados nesta análise: {', '.join(arquivos_ignorados)}.*")
     except Exception as e:
         resumo = f"Erro ao gerar resumo: {str(e)}"
 

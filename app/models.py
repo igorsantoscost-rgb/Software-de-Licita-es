@@ -24,6 +24,16 @@ class Cliente(db.Model):
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
     usuarios = db.relationship("User", backref="cliente", lazy=True, foreign_keys=[User.cliente_id])
     licitacoes = db.relationship("Licitacao", backref="cliente", lazy=True)
+    palavras_chave = db.relationship("PalavraChaveCliente", backref="cliente", lazy=True,
+                                     cascade="all, delete-orphan", order_by="PalavraChaveCliente.palavra")
+
+
+class PalavraChaveCliente(db.Model):
+    __tablename__ = "palavras_chave_cliente"
+    id = db.Column(db.Integer, primary_key=True)
+    cliente_id = db.Column(db.Integer, db.ForeignKey("clientes.id"), nullable=False)
+    palavra = db.Column(db.String(150), nullable=False)
+    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 STATUS_CHOICES = [
@@ -58,6 +68,7 @@ class Licitacao(db.Model):
     status = db.Column(db.String(30), nullable=False, default="agendada")
     objeto = db.Column(db.Text, nullable=True)
     link_edital = db.Column(db.String(500), nullable=True)
+    obs_cliente = db.Column(db.Text, nullable=True)
     resumo_ia = db.Column(db.Text, nullable=True)
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
     atualizado_em = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -70,11 +81,20 @@ class Documento(db.Model):
     __tablename__ = "documentos"
     id = db.Column(db.Integer, primary_key=True)
     licitacao_id = db.Column(db.Integer, db.ForeignKey("licitacoes.id"), nullable=False)
+    tipo = db.Column(db.String(30), nullable=False, default="outros")  # edital | termo_referencia | outros
     nome_original = db.Column(db.String(300), nullable=False)
     caminho = db.Column(db.String(500), nullable=False)
     tamanho = db.Column(db.Integer, nullable=True)
     enviado_por = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+# Tipos de documento da licitação que tem um slot fixo no formulário
+# (apenas 1 arquivo cada, pode ser substituido). "outros" e a lista livre.
+TIPOS_DOC_LICITACAO_UNICOS = {
+    "edital": "Edital",
+    "termo_referencia": "Termo de Referência",
+}
 
 
 # Documentos organizados por setor.
@@ -148,8 +168,21 @@ class ItemLicitacao(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     licitacao_id = db.Column(db.Integer, db.ForeignKey("licitacoes.id"), nullable=False)
     descricao = db.Column(db.String(500), nullable=False)
+    marca = db.Column(db.String(200), nullable=True)
     lote_grupo = db.Column(db.String(100), nullable=True)
     valor_minimo = db.Column(db.Numeric(14, 2), nullable=True)
     unidade = db.Column(db.String(50), nullable=True)
     quantidade = db.Column(db.Integer, nullable=True)
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class ComentarioLicitacao(db.Model):
+    __tablename__ = "comentarios_licitacao"
+    id = db.Column(db.Integer, primary_key=True)
+    licitacao_id = db.Column(db.Integer, db.ForeignKey("licitacoes.id"), nullable=False)
+    autor_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    texto = db.Column(db.Text, nullable=False)
+    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+
+    licitacao = db.relationship("Licitacao", backref=db.backref("comentarios", lazy=True, order_by="ComentarioLicitacao.criado_em", cascade="all, delete-orphan"))
+    autor = db.relationship("User")

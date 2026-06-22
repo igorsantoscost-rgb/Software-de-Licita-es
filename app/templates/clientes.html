@@ -19,7 +19,10 @@
         <td>{{ c.nome }}</td>
         <td>{{ c.cnpj or '—' }}</td>
         <td>{{ c.criado_em.strftime('%d/%m/%Y') }}</td>
-        <td><a href="{{ url_for('docs.documentos', cliente_id=c.id) }}" class="btn btn-sm">📁 Documentos</a></td>
+        <td>
+          <a href="{{ url_for('main.editar_cliente', id=c.id) }}" class="btn btn-sm">✏️ Editar</a>
+          <a href="{{ url_for('docs.documentos', cliente_id=c.id) }}" class="btn btn-sm">📁 Documentos</a>
+        </td>
       </tr>
       {% endfor %}
     </tbody>
