@@ -10,8 +10,15 @@
     <p class="muted">Pregão {{ lic.numero_pregao }}{% if lic.uasg %} · UASG {{ lic.uasg }}{% endif %}{% if lic.portal %} · {{ lic.portal }}{% endif %}</p>
   </div>
   <div class="acoes-header">
-    <span class="badge badge-lg status-{{ lic.status|replace(' ', '-') }}">{{ lic.status|title }}</span>
     {% if current_user.is_assessor() %}
+    <form method="POST" action="{{ url_for('lic.atualizar_status', id=lic.id) }}" id="form-status" class="form-status-compacto">
+      <select name="status" id="select-status" class="select select-status-compacto status-{{ lic.status|replace(' ', '-') }}">
+        {% for s in status_choices %}
+        <option value="{{ s }}" {% if lic.status == s %}selected{% endif %}>{{ s|title }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-sm btn-primary">Salvar Status</button>
+    </form>
     <a href="{{ url_for('lic.editar', id=lic.id) }}" class="btn btn-sm">Editar</a>
     <form method="POST" action="{{ url_for('lic.excluir', id=lic.id) }}" class="form-inline">
       <button type="submit" class="btn btn-sm btn-excluir-licitacao"
@@ -19,9 +26,25 @@
         Excluir
       </button>
     </form>
+    {% else %}
+    <span class="badge badge-lg status-{{ lic.status|replace(' ', '-') }}">{{ lic.status|title }}</span>
     {% endif %}
   </div>
 </div>
+
+{% if current_user.is_assessor() %}
+<div class="campo campo-condicional campo-condicional-header" id="campo-valor-homologado" style="display: none;">
+  <label>Valor Total Homologado (R$) *</label>
+  <input type="text" name="valor_homologado" form="form-status" placeholder="0,00"
+         value="{{ lic.valor_homologado or '' }}">
+</div>
+
+<div class="campo campo-condicional campo-condicional-header" id="campo-motivo-encerramento" style="display: none;">
+  <label>Motivo do Encerramento *</label>
+  <input type="text" name="motivo_encerramento" form="form-status" placeholder="Ex: 2º colocado"
+         value="{{ lic.motivo_encerramento or '' }}">
+</div>
+{% endif %}
 
 <div class="grid-4">
 
@@ -184,34 +207,6 @@
 
   <!-- Coluna do meio -->
   <div>
-
-    <!-- Alterar status (assessor) -->
-    {% if current_user.is_assessor() %}
-    <div class="card">
-      <h3>Atualizar Status</h3>
-      <form method="POST" action="{{ url_for('lic.atualizar_status', id=lic.id) }}" id="form-status" class="form-status">
-        <select name="status" id="select-status" class="select">
-          {% for s in status_choices %}
-          <option value="{{ s }}" {% if lic.status == s %}selected{% endif %}>{{ s|title }}</option>
-          {% endfor %}
-        </select>
-
-        <div class="campo campo-condicional" id="campo-valor-homologado" style="display: none;">
-          <label>Valor Total Homologado (R$) *</label>
-          <input type="text" name="valor_homologado" placeholder="0,00"
-                 value="{{ lic.valor_homologado or '' }}">
-        </div>
-
-        <div class="campo campo-condicional" id="campo-motivo-encerramento" style="display: none;">
-          <label>Motivo do Encerramento *</label>
-          <input type="text" name="motivo_encerramento" placeholder="Ex: 2º colocado"
-                 value="{{ lic.motivo_encerramento or '' }}">
-        </div>
-
-        <button type="submit" class="btn btn-primary">Salvar</button>
-      </form>
-    </div>
-    {% endif %}
 
     <!-- Documentos -->
     <div class="card">

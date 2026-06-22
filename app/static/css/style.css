@@ -59,7 +59,20 @@ a:hover { text-decoration: underline; }
 }
 .page-header h2 { font-size: 1.5rem; font-weight: 700; }
 .voltar { display: block; color: #64748b; font-size: .85rem; margin-bottom: 4px; }
-.acoes-header { display: flex; align-items: center; gap: 10px; }
+.acoes-header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.form-status-compacto { display: inline-flex; align-items: center; gap: 8px; }
+.select-status-compacto {
+  font-weight: 600;
+  font-size: .85rem;
+  padding: 7px 10px;
+  min-width: 150px;
+}
+
+/* Campos condicionais (valor homologado / motivo encerramento) soltos no topo da pagina */
+.campo-condicional-header {
+  max-width: 320px;
+  margin-bottom: 16px;
+}
 
 /* ── Botões ── */
 .btn {
@@ -223,7 +236,7 @@ a:hover { text-decoration: underline; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; }
 @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
 
-.grid-4 { display: grid; grid-template-columns: 0.8fr 1.1fr 1.1fr 0.85fr; gap: 0 24px; align-items: start; }
+.grid-4 { display: grid; grid-template-columns: 0.8fr 1.1fr 0.9fr 1.05fr; gap: 0 24px; align-items: start; }
 @media (max-width: 1300px) { .grid-4 { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 768px) { .grid-4 { grid-template-columns: 1fr; } }
 
