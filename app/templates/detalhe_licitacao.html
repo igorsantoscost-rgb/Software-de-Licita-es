@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block titulo %}{{ lic.numero_pregao }} — Licitação{% endblock %}
+{% block main_classe %}container-full{% endblock %}
 {% block conteudo %}
 
 <div class="page-header">
@@ -16,7 +17,7 @@
   </div>
 </div>
 
-<div class="grid-2">
+<div class="grid-3">
 
   <!-- Coluna esquerda -->
   <div>
@@ -149,7 +150,7 @@
 
   </div>
 
-  <!-- Coluna direita -->
+  <!-- Coluna do meio -->
   <div>
 
     <!-- Alterar status (assessor) -->
@@ -203,6 +204,11 @@
       {% endif %}
     </div>
 
+  </div>
+
+  <!-- Coluna direita: Comentários -->
+  <div>
+
     <!-- Comentarios -->
     <div class="card">
       <h3>Comentários</h3>
@@ -231,7 +237,7 @@
   </div>
 </div>
 
-<!-- Resumo IA — card de largura cheia, fora do grid de 2 colunas -->
+<!-- Resumo IA — card de largura cheia, fora do grid de 3 colunas -->
 <div class="card card-resumo-ia">
   <div class="card-header-row">
     <h3>Resumo da Oportunidade</h3>
