@@ -236,7 +236,7 @@ a:hover { text-decoration: underline; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; }
 @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
 
-.grid-4 { display: grid; grid-template-columns: 0.8fr 1.1fr 0.9fr 1.05fr; gap: 0 24px; align-items: start; }
+.grid-4 { display: grid; grid-template-columns: 0.85fr 1fr 0.65fr 1.35fr; gap: 0 24px; align-items: start; }
 @media (max-width: 1300px) { .grid-4 { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 768px) { .grid-4 { grid-template-columns: 1fr; } }
 
