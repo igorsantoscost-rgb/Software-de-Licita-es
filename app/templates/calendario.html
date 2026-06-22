@@ -5,6 +5,10 @@
 <div class="page-header">
   <h2>Calendário de Disputas</h2>
   <div class="nav-mes">
+    <div class="toggle-visao">
+      <a href="{{ url_for('main.calendario', mes=mes, ano=ano) }}" class="toggle-btn ativo">Mensal</a>
+      <a href="{{ url_for('main.calendario_semana') }}" class="toggle-btn">Semanal</a>
+    </div>
     <a href="{{ url_for('main.calendario', mes=mes-1, ano=ano) }}" class="btn btn-sm">← Anterior</a>
     <strong class="mes-label">{{ nome_mes }} {{ ano }}</strong>
     <a href="{{ url_for('main.calendario', mes=mes+1, ano=ano) }}" class="btn btn-sm">Próximo →</a>
@@ -35,7 +39,11 @@
           <div class="eventos-dia">
             {% for l in eventos[dia_date.d] %}
             <a href="{{ url_for('lic.detalhe', id=l.id) }}" class="evento-pill status-{{ l.status|replace(' ', '-') }}">
-              {{ l.data_disputa.strftime('%H:%M') }} {{ l.numero_pregao }}
+              <span class="evento-pill-topo">
+                <span class="evento-hora">{{ l.data_disputa.strftime('%H:%M') }} {{ l.numero_pregao }}</span>
+                {% if l.obs_cliente %}<span class="evento-recado-icon" title="Tem recado para o cliente">💬</span>{% endif %}
+              </span>
+              <span class="evento-orgao">{{ l.orgao_licitante }}</span>
             </a>
             {% endfor %}
           </div>

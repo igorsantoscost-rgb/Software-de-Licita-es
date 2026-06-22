@@ -4,6 +4,7 @@ document.querySelectorAll('.btn-editar-item').forEach(btn => {
     const id = btn.dataset.id;
     document.getElementById('edit-id').value = id;
     document.getElementById('edit-descricao').value = btn.dataset.descricao;
+    document.getElementById('edit-marca').value = btn.dataset.marca;
     document.getElementById('edit-lote').value = btn.dataset.lote;
     document.getElementById('edit-qtd').value = btn.dataset.qtd;
     document.getElementById('edit-un').value = btn.dataset.un;

@@ -7,7 +7,7 @@
 </div>
 
 <div class="card card-form">
-  <form method="POST">
+  <form method="POST" enctype="multipart/form-data">
 
     <div class="campo">
       <label>Cliente *</label>
@@ -60,6 +60,45 @@
     <div class="campo">
       <label>Link do Edital</label>
       <input type="url" name="link_edital" value="{{ lic.link_edital if lic else '' }}" placeholder="https://...">
+    </div>
+
+    <div class="campo">
+      <label>Obs. ao Cliente</label>
+      <textarea name="obs_cliente" rows="2" placeholder="Recado rapido que vai aparecer no card desta licitacao no calendario...">{{ lic.obs_cliente if lic else '' }}</textarea>
+      <small class="muted">Aparece como um aviso no card do calendário de disputas.</small>
+    </div>
+
+    <div class="campo">
+      <label>Documentos da Licitação</label>
+    </div>
+
+    <div class="campo-row">
+      <div class="campo">
+        <label>Edital (arquivo)</label>
+        <input type="file" name="edital" class="input-file-doc">
+        {% if docs_existentes.get('edital') %}
+        <small class="muted">Atual: {{ docs_existentes['edital'].nome_original }} — escolher outro arquivo substitui este.</small>
+        {% endif %}
+      </div>
+      <div class="campo">
+        <label>Termo de Referência (arquivo)</label>
+        <input type="file" name="termo_referencia" class="input-file-doc">
+        {% if docs_existentes.get('termo_referencia') %}
+        <small class="muted">Atual: {{ docs_existentes['termo_referencia'].nome_original }} — escolher outro arquivo substitui este.</small>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="campo">
+      <label>Outros Arquivos</label>
+      <input type="file" name="outros" class="input-file-doc" multiple>
+      <small class="muted">Pode selecionar vários arquivos de uma vez. Cada envio aqui se soma aos já enviados (não substitui).</small>
+      {% if lic %}
+      {% set outros = lic.documentos|selectattr('tipo', 'equalto', 'outros')|list %}
+      {% if outros %}
+      <small class="muted">Já enviados: {{ outros|map(attribute='nome_original')|join(', ') }}</small>
+      {% endif %}
+      {% endif %}
     </div>
 
     <div class="form-btns">

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block titulo %}Calendário — Licitações{% endblock %}
+{% block main_classe %}container-full{% endblock %}
+{% block conteudo %}
+
+<div class="page-header">
+  <h2>Calendário de Disputas</h2>
+  <div class="nav-mes">
+    <div class="toggle-visao">
+      <a href="{{ url_for('main.calendario') }}" class="toggle-btn">Mensal</a>
+      <a href="{{ url_for('main.calendario_semana', inicio=inicio.isoformat()) }}" class="toggle-btn ativo">Semanal</a>
+    </div>
+    <a href="{{ url_for('main.calendario_semana', inicio=semana_anterior.isoformat()) }}" class="btn btn-sm">← Anterior</a>
+    <strong class="mes-label">
+      {{ inicio.day }} {{ nomes_meses_curto[inicio.month] }} – {{ fim.day }} {{ nomes_meses_curto[fim.month] }} {{ fim.year }}
+    </strong>
+    <a href="{{ url_for('main.calendario_semana', inicio=semana_seguinte.isoformat()) }}" class="btn btn-sm">Próximo →</a>
+  </div>
+</div>
+
+<div class="semana-wrap">
+  {% for dia in dias_semana %}
+  <div class="semana-coluna {% if dia == hoje %}semana-coluna-hoje{% endif %}">
+    <div class="semana-coluna-header">
+      <span class="semana-dia-nome">{{ ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][(dia.weekday()+1) % 7] }}</span>
+      <span class="semana-dia-num">{{ dia.day }}/{{ dia.month }}</span>
+    </div>
+    <div class="semana-coluna-corpo">
+      {% if dia in eventos %}
+        {% for l in eventos[dia] %}
+        <a href="{{ url_for('lic.detalhe', id=l.id) }}" class="evento-card status-{{ l.status|replace(' ', '-') }}">
+          <div class="evento-card-topo">
+            <span class="evento-card-hora">{{ l.data_disputa.strftime('%H:%M') }}</span>
+            {% if l.obs_cliente %}<span class="evento-recado-icon" title="Tem recado para o cliente">💬</span>{% endif %}
+          </div>
+          <div class="evento-card-pregao">{{ l.numero_pregao }}</div>
+          <div class="evento-card-orgao">{{ l.orgao_licitante }}</div>
+        </a>
+        {% endfor %}
+      {% else %}
+      <p class="muted semana-vazio">Sem disputas</p>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="legenda-status">
+  {% for s in ['agendada', 'em disputa', 'em julgamento', 'em habilitacao', 'homologada', 'revogada', 'cancelada'] %}
+  <span class="legenda-item"><span class="badge status-{{ s|replace(' ', '-') }}">{{ s|title }}</span></span>
+  {% endfor %}
+</div>
+
+{% endblock %}

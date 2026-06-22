@@ -41,9 +41,50 @@ def create_app():
 
     with app.app_context():
         db.create_all()
+        _migrar_coluna_tipo_documento()
         _seed_admin(app)
 
     return app
+
+
+def _migrar_coluna_tipo_documento():
+    """Adiciona colunas novas se o banco for de uma versao anterior."""
+    from sqlalchemy import text
+    try:
+        with db.engine.connect() as conn:
+            resultado = conn.execute(text("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'documentos' AND column_name = 'tipo'
+            """))
+            if resultado.first() is None:
+                conn.execute(text(
+                    "ALTER TABLE documentos ADD COLUMN tipo VARCHAR(30) NOT NULL DEFAULT 'outros'"
+                ))
+                conn.commit()
+
+            resultado2 = conn.execute(text("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'licitacoes' AND column_name = 'obs_cliente'
+            """))
+            if resultado2.first() is None:
+                conn.execute(text(
+                    "ALTER TABLE licitacoes ADD COLUMN obs_cliente TEXT"
+                ))
+                conn.commit()
+
+            resultado3 = conn.execute(text("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'itens_licitacao' AND column_name = 'marca'
+            """))
+            if resultado3.first() is None:
+                conn.execute(text(
+                    "ALTER TABLE itens_licitacao ADD COLUMN marca VARCHAR(200)"
+                ))
+                conn.commit()
+    except Exception:
+        # Se for sqlite ou outro banco sem information_schema, ignora
+        # (db.create_all() ja cobre o caso de banco novo/vazio).
+        pass
 
 def _seed_admin(app):
     from app.models import User

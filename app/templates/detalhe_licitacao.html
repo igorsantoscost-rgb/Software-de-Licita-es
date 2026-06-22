@@ -44,77 +44,26 @@
       {% endif %}
     </div>
 
-    <!-- Alterar status (assessor) -->
-    {% if current_user.is_assessor() %}
+    <!-- Obs. ao Cliente -->
     <div class="card">
-      <h3>Atualizar Status</h3>
-      <form method="POST" action="{{ url_for('lic.atualizar_status', id=lic.id) }}" class="form-inline">
-        <select name="status" class="select">
-          {% for s in status_choices %}
-          <option value="{{ s }}" {% if lic.status == s %}selected{% endif %}>{{ s|title }}</option>
-          {% endfor %}
-        </select>
-        <button type="submit" class="btn btn-primary">Salvar</button>
-      </form>
-    </div>
-    {% endif %}
-
-    <!-- Resumo IA -->
-    <div class="card">
-      <div class="card-header-row">
-        <h3>Resumo da Oportunidade</h3>
-        {% if current_user.is_assessor() %}
-        <form method="POST" action="{{ url_for('lic.gerar_resumo', id=lic.id) }}">
-          <button type="submit" class="btn btn-sm btn-ia">✨ Gerar com IA</button>
-        </form>
-        {% endif %}
-      </div>
-      {% if lic.resumo_ia %}
-      <div class="resumo-ia">{{ lic.resumo_ia }}</div>
-      {% else %}
-      <p class="muted">Nenhum resumo gerado ainda.{% if current_user.is_assessor() %} Clique em "Gerar com IA" para criar.{% endif %}</p>
-      {% endif %}
-    </div>
-
-  </div>
-
-  <!-- Coluna direita -->
-  <div>
-
-    <!-- Documentos -->
-    <div class="card">
-      <h3>Documentos</h3>
+      <h3>Obs. ao Cliente</h3>
       {% if current_user.is_assessor() %}
-      <form method="POST" action="{{ url_for('lic.upload', id=lic.id) }}" enctype="multipart/form-data" class="upload-form">
-        <input type="file" name="arquivos" multiple class="input-file" id="input-file">
-        <label for="input-file" class="btn btn-upload">📎 Selecionar arquivos</label>
-        <button type="submit" class="btn btn-primary btn-sm">Enviar</button>
+      <form method="POST" action="{{ url_for('lic.atualizar_obs_cliente', id=lic.id) }}" class="form-obs-cliente">
+        <textarea name="obs_cliente" rows="2" placeholder="Recado rapido que aparece no card desta licitacao no calendario...">{{ lic.obs_cliente or '' }}</textarea>
+        <button type="submit" class="btn btn-primary btn-sm">Salvar</button>
       </form>
-      {% endif %}
-
-      {% if lic.documentos %}
-      <ul class="doc-lista">
-        {% for doc in lic.documentos %}
-        <li class="doc-item">
-          <span class="doc-icon">📄</span>
-          <a href="{{ url_for('lic.download_doc', doc_id=doc.id) }}" class="doc-nome">{{ doc.nome_original }}</a>
-          <span class="doc-tamanho muted">{{ (doc.tamanho / 1024)|round(1) }} KB</span>
-          {% if current_user.is_assessor() %}
-          <form method="POST" action="{{ url_for('lic.excluir_doc', doc_id=doc.id) }}" class="form-inline">
-            <button type="submit" class="btn-excluir" onclick="return confirm('Excluir documento?')">✕</button>
-          </form>
-          {% endif %}
-        </li>
-        {% endfor %}
-      </ul>
       {% else %}
-      <p class="muted">Nenhum documento enviado.</p>
+        {% if lic.obs_cliente %}
+        <p>{{ lic.obs_cliente }}</p>
+        {% else %}
+        <p class="muted">Nenhuma observação registrada.</p>
+        {% endif %}
       {% endif %}
     </div>
 
-    <!-- Itens / Lotes -->
+    <!-- Parametros da Disputa (ex Itens / Lotes) -->
     <div class="card">
-      <h3>Itens / Lotes</h3>
+      <h3>Parâmetros da Disputa</h3>
       <p class="muted-sm">Preencha os valores mínimos para orientar a disputa.</p>
 
       {% if lic.itens %}
@@ -122,6 +71,7 @@
         <thead>
           <tr>
             <th>Descrição</th>
+            <th>Marca</th>
             <th>Lote/Grupo</th>
             <th>Qtd</th>
             <th>Un.</th>
@@ -133,6 +83,7 @@
           {% for item in lic.itens %}
           <tr>
             <td>{{ item.descricao }}</td>
+            <td>{{ item.marca or '—' }}</td>
             <td>{{ item.lote_grupo or '—' }}</td>
             <td>{{ item.quantidade or '—' }}</td>
             <td>{{ item.unidade or '—' }}</td>
@@ -144,6 +95,7 @@
             <td>
               <button class="btn-editar-item btn btn-sm" data-id="{{ item.id }}"
                 data-descricao="{{ item.descricao }}"
+                data-marca="{{ item.marca or '' }}"
                 data-lote="{{ item.lote_grupo or '' }}"
                 data-qtd="{{ item.quantidade or '' }}"
                 data-un="{{ item.unidade or '' }}"
@@ -168,9 +120,15 @@
           </div>
           <div class="campo-row">
             <div class="campo">
+              <label>Marca</label>
+              <input type="text" name="marca" placeholder="Ex: Chamex">
+            </div>
+            <div class="campo">
               <label>Lote/Grupo</label>
               <input type="text" name="lote_grupo" placeholder="Ex: Lote 1">
             </div>
+          </div>
+          <div class="campo-row">
             <div class="campo">
               <label>Qtd</label>
               <input type="number" name="quantidade" placeholder="100">
@@ -190,6 +148,104 @@
     </div>
 
   </div>
+
+  <!-- Coluna direita -->
+  <div>
+
+    <!-- Alterar status (assessor) -->
+    {% if current_user.is_assessor() %}
+    <div class="card">
+      <h3>Atualizar Status</h3>
+      <form method="POST" action="{{ url_for('lic.atualizar_status', id=lic.id) }}" class="form-inline">
+        <select name="status" class="select">
+          {% for s in status_choices %}
+          <option value="{{ s }}" {% if lic.status == s %}selected{% endif %}>{{ s|title }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-primary">Salvar</button>
+      </form>
+    </div>
+    {% endif %}
+
+    <!-- Documentos -->
+    <div class="card">
+      <h3>Documentos</h3>
+      {% if current_user.is_assessor() %}
+      <form method="POST" action="{{ url_for('lic.upload', id=lic.id) }}" enctype="multipart/form-data" class="upload-form">
+        <input type="file" name="arquivos" multiple class="input-file" id="input-file">
+        <label for="input-file" class="btn btn-upload">📎 Selecionar arquivos</label>
+        <button type="submit" class="btn btn-primary btn-sm">Enviar</button>
+      </form>
+      {% endif %}
+
+      {% if lic.documentos %}
+      <ul class="doc-lista">
+        {% for doc in lic.documentos %}
+        <li class="doc-item">
+          <span class="doc-icon">📄</span>
+          <a href="{{ url_for('lic.download_doc', doc_id=doc.id) }}" class="doc-nome">{{ doc.nome_original }}</a>
+          {% if doc.tipo == 'edital' %}
+          <span class="filtro-pill">Edital</span>
+          {% elif doc.tipo == 'termo_referencia' %}
+          <span class="filtro-pill">Termo de Referência</span>
+          {% endif %}
+          <span class="doc-tamanho muted">{{ (doc.tamanho / 1024)|round(1) }} KB</span>
+          {% if current_user.is_assessor() %}
+          <form method="POST" action="{{ url_for('lic.excluir_doc', doc_id=doc.id) }}" class="form-inline">
+            <button type="submit" class="btn-excluir" onclick="return confirm('Excluir documento?')">✕</button>
+          </form>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">Nenhum documento enviado.</p>
+      {% endif %}
+    </div>
+
+    <!-- Comentarios -->
+    <div class="card">
+      <h3>Comentários</h3>
+      <form method="POST" action="{{ url_for('lic.comentar', id=lic.id) }}" class="form-comentario">
+        <textarea name="texto" rows="2" placeholder="Escreva um comentário..." required></textarea>
+        <button type="submit" class="btn btn-primary btn-sm">Enviar</button>
+      </form>
+
+      {% if lic.comentarios %}
+      <ul class="comentario-lista">
+        {% for c in lic.comentarios %}
+        <li class="comentario-item">
+          <div class="comentario-topo">
+            <strong>{{ c.autor.nome }}</strong>
+            <span class="muted small">{{ c.criado_em.strftime('%d/%m/%Y às %H:%M') }}</span>
+          </div>
+          <p class="comentario-texto">{{ c.texto }}</p>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">Nenhum comentário ainda.</p>
+      {% endif %}
+    </div>
+
+    <!-- Resumo IA -->
+    <div class="card">
+      <div class="card-header-row">
+        <h3>Resumo da Oportunidade</h3>
+        {% if current_user.is_assessor() %}
+        <form method="POST" action="{{ url_for('lic.gerar_resumo', id=lic.id) }}">
+          <button type="submit" class="btn btn-sm btn-ia">✨ Gerar com IA</button>
+        </form>
+        {% endif %}
+      </div>
+      {% if lic.resumo_ia %}
+      <div class="resumo-ia">{{ lic.resumo_ia }}</div>
+      {% else %}
+      <p class="muted">Nenhum resumo gerado ainda.{% if current_user.is_assessor() %} Clique em "Gerar com IA" para criar.{% endif %}</p>
+      {% endif %}
+    </div>
+
+  </div>
 </div>
 
 <!-- Modal editar item -->
@@ -204,9 +260,15 @@
       </div>
       <div class="campo-row">
         <div class="campo">
+          <label>Marca</label>
+          <input type="text" name="marca" id="edit-marca">
+        </div>
+        <div class="campo">
           <label>Lote/Grupo</label>
           <input type="text" name="lote_grupo" id="edit-lote">
         </div>
+      </div>
+      <div class="campo-row">
         <div class="campo">
           <label>Qtd</label>
           <input type="number" name="quantidade" id="edit-qtd">
