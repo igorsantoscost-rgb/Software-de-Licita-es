@@ -98,7 +98,6 @@ def nova():
             status="agendada",
             objeto=request.form.get("objeto", "").strip(),
             link_edital=request.form.get("link_edital", "").strip(),
-            obs_cliente=request.form.get("obs_cliente", "").strip(),
         )
         db.session.add(lic)
         db.session.commit()
@@ -142,7 +141,6 @@ def editar(id):
         lic.portal = request.form.get("portal", "").strip()
         lic.objeto = request.form.get("objeto", "").strip()
         lic.link_edital = request.form.get("link_edital", "").strip()
-        lic.obs_cliente = request.form.get("obs_cliente", "").strip()
         _processar_uploads_form(lic.id)
         db.session.commit()
         flash("Licitacao atualizada.", "ok")
@@ -212,18 +210,6 @@ def atualizar_status(id):
     lic.status = novo
     db.session.commit()
     flash(f"Status atualizado para '{novo}'.", "ok")
-    return redirect(url_for("lic.detalhe", id=lic.id))
-
-
-@lic_bp.route("/<int:id>/obs-cliente", methods=["POST"])
-@login_required
-def atualizar_obs_cliente(id):
-    if not current_user.is_assessor():
-        abort(403)
-    lic = Licitacao.query.get_or_404(id)
-    lic.obs_cliente = request.form.get("obs_cliente", "").strip()
-    db.session.commit()
-    flash("Observação ao cliente atualizada.", "ok")
     return redirect(url_for("lic.detalhe", id=lic.id))
 
 

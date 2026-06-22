@@ -93,29 +93,13 @@
       {% endif %}
     </div>
 
-    <!-- Obs. ao Cliente -->
-    <div class="card">
-      <h3>Obs. ao Cliente</h3>
-      {% if current_user.is_assessor() %}
-      <form method="POST" action="{{ url_for('lic.atualizar_obs_cliente', id=lic.id) }}" class="form-obs-cliente">
-        <textarea name="obs_cliente" rows="2" placeholder="Recado rapido que aparece no card desta licitacao no calendario...">{{ lic.obs_cliente or '' }}</textarea>
-        <button type="submit" class="btn btn-primary btn-sm">Salvar</button>
-      </form>
-      {% else %}
-        {% if lic.obs_cliente %}
-        <p>{{ lic.obs_cliente }}</p>
-        {% else %}
-        <p class="muted">Nenhuma observação registrada.</p>
-        {% endif %}
-      {% endif %}
-    </div>
-
     <!-- Parametros da Disputa (ex Itens / Lotes) -->
     <div class="card">
       <h3>Parâmetros da Disputa</h3>
       <p class="muted-sm">Preencha os valores mínimos para orientar a disputa.</p>
 
       {% if lic.itens %}
+      <div class="tabela-wrap tabela-wrap-card">
       <table class="tabela tabela-sm">
         <thead>
           <tr>
@@ -160,6 +144,7 @@
           {% endfor %}
         </tbody>
       </table>
+      </div>
       {% endif %}
 
       <!-- Adicionar item -->

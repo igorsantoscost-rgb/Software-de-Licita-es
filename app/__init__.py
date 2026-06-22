@@ -59,6 +59,14 @@ def create_app():
         html_limpo = bleach.clean(html, tags=tags_permitidas, attributes=atributos_permitidos, strip=True)
         return Markup(html_limpo)
 
+    @app.template_filter("tem_comentario_assessor")
+    def tem_comentario_assessor(licitacao):
+        """True se a licitacao tem ao menos um comentario escrito por um assessor.
+        Usado para mostrar o icone de recado (💬) no calendario."""
+        if not licitacao.comentarios:
+            return False
+        return any(c.autor and c.autor.perfil == "assessor" for c in licitacao.comentarios)
+
     with app.app_context():
         db.create_all()
         _migrar_coluna_tipo_documento()

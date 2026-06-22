@@ -69,7 +69,6 @@ class Licitacao(db.Model):
     status = db.Column(db.String(30), nullable=False, default="agendada")
     objeto = db.Column(db.Text, nullable=True)
     link_edital = db.Column(db.String(500), nullable=True)
-    obs_cliente = db.Column(db.Text, nullable=True)
     valor_homologado = db.Column(db.Numeric(14, 2), nullable=True)
     motivo_encerramento = db.Column(db.String(300), nullable=True)
     resumo_ia = db.Column(db.Text, nullable=True)

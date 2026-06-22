@@ -192,6 +192,7 @@ a:hover { text-decoration: underline; }
 
 /* ── Tabela ── */
 .tabela-wrap { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+.tabela-wrap.tabela-wrap-card { border-radius: 0; box-shadow: none; margin-bottom: 14px; }
 .tabela {
   width: 100%;
   border-collapse: collapse;
@@ -591,25 +592,6 @@ small { font-size: .8rem; }
 .form-doc { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 .campo-check-nao-aplica { display: flex; align-items: center; gap: 6px; font-size: .85rem; }
 .input-file-doc { font-size: .83rem; }
-
-/* ── Obs. ao Cliente ── */
-.form-obs-cliente { display: flex; flex-direction: column; gap: 8px; }
-.form-obs-cliente textarea {
-  width: 100%;
-  resize: vertical;
-  padding: 9px 12px;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  font-size: .9rem;
-  font-family: inherit;
-  background: #fff;
-  transition: border .15s;
-}
-.form-obs-cliente textarea:focus {
-  outline: none;
-  border-color: #16a34a;
-  box-shadow: 0 0 0 3px rgba(22,163,74,.1);
-}
 
 /* ── Comentários ── */
 .form-comentario { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }

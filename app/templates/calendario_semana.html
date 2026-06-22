@@ -31,7 +31,7 @@
         <a href="{{ url_for('lic.detalhe', id=l.id) }}" class="evento-card status-{{ l.status|replace(' ', '-') }}">
           <div class="evento-card-topo">
             <span class="evento-card-hora">{{ l.data_disputa.strftime('%H:%M') }}</span>
-            {% if l.obs_cliente %}<span class="evento-recado-icon" title="Tem recado para o cliente">💬</span>{% endif %}
+            {% if l|tem_comentario_assessor %}<span class="evento-recado-icon" title="Tem comentário do assessor">💬</span>{% endif %}
           </div>
           <div class="evento-card-pregao">{{ l.numero_pregao }}</div>
           <div class="evento-card-orgao">{{ l.orgao_licitante }}</div>
