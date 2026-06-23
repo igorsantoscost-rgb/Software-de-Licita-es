@@ -72,6 +72,15 @@ class Licitacao(db.Model):
     valor_homologado = db.Column(db.Numeric(14, 2), nullable=True)
     motivo_encerramento = db.Column(db.String(300), nullable=True)
     resumo_ia = db.Column(db.Text, nullable=True)
+    # CAPAG (Capacidade de Pagamento - Tesouro Nacional)
+    esfera = db.Column(db.String(20), nullable=True)        # federal | estadual | municipal
+    uf = db.Column(db.String(2), nullable=True)
+    municipio = db.Column(db.String(150), nullable=True)
+    capag_nota = db.Column(db.String(5), nullable=True)     # A+, A, B+, B, C, D
+    capag_ambito = db.Column(db.String(20), nullable=True)  # municipio | estado
+    capag_local = db.Column(db.String(160), nullable=True)  # ex: "Belo Horizonte/MG" ou "Minas Gerais"
+    capag_referencia = db.Column(db.String(80), nullable=True)
+    capag_consultado_em = db.Column(db.DateTime, nullable=True)
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
     atualizado_em = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -203,3 +212,26 @@ class ObservacaoApoio(db.Model):
 
     licitacao = db.relationship("Licitacao", backref=db.backref("observacoes_apoio", lazy=True, order_by="ObservacaoApoio.criado_em", cascade="all, delete-orphan"))
     autor = db.relationship("User")
+
+
+# ─── CAPAG (base de notas importada do Tesouro Nacional) ─────────────────────
+
+class CapagEstado(db.Model):
+    __tablename__ = "capag_estados"
+    id = db.Column(db.Integer, primary_key=True)
+    uf = db.Column(db.String(2), unique=True, nullable=False, index=True)
+    classificacao = db.Column(db.String(5), nullable=True)   # A+, A, B+, B, C, D
+    referencia = db.Column(db.String(80), nullable=True)
+    atualizado_em = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class CapagMunicipio(db.Model):
+    __tablename__ = "capag_municipios"
+    id = db.Column(db.Integer, primary_key=True)
+    cod_ibge = db.Column(db.String(10), nullable=True, index=True)
+    uf = db.Column(db.String(2), nullable=False, index=True)
+    nome = db.Column(db.String(150), nullable=False)
+    nome_normalizado = db.Column(db.String(150), nullable=False, index=True)
+    classificacao = db.Column(db.String(5), nullable=True)
+    referencia = db.Column(db.String(80), nullable=True)
+    atualizado_em = db.Column(db.DateTime, default=datetime.utcnow)

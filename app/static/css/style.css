@@ -655,3 +655,47 @@ small { font-size: .8rem; }
 .upload-form-apoio .campo { margin-bottom: 0; flex: 1; min-width: 160px; }
 .observacoes-apoio-bloco { margin-top: 18px; padding-top: 16px; border-top: 1px solid #e5e7eb; }
 .observacoes-apoio-bloco h4 { font-size: .88rem; font-weight: 600; margin-bottom: 10px; color: #374151; }
+
+/* ─── CAPAG ─────────────────────────────────────────────────────────── */
+.card-capag h3 { margin-top: 0; }
+.capag-box {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,.08);
+  background: #f7f8fa;
+}
+.capag-badge {
+  flex: 0 0 auto;
+  min-width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #fff;
+  border-radius: 10px;
+  background: #6b7280;
+  padding: 0 10px;
+}
+.capag-info { display: flex; flex-direction: column; gap: 2px; }
+.capag-significado { font-size: .85rem; margin-top: 2px; }
+.muted-sm { font-size: .8rem; color: #6b7280; }
+
+/* Verde: boa capacidade (A+, A) */
+.capag-nota-amais .capag-badge,
+.capag-nota-a .capag-badge { background: #1e9e57; }
+.capag-nota-amais, .capag-nota-a { border-color: #b6e3c8; background: #f0faf4; }
+/* Verde-amarelado: B+, B */
+.capag-nota-bmais .capag-badge,
+.capag-nota-b .capag-badge { background: #b08900; }
+.capag-nota-bmais, .capag-nota-b { border-color: #ece0a8; background: #fbf8ec; }
+/* Laranja: C */
+.capag-nota-c .capag-badge { background: #d97706; }
+.capag-nota-c { border-color: #f0d3a8; background: #fdf6ec; }
+/* Vermelho: D */
+.capag-nota-d .capag-badge { background: #c0392b; }
+.capag-nota-d { border-color: #efc2bb; background: #fdf0ee; }

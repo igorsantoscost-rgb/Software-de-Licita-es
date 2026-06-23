@@ -37,6 +37,39 @@
 
     <div class="campo-row">
       <div class="campo">
+        <label>Esfera do Órgão</label>
+        <select name="esfera" id="capag-esfera" class="select">
+          <option value="">Selecione...</option>
+          <option value="federal"   {% if lic and lic.esfera == 'federal' %}selected{% endif %}>Federal (não consulta CAPAG)</option>
+          <option value="estadual"  {% if lic and lic.esfera == 'estadual' %}selected{% endif %}>Estadual / Governo do Estado</option>
+          <option value="municipal" {% if lic and lic.esfera == 'municipal' %}selected{% endif %}>Municipal / Prefeitura</option>
+        </select>
+        <small class="muted">Define se o sistema consulta a nota CAPAG do ente (estado ou município).</small>
+      </div>
+      <div class="campo campo-capag" id="capag-campo-uf" style="display:none;">
+        <label>Estado (UF)</label>
+        <select name="uf" id="capag-uf" class="select">
+          <option value="">Selecione...</option>
+          {% for sigla, nome in ufs %}
+          <option value="{{ sigla }}" {% if lic and lic.uf == sigla %}selected{% endif %}>{{ sigla }} — {{ nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="campo campo-capag" id="capag-campo-municipio" style="display:none;">
+      <label>Município</label>
+      <select name="municipio" id="capag-municipio" class="select">
+        <option value="">— Sem município (consulta a nota do estado) —</option>
+        {% for nome in municipios_uf %}
+        <option value="{{ nome }}" {% if lic and lic.municipio == nome %}selected{% endif %}>{{ nome }}</option>
+        {% endfor %}
+      </select>
+      <small class="muted">A lista vem direto da base CAPAG. Se o município não aparecer, deixe em branco que o sistema usa a nota do estado.</small>
+    </div>
+
+    <div class="campo-row">
+      <div class="campo">
         <label>Portal</label>
         <select name="portal" class="select">
           <option value="">Selecione...</option>
@@ -102,5 +135,64 @@
 
   </form>
 </div>
+
+<div class="card card-form" style="margin-top:1rem;">
+  <p class="muted" style="margin:0 0 .5rem;">
+    <strong>Base CAPAG.</strong> As notas vêm do Tesouro Nacional e são atualizadas algumas vezes por ano.
+    Clique abaixo para baixar a versão mais recente (estados e municípios). Pode levar até 1 minuto.
+  </p>
+  <form method="POST" action="{{ url_for('lic.capag_atualizar') }}">
+    <input type="hidden" name="voltar" value="{{ request.url }}">
+    <button type="submit" class="btn btn-sm"
+            onclick="this.innerText='Atualizando... aguarde'; this.disabled=true; this.form.submit();">
+      ⟳ Atualizar base CAPAG
+    </button>
+  </form>
+</div>
+
+<script>
+(function () {
+  var esfera = document.getElementById("capag-esfera");
+  var campoUf = document.getElementById("capag-campo-uf");
+  var campoMun = document.getElementById("capag-campo-municipio");
+  var selUf = document.getElementById("capag-uf");
+  var selMun = document.getElementById("capag-municipio");
+  var municipioAtual = {{ (lic.municipio if lic and lic.municipio else '')|tojson }};
+
+  function atualizarVisibilidade() {
+    var v = esfera.value;
+    campoUf.style.display = (v === "estadual" || v === "municipal") ? "" : "none";
+    campoMun.style.display = (v === "municipal") ? "" : "none";
+  }
+
+  function carregarMunicipios(preselecionar) {
+    var uf = selUf.value;
+    if (!uf) { selMun.innerHTML = '<option value="">— Sem município (consulta a nota do estado) —</option>'; return; }
+    fetch("{{ url_for('lic.capag_municipios') }}?uf=" + encodeURIComponent(uf))
+      .then(function (r) { return r.json(); })
+      .then(function (lista) {
+        var html = '<option value="">— Sem município (consulta a nota do estado) —</option>';
+        lista.forEach(function (nome) {
+          var sel = (preselecionar && nome === municipioAtual) ? " selected" : "";
+          html += '<option value="' + nome.replace(/"/g, "&quot;") + '"' + sel + ">" + nome + "</option>";
+        });
+        selMun.innerHTML = html;
+      })
+      .catch(function () {
+        selMun.innerHTML = '<option value="">(não foi possível carregar — atualize a base CAPAG)</option>';
+      });
+  }
+
+  esfera.addEventListener("change", function () {
+    atualizarVisibilidade();
+    if (esfera.value === "municipal" && selUf.value && selMun.options.length <= 1) {
+      carregarMunicipios(true);
+    }
+  });
+  selUf.addEventListener("change", function () { carregarMunicipios(false); });
+
+  atualizarVisibilidade();
+})();
+</script>
 
 {% endblock %}

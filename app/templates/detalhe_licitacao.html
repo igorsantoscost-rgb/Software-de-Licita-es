@@ -93,6 +93,28 @@
       {% endif %}
     </div>
 
+    <!-- CAPAG (Capacidade de Pagamento do ente) -->
+    {% if lic.esfera %}
+    <div class="card card-capag">
+      <h3>CAPAG — Capacidade de Pagamento</h3>
+      {% if lic.esfera == 'federal' %}
+        <p class="muted">Licitação federal — a CAPAG não se aplica (não existe nota para a União).</p>
+      {% elif lic.capag_nota %}
+        <div class="capag-box capag-nota-{{ lic.capag_nota|replace('+','mais')|lower }}">
+          <span class="capag-badge">{{ lic.capag_nota }}</span>
+          <div class="capag-info">
+            <strong>{{ lic.capag_local }}</strong>
+            <span class="muted-sm">Nota {% if lic.capag_ambito == 'municipio' %}do município{% else %}do estado{% endif %}{% if lic.capag_ambito == 'estado' and lic.municipio %} (município não localizado na base — usada a nota da UF){% endif %}</span>
+            {% if capag_significado %}<span class="capag-significado">{{ capag_significado }}</span>{% endif %}
+            {% if lic.capag_referencia %}<span class="muted-sm">Fonte: {{ lic.capag_referencia }}</span>{% endif %}
+          </div>
+        </div>
+      {% else %}
+        <p class="muted">Nota CAPAG não encontrada para este ente. Verifique a UF/município na edição, ou atualize a base CAPAG no formulário de edição.</p>
+      {% endif %}
+    </div>
+    {% endif %}
+
     <!-- Parametros da Disputa (ex Itens / Lotes) -->
     <div class="card">
       <h3>Parâmetros da Disputa</h3>

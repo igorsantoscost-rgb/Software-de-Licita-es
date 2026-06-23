@@ -5,12 +5,48 @@ from app.models import (Licitacao, Documento, ItemLicitacao, Cliente,
                         STATUS_CHOICES, PORTAL_CHOICES, TIPOS_DOC_LICITACAO_UNICOS,
                         ComentarioLicitacao, ObservacaoApoio)
 from app import db
+from app.capag import consultar as consultar_capag, municipios_por_uf, UFS, significado as capag_significado
 from datetime import datetime
 import os, uuid, requests
 
 lic_bp = Blueprint("lic", __name__, url_prefix="/licitacoes")
 
 UPLOAD_FOLDER = "/app/uploads"
+
+ESFERA_CHOICES = ["federal", "estadual", "municipal"]
+
+
+def _aplicar_capag(lic):
+    """Le esfera/UF/municipio do formulario, salva na licitacao e consulta a
+    nota CAPAG correspondente (quando aplicavel)."""
+    esfera = (request.form.get("esfera", "") or "").strip().lower()
+    uf = (request.form.get("uf", "") or "").strip().upper()
+    municipio = (request.form.get("municipio", "") or "").strip()
+
+    if esfera not in ESFERA_CHOICES:
+        esfera = ""
+    if esfera == "federal":
+        uf, municipio = "", ""
+    elif esfera == "estadual":
+        municipio = ""
+
+    lic.esfera = esfera or None
+    lic.uf = uf or None
+    lic.municipio = municipio or None
+
+    resultado = consultar_capag(esfera, uf, municipio)
+    if resultado:
+        lic.capag_nota = resultado["nota"]
+        lic.capag_ambito = resultado["ambito"]
+        lic.capag_local = resultado["local"]
+        lic.capag_referencia = resultado["referencia"]
+        lic.capag_consultado_em = datetime.utcnow()
+    else:
+        lic.capag_nota = None
+        lic.capag_ambito = None
+        lic.capag_local = None
+        lic.capag_referencia = None
+        lic.capag_consultado_em = datetime.utcnow() if esfera else None
 
 
 def _pode_ver(licitacao):
@@ -101,13 +137,15 @@ def nova():
         )
         db.session.add(lic)
         db.session.commit()
+        _aplicar_capag(lic)
         _processar_uploads_form(lic.id)
         db.session.commit()
         flash("Licitacao criada.", "ok")
         return redirect(url_for("lic.detalhe", id=lic.id))
     return render_template("form_licitacao.html", clientes=clientes,
                            status_choices=STATUS_CHOICES, portal_choices=PORTAL_CHOICES, lic=None,
-                           tipos_doc_unicos=TIPOS_DOC_LICITACAO_UNICOS, docs_existentes={})
+                           tipos_doc_unicos=TIPOS_DOC_LICITACAO_UNICOS, docs_existentes={},
+                           ufs=UFS, esfera_choices=ESFERA_CHOICES, municipios_uf=[])
 
 
 @lic_bp.route("/<int:id>")
@@ -117,7 +155,41 @@ def detalhe(id):
     if not _pode_ver(lic):
         abort(403)
     return render_template("detalhe_licitacao.html", lic=lic,
-                           status_choices=STATUS_CHOICES, portal_choices=PORTAL_CHOICES)
+                           status_choices=STATUS_CHOICES, portal_choices=PORTAL_CHOICES,
+                           capag_significado=capag_significado(lic.capag_nota))
+
+
+@lic_bp.route("/capag/municipios")
+@login_required
+def capag_municipios():
+    """Lista (JSON) de municipios com CAPAG para a UF informada — usada pelo
+    seletor de municipio no formulario."""
+    uf = (request.args.get("uf", "") or "").strip().upper()
+    return jsonify(municipios_por_uf(uf))
+
+
+@lic_bp.route("/capag/atualizar", methods=["POST"])
+@login_required
+def capag_atualizar():
+    """Baixa do Tesouro Nacional a versao mais recente das notas CAPAG
+    (estados e municipios) e atualiza a base local."""
+    if not current_user.is_assessor():
+        abort(403)
+    from app.capag_import import importar_tudo
+    voltar = request.form.get("voltar") or url_for("lic.nova")
+    try:
+        res = importar_tudo()
+    except Exception as e:
+        flash(f"Falha ao atualizar a base CAPAG: {e}", "erro")
+        return redirect(voltar)
+    if res["erros"]:
+        flash("Base CAPAG atualizada parcialmente. "
+              f"Estados: {res['estados']}, Municípios: {res['municipios']}. "
+              f"Problemas: {'; '.join(res['erros'])}", "erro")
+    else:
+        flash(f"Base CAPAG atualizada: {res['estados']} estados e "
+              f"{res['municipios']} municípios.", "ok")
+    return redirect(voltar)
 
 
 @lic_bp.route("/<int:id>/editar", methods=["GET", "POST"])
@@ -141,6 +213,7 @@ def editar(id):
         lic.portal = request.form.get("portal", "").strip()
         lic.objeto = request.form.get("objeto", "").strip()
         lic.link_edital = request.form.get("link_edital", "").strip()
+        _aplicar_capag(lic)
         _processar_uploads_form(lic.id)
         db.session.commit()
         flash("Licitacao atualizada.", "ok")
@@ -148,7 +221,9 @@ def editar(id):
     docs_existentes = {d.tipo: d for d in lic.documentos if d.tipo in TIPOS_DOC_LICITACAO_UNICOS}
     return render_template("form_licitacao.html", clientes=clientes,
                            status_choices=STATUS_CHOICES, portal_choices=PORTAL_CHOICES, lic=lic,
-                           tipos_doc_unicos=TIPOS_DOC_LICITACAO_UNICOS, docs_existentes=docs_existentes)
+                           tipos_doc_unicos=TIPOS_DOC_LICITACAO_UNICOS, docs_existentes=docs_existentes,
+                           ufs=UFS, esfera_choices=ESFERA_CHOICES,
+                           municipios_uf=municipios_por_uf(lic.uf) if lic.uf else [])
 
 
 @lic_bp.route("/<int:id>/excluir", methods=["POST"])

@@ -71,6 +71,7 @@ def create_app():
         db.create_all()
         _migrar_coluna_tipo_documento()
         _seed_admin(app)
+        _seed_capag_estados()
 
     return app
 
@@ -159,6 +160,26 @@ def _migrar_coluna_tipo_documento():
                     "ALTER TABLE comentarios_licitacao ADD COLUMN editado_em TIMESTAMP"
                 ))
                 conn.commit()
+
+            # Colunas CAPAG na tabela de licitacoes
+            colunas_capag = {
+                "esfera": "VARCHAR(20)",
+                "uf": "VARCHAR(2)",
+                "municipio": "VARCHAR(150)",
+                "capag_nota": "VARCHAR(5)",
+                "capag_ambito": "VARCHAR(20)",
+                "capag_local": "VARCHAR(160)",
+                "capag_referencia": "VARCHAR(80)",
+                "capag_consultado_em": "TIMESTAMP",
+            }
+            for coluna, tipo in colunas_capag.items():
+                existe = conn.execute(text("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name = 'licitacoes' AND column_name = :col
+                """), {"col": coluna})
+                if existe.first() is None:
+                    conn.execute(text(f"ALTER TABLE licitacoes ADD COLUMN {coluna} {tipo}"))
+                    conn.commit()
     except Exception:
         # Se for sqlite ou outro banco sem information_schema, ignora
         # (db.create_all() ja cobre o caso de banco novo/vazio).
@@ -176,3 +197,32 @@ def _seed_admin(app):
         )
         db.session.add(admin)
         db.session.commit()
+
+
+def _seed_capag_estados():
+    """Carrega as notas CAPAG dos estados a partir do CSV embutido, caso a
+    tabela ainda esteja vazia. Garante que a consulta estadual funcione logo
+    apos o deploy, antes mesmo da primeira atualizacao online da base."""
+    import csv as _csv
+    from datetime import datetime as _dt
+    from app.models import CapagEstado
+    try:
+        if CapagEstado.query.first() is not None:
+            return
+        caminho = os.path.join(os.path.dirname(__file__), "data", "capag_estados_seed.csv")
+        if not os.path.exists(caminho):
+            return
+        ref = "Tesouro Transparente (base 2025, ano-base 2024)"
+        with open(caminho, encoding="utf-8") as f:
+            for linha in _csv.DictReader(f):
+                uf = (linha.get("uf") or "").strip().upper()
+                if len(uf) != 2:
+                    continue
+                db.session.add(CapagEstado(
+                    uf=uf,
+                    classificacao=(linha.get("classificacao") or "").strip().upper(),
+                    referencia=ref,
+                ))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
