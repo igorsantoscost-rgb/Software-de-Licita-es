@@ -13,7 +13,7 @@ lic_bp = Blueprint("lic", __name__, url_prefix="/licitacoes")
 
 UPLOAD_FOLDER = "/app/uploads"
 
-ESFERA_CHOICES = ["federal", "estadual", "municipal"]
+ESFERA_CHOICES = ["federal", "estadual", "municipal", "consorcio"]
 
 
 def _aplicar_capag(lic):
@@ -25,7 +25,8 @@ def _aplicar_capag(lic):
 
     if esfera not in ESFERA_CHOICES:
         esfera = ""
-    if esfera == "federal":
+    if esfera in ("federal", "consorcio"):
+        # Consórcio público não tem nota CAPAG própria no Tesouro
         uf, municipio = "", ""
     elif esfera == "estadual":
         municipio = ""

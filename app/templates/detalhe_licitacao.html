@@ -99,6 +99,8 @@
       <h3>CAPAG — Capacidade de Pagamento</h3>
       {% if lic.esfera == 'federal' %}
         <p class="muted">Licitação federal — a CAPAG não se aplica (não existe nota para a União).</p>
+      {% elif lic.esfera == 'consorcio' %}
+        <p class="muted">Órgão é um consórcio público — a CAPAG não se aplica (não existe nota individual para consórcios).</p>
       {% elif lic.capag_nota %}
         <div class="capag-box capag-nota-{{ lic.capag_nota|replace('+','mais')|lower }}">
           <span class="capag-badge">{{ lic.capag_nota }}</span>

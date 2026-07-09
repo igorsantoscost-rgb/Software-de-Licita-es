@@ -9,13 +9,27 @@
   {% endif %}
 </div>
 
+<!-- Filtro por cliente (apenas assessor) -->
+{% if current_user.is_assessor() and clientes %}
+<div class="filtros">
+  <span class="filtros-label">Filtrar por cliente:</span>
+  <select class="select" style="max-width:320px;"
+          onchange="window.location.href='{{ url_for('main.painel') }}?status={{ status_filtro }}&cliente_id=' + this.value">
+    <option value="todos" {% if cliente_filtro == 'todos' %}selected{% endif %}>Todos os clientes</option>
+    {% for c in clientes %}
+    <option value="{{ c.id }}" {% if cliente_filtro == c.id|string %}selected{% endif %}>{{ c.nome }}</option>
+    {% endfor %}
+  </select>
+</div>
+{% endif %}
+
 <!-- Filtro por status -->
 <div class="filtros">
   <span class="filtros-label">Filtrar por status:</span>
-  <a href="{{ url_for('main.painel', status='todos') }}"
+  <a href="{{ url_for('main.painel', status='todos', cliente_id=cliente_filtro) }}"
      class="filtro-pill {% if status_filtro == 'todos' %}ativo{% endif %}">Todos</a>
   {% for s in status_choices %}
-  <a href="{{ url_for('main.painel', status=s) }}"
+  <a href="{{ url_for('main.painel', status=s, cliente_id=cliente_filtro) }}"
      class="filtro-pill status-{{ s|replace(' ', '-') }} {% if status_filtro == s %}ativo{% endif %}">
     {{ s|title }}
   </a>

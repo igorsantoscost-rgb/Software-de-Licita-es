@@ -43,8 +43,9 @@
           <option value="federal"   {% if lic and lic.esfera == 'federal' %}selected{% endif %}>Federal (não consulta CAPAG)</option>
           <option value="estadual"  {% if lic and lic.esfera == 'estadual' %}selected{% endif %}>Estadual / Governo do Estado</option>
           <option value="municipal" {% if lic and lic.esfera == 'municipal' %}selected{% endif %}>Municipal / Prefeitura</option>
+          <option value="consorcio" {% if lic and lic.esfera == 'consorcio' %}selected{% endif %}>Consórcio Público (não consulta CAPAG)</option>
         </select>
-        <small class="muted">Define se o sistema consulta a nota CAPAG do ente (estado ou município).</small>
+        <small class="muted">Define se o sistema consulta a nota CAPAG do ente (estado ou município). Consórcio público não possui nota CAPAG.</small>
       </div>
       <div class="campo campo-capag" id="capag-campo-uf" style="display:none;">
         <label>Estado (UF)</label>

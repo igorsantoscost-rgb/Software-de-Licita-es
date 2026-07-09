@@ -8,10 +8,14 @@ import calendar
 main_bp = Blueprint("main", __name__)
 
 
-def _licitacoes_do_usuario(status_filtro=None):
+def _licitacoes_do_usuario(status_filtro=None, cliente_filtro=None):
     q = Licitacao.query
     if not current_user.is_assessor():
+        # Cliente sempre vê apenas as próprias licitações
         q = q.filter_by(cliente_id=current_user.cliente_id)
+    elif cliente_filtro and cliente_filtro != "todos":
+        # Assessor pode filtrar por um cliente específico
+        q = q.filter_by(cliente_id=cliente_filtro)
     if status_filtro and status_filtro != "todos":
         q = q.filter_by(status=status_filtro)
     return q.order_by(Licitacao.data_disputa.asc()).all()
@@ -21,13 +25,15 @@ def _licitacoes_do_usuario(status_filtro=None):
 @login_required
 def painel():
     status_filtro = request.args.get("status", "todos")
-    licitacoes = _licitacoes_do_usuario(status_filtro)
-    clientes = Cliente.query.all() if current_user.is_assessor() else []
+    cliente_filtro = request.args.get("cliente_id", "todos")
+    licitacoes = _licitacoes_do_usuario(status_filtro, cliente_filtro)
+    clientes = Cliente.query.order_by(Cliente.nome).all() if current_user.is_assessor() else []
     return render_template(
         "painel.html",
         licitacoes=licitacoes,
         status_choices=STATUS_CHOICES,
         status_filtro=status_filtro,
+        cliente_filtro=cliente_filtro,
         clientes=clientes,
     )
 
