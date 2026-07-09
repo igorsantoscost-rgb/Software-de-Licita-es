@@ -143,8 +143,24 @@ def importar_municipios():
 
         i_uf = _achar_indice(cab, ["uf"], ["sigla"])
         i_classe = _achar_indice(cab, ["classificacao", "capag"], ["classificacao"], ["capag"])
-        i_nome = _achar_indice(cab, ["municipio"], ["ente"], ["instituicao"], ["nome"])
         i_ibge = _achar_indice(cab, ["ibge"], ["cod", "mun"])
+
+        # Acha a coluna de NOME do municipio, ignorando a coluna de codigo IBGE
+        # (que tambem pode conter "municipio" no cabecalho e casar primeiro).
+        i_nome = None
+        norm_cab = [normalizar(c) for c in cab]
+        for grupos in [["municipio"], ["ente"], ["instituicao"], ["nome"]]:
+            for i, nome_col in enumerate(norm_cab):
+                if i == i_ibge:
+                    continue  # pula a coluna de codigo IBGE
+                if "cod" in nome_col or "codigo" in nome_col:
+                    continue  # pula qualquer coluna de codigo
+                if all(p in nome_col for p in grupos):
+                    i_nome = i
+                    break
+            if i_nome is not None:
+                break
+
         if i_uf is None or i_classe is None or i_nome is None:
             raise RuntimeError(f"Colunas de municipios nao reconhecidas: {cab}")
 

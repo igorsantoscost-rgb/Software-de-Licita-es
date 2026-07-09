@@ -51,8 +51,13 @@ PORTAL_CHOICES = [
     "ComprasNet",
     "BLL",
     "Licitanet",
-    "Portal Nacional de Contratacoes Publicas (PNCP)",
+    "PCP",
     "Banco do Brasil",
+    "Licitar Digital",
+    "BCN SP",
+    "BNC Bahia",
+    "PROCERGS",
+    "AMMLICITA",
     "Outro",
 ]
 
