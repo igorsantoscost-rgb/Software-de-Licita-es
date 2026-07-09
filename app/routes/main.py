@@ -8,6 +8,12 @@ import calendar
 main_bp = Blueprint("main", __name__)
 
 
+# Status que aparecem no painel geral (aba "Todos"), na ordem desejada
+STATUS_ATIVOS = ["agendada", "em disputa", "em julgamento", "em habilitacao"]
+# Ordem de prioridade para exibição no painel geral
+_ORDEM_STATUS = {s: i for i, s in enumerate(STATUS_ATIVOS)}
+
+
 def _licitacoes_do_usuario(status_filtro=None, cliente_filtro=None):
     q = Licitacao.query
     if not current_user.is_assessor():
@@ -18,7 +24,14 @@ def _licitacoes_do_usuario(status_filtro=None, cliente_filtro=None):
         q = q.filter_by(cliente_id=cliente_filtro)
     if status_filtro and status_filtro != "todos":
         q = q.filter_by(status=status_filtro)
-    return q.order_by(Licitacao.data_disputa.asc()).all()
+    else:
+        # Painel geral ("Todos"): mostra apenas status ativos
+        q = q.filter(Licitacao.status.in_(STATUS_ATIVOS))
+    lics = q.order_by(Licitacao.data_disputa.asc()).all()
+    if status_filtro == "todos" or not status_filtro:
+        # Ordena por prioridade de status, depois por data
+        lics.sort(key=lambda l: (_ORDEM_STATUS.get(l.status, 99), l.data_disputa or datetime.max))
+    return lics
 
 
 @main_bp.route("/painel")
