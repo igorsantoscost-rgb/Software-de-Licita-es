@@ -77,6 +77,7 @@ def calendario():
         ano=ano,
         nome_mes=nomes_meses[mes],
         primeiro_dia=primeiro_dia,
+        hoje=date.today(),
     )
 
 

@@ -32,9 +32,9 @@
         {% if dia_num != 0 %}
           {% set dia_date.d = primeiro_dia.replace(day=dia_num) %}
         {% endif %}
-        <td class="cel-dia {% if dia_num == 0 %}cel-vazia{% endif %} {% if dia_date.d and dia_date.d in eventos %}cel-com-evento{% endif %}">
+        <td class="cel-dia {% if dia_num == 0 %}cel-vazia{% endif %} {% if dia_date.d and dia_date.d in eventos %}cel-com-evento{% endif %} {% if dia_date.d and dia_date.d == hoje %}cel-hoje{% endif %}">
           {% if dia_num != 0 %}
-          <span class="num-dia">{{ dia_num }}</span>
+          <span class="num-dia {% if dia_date.d and dia_date.d == hoje %}num-dia-hoje{% endif %}">{{ dia_num }}</span>
           {% if dia_date.d and dia_date.d in eventos %}
           <div class="eventos-dia">
             {% for l in eventos[dia_date.d] %}

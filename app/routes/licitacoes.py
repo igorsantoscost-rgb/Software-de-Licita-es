@@ -609,6 +609,18 @@ def _montar_conteudo_resumo(lic):
     return blocos, "\n".join(textos_extraidos), pdfs_anexados, arquivos_ignorados
 
 
+@lic_bp.route("/<int:id>/salvar-resumo", methods=["POST"])
+@login_required
+def salvar_resumo(id):
+    if not current_user.is_assessor():
+        abort(403)
+    lic = Licitacao.query.get_or_404(id)
+    lic.resumo_ia = (request.form.get("resumo", "") or "").strip() or None
+    db.session.commit()
+    flash("Resumo salvo.", "ok")
+    return redirect(url_for("lic.detalhe", id=id))
+
+
 @lic_bp.route("/<int:id>/resumo-ia", methods=["POST"])
 @login_required
 def gerar_resumo(id):

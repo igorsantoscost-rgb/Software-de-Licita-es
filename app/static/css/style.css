@@ -446,6 +446,9 @@ a:hover { text-decoration: underline; }
   flex-direction: column;
 }
 .semana-coluna-hoje { box-shadow: 0 0 0 2px #14532d inset; }
+.cel-hoje { background: #f0fdf4 !important; box-shadow: 0 0 0 2px #14532d inset; }
+.num-dia-hoje { background: #14532d; color: #fff; border-radius: 50%; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; }
+.textarea-resumo { width: 100%; min-height: 200px; resize: vertical; font-size: .88rem; line-height: 1.5; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-family: inherit; }
 .semana-coluna-header {
   background: #14532d;
   color: #fff;
