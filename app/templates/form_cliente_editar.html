@@ -91,6 +91,11 @@
         <input type="email" name="email_financeiro" value="{{ cliente.email_financeiro or '' }}" placeholder="financeiro@empresa.com">
       </div>
     </div>
+    <div class="campo">
+      <label>Taxa Mensal de Consultoria (R$)</label>
+      <input type="text" name="taxa_consultoria" value="{{ cliente.taxa_consultoria or '1621.00' }}" placeholder="1621.00">
+      <small class="muted">Valor fixo cobrado mensalmente na fatura do cliente.</small>
+    </div>
 
     <div class="form-btns">
       <a href="{{ url_for('main.clientes') }}" class="btn">Cancelar</a>

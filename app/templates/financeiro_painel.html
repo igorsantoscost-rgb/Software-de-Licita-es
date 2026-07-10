@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block titulo %}Financeiro{% endblock %}
+{% block conteudo %}
+
+<div class="page-header">
+  <h2>Financeiro</h2>
+  {% if current_user.is_master() %}
+  <form method="POST" action="{{ url_for('fin.gerar_faturas_mes') }}" style="display:inline;">
+    <button type="submit" class="btn btn-primary">Gerar Faturas do Mes</button>
+  </form>
+  {% endif %}
+</div>
+
+{% if current_user.is_assessor() and clientes %}
+<div class="filtros">
+  <span class="filtros-label">Cliente:</span>
+  <select class="select" style="max-width:320px;"
+          onchange="window.location.href='{{ url_for('fin.painel') }}?status={{ status_filtro }}&cliente_id=' + this.value">
+    <option value="todos" {% if cliente_filtro == 'todos' %}selected{% endif %}>Todos</option>
+    {% for c in clientes %}
+    <option value="{{ c.id }}" {% if cliente_filtro == c.id|string %}selected{% endif %}>{{ c.nome }}</option>
+    {% endfor %}
+  </select>
+</div>
+{% endif %}
+
+<div class="filtros">
+  <span class="filtros-label">Status:</span>
+  <a href="{{ url_for('fin.painel', status='todos', cliente_id=cliente_filtro) }}"
+     class="filtro-pill {% if status_filtro == 'todos' %}ativo{% endif %}">Todos</a>
+  {% for s in status_choices %}
+  <a href="{{ url_for('fin.painel', status=s, cliente_id=cliente_filtro) }}"
+     class="filtro-pill {% if status_filtro == s %}ativo{% endif %}">{{ s|title }}</a>
+  {% endfor %}
+</div>
+
+{% if faturas %}
+<div class="tabela-wrap">
+  <table class="tabela">
+    <thead>
+      <tr>
+        <th>Fatura</th>
+        <th>Cliente</th>
+        <th>Consultoria</th>
+        <th>Empenhos (2%)</th>
+        <th>Total</th>
+        <th>Vencimento</th>
+        <th>Status</th>
+        <th>Boleto</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in faturas %}
+      <tr>
+        <td><strong>{{ f.nome_mes }}</strong></td>
+        <td>{{ f.cliente.nome }}</td>
+        <td>R$ {{ "{:,.2f}".format(f.taxa_consultoria).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
+        <td>R$ {{ "{:,.2f}".format(f.total_empenhos).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
+        <td><strong>R$ {{ "{:,.2f}".format(f.total).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong></td>
+        <td>{{ f.vencimento.strftime('%d/%m/%Y') }}</td>
+        <td><span class="filtro-pill {% if f.status == 'paga' %}status-pago{% else %}status-aberta{% endif %}" style="font-size:.75rem;">{{ f.status|title }}</span></td>
+        <td>{% if f.boleto_caminho %}📎{% else %}—{% endif %}</td>
+        <td><a href="{{ url_for('fin.detalhe_fatura', id=f.id) }}" class="btn btn-sm">Ver</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="vazio"><p>Nenhuma fatura encontrada.</p></div>
+{% endif %}
+
+{% endblock %}

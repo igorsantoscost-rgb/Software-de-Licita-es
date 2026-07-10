@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block titulo %}Fatura {{ fatura.nome_mes }}{% endblock %}
+{% block conteudo %}
+
+<div class="page-header">
+  <h2>Fatura — {{ fatura.nome_mes }}</h2>
+  <a href="{{ url_for('fin.painel') }}" class="btn">← Voltar</a>
+</div>
+
+<div class="grid-4" style="grid-template-columns: 1.5fr 1fr;">
+
+  <!-- Coluna principal: Discriminacao -->
+  <div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div>
+          <h3 style="margin:0;">{{ fatura.cliente.nome }}</h3>
+          <p class="muted" style="margin:4px 0 0;">CNPJ: {{ fatura.cliente.cnpj or '—' }}</p>
+        </div>
+        <div style="text-align:right;">
+          <span class="filtro-pill {% if fatura.status == 'paga' %}status-pago{% else %}status-aberta{% endif %}">
+            {{ fatura.status|title }}
+          </span>
+        </div>
+      </div>
+
+      <table class="tabela" style="margin-bottom:0;">
+        <thead>
+          <tr style="background:#f3f4f6;">
+            <th style="text-align:left;">Descricao</th>
+            <th style="text-align:right;width:150px;">Valor</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Taxa fixa de consultoria -->
+          <tr>
+            <td>Taxa mensal de consultoria</td>
+            <td style="text-align:right;">R$ {{ "{:,.2f}".format(fatura.taxa_consultoria).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
+          </tr>
+          <!-- Itens de empenho (2%) -->
+          {% for item in fatura.itens %}
+          <tr>
+            <td>{{ item.descricao }}</td>
+            <td style="text-align:right;">R$ {{ "{:,.2f}".format(item.valor).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
+          </tr>
+          {% endfor %}
+          {% if not fatura.itens %}
+          <tr>
+            <td class="muted" colspan="2">Nenhum empenho neste mes.</td>
+          </tr>
+          {% endif %}
+        </tbody>
+        <tfoot>
+          <tr style="background:#f0fdf4;font-weight:700;font-size:1.05rem;">
+            <td>TOTAL</td>
+            <td style="text-align:right;color:#14532d;">R$ {{ "{:,.2f}".format(fatura.total).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- Coluna lateral: Vencimento, Boleto, Acoes -->
+  <div>
+    <div class="card">
+      <h3>Vencimento</h3>
+      <p style="font-size:1.3rem;font-weight:700;color:#14532d;margin:8px 0;">
+        {{ fatura.vencimento.strftime('%d/%m/%Y') }}
+      </p>
+      <p class="muted">Referente a {{ fatura.nome_mes }}</p>
+    </div>
+
+    <div class="card">
+      <h3>Boleto</h3>
+      {% if fatura.boleto_caminho %}
+        <p>📎 <strong>{{ fatura.boleto_nome or 'Boleto' }}</strong></p>
+        <a href="{{ url_for('fin.download_boleto', id=fatura.id) }}" class="btn btn-primary btn-sm">
+          Baixar Boleto
+        </a>
+      {% else %}
+        <p class="muted">Boleto ainda nao disponivel.</p>
+      {% endif %}
+
+      {% if current_user.is_master() %}
+      <hr style="margin:16px 0;">
+      <form method="POST" action="{{ url_for('fin.upload_boleto', id=fatura.id) }}" enctype="multipart/form-data">
+        <div class="campo">
+          <label>{{ 'Substituir' if fatura.boleto_caminho else 'Anexar' }} boleto</label>
+          <input type="file" name="boleto" required>
+        </div>
+        <button type="submit" class="btn btn-sm btn-primary">Enviar Boleto</button>
+      </form>
+      {% endif %}
+    </div>
+
+    {% if current_user.is_master() %}
+    <div class="card">
+      <h3>Acoes</h3>
+      {% if fatura.status == 'aberta' %}
+      <form method="POST" action="{{ url_for('fin.marcar_paga', id=fatura.id) }}">
+        <button type="submit" class="btn btn-primary" onclick="return confirm('Marcar fatura como paga?')">
+          Marcar como Paga
+        </button>
+      </form>
+      {% else %}
+      <form method="POST" action="{{ url_for('fin.reabrir_fatura', id=fatura.id) }}">
+        <button type="submit" class="btn" onclick="return confirm('Reabrir fatura?')">
+          Reabrir Fatura
+        </button>
+      </form>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+{% endblock %}

@@ -122,6 +122,13 @@ def novo():
                 db.session.add(doc)
         db.session.commit()
 
+        # Adiciona 2% do empenho na fatura do mes
+        from app.financeiro_service import adicionar_empenho_na_fatura
+        try:
+            adicionar_empenho_na_fatura(emp)
+        except Exception:
+            pass
+
         # Notifica por email
         from app.email_service import notificar_novo_empenho
         try:

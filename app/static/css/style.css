@@ -724,3 +724,5 @@ small { font-size: .8rem; }
 .tabela-detalhes { width: 100%; }
 .tabela-detalhes td { padding: 6px 8px; border-bottom: 1px solid #f3f4f6; }
 .tabela-detalhes .label-td { color: #6b7280; width: 140px; font-size: .85rem; }
+.status-aberta { background: #fef3c7; color: #92400e; }
+.status-pago, .status-paga { background: #dcfce7; color: #166534; }

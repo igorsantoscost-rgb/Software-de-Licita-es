@@ -42,6 +42,9 @@ def create_app():
     from app.routes.empenhos import emp_bp
     app.register_blueprint(emp_bp)
 
+    from app.routes.financeiro import fin_bp
+    app.register_blueprint(fin_bp)
+
     @app.template_filter("markdown_seguro")
     def markdown_seguro(texto):
         """Converte markdown (texto gerado por IA) em HTML seguro para exibicao.
@@ -214,6 +217,7 @@ def _migrar_coluna_tipo_documento():
                 "telefone_wpp": "VARCHAR(20)",
                 "email_contato": "VARCHAR(150)",
                 "email_financeiro": "VARCHAR(150)",
+                "taxa_consultoria": "NUMERIC(10,2) DEFAULT 1621.00",
             }
             for coluna, tipo in colunas_cliente.items():
                 existe = conn.execute(text("""

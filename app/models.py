@@ -70,6 +70,7 @@ class Cliente(db.Model):
     telefone_wpp = db.Column(db.String(20), nullable=True)
     email_contato = db.Column(db.String(150), nullable=True)  # Avisos
     email_financeiro = db.Column(db.String(150), nullable=True)  # Boletos
+    taxa_consultoria = db.Column(db.Numeric(10, 2), nullable=True, default=1621.00)  # Taxa mensal
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
     usuarios = db.relationship("User", backref="cliente", lazy=True, foreign_keys=[User.cliente_id])
     licitacoes = db.relationship("Licitacao", backref="cliente", lazy=True)
@@ -347,3 +348,51 @@ class ObservacaoEmpenho(db.Model):
     texto = db.Column(db.Text, nullable=False)
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
     autor = db.relationship("User")
+
+
+# ─── FINANCEIRO ──────────────────────────────────────────────────────────────
+
+STATUS_FATURA = ["aberta", "paga"]
+
+
+class Fatura(db.Model):
+    __tablename__ = "faturas"
+    id = db.Column(db.Integer, primary_key=True)
+    cliente_id = db.Column(db.Integer, db.ForeignKey("clientes.id"), nullable=False)
+    mes_referencia = db.Column(db.Date, nullable=False)  # sempre dia 1 do mes
+    taxa_consultoria = db.Column(db.Numeric(10, 2), nullable=False, default=1621.00)
+    vencimento = db.Column(db.Date, nullable=False)  # dia 10 do mes seguinte
+    status = db.Column(db.String(20), nullable=False, default="aberta")
+    boleto_caminho = db.Column(db.String(500), nullable=True)
+    boleto_nome = db.Column(db.String(300), nullable=True)
+    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+
+    cliente = db.relationship("Cliente", backref=db.backref("faturas", lazy=True))
+    itens = db.relationship("ItemFatura", backref="fatura", lazy=True,
+                             cascade="all, delete-orphan", order_by="ItemFatura.criado_em")
+
+    @property
+    def total_empenhos(self):
+        return sum(i.valor for i in self.itens if i.valor)
+
+    @property
+    def total(self):
+        return (self.taxa_consultoria or 0) + self.total_empenhos
+
+    @property
+    def nome_mes(self):
+        meses = ["", "Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho",
+                 "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
+        return f"{meses[self.mes_referencia.month]}/{self.mes_referencia.year}"
+
+
+class ItemFatura(db.Model):
+    __tablename__ = "itens_fatura"
+    id = db.Column(db.Integer, primary_key=True)
+    fatura_id = db.Column(db.Integer, db.ForeignKey("faturas.id"), nullable=False)
+    empenho_id = db.Column(db.Integer, db.ForeignKey("empenhos.id"), nullable=True)
+    descricao = db.Column(db.String(300), nullable=False)
+    valor = db.Column(db.Numeric(10, 2), nullable=False)
+    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+
+    empenho = db.relationship("Empenho")

@@ -228,6 +228,12 @@ def editar_cliente(id):
         cliente.telefone_wpp = request.form.get("telefone_wpp", "").strip()
         cliente.email_contato = request.form.get("email_contato", "").strip()
         cliente.email_financeiro = request.form.get("email_financeiro", "").strip()
+        taxa_str = request.form.get("taxa_consultoria", "").strip().replace(",", ".")
+        if taxa_str:
+            try:
+                cliente.taxa_consultoria = float(taxa_str)
+            except ValueError:
+                pass
         db.session.commit()
         flash("Cliente atualizado.", "ok")
         return redirect(url_for("main.clientes"))
