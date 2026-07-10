@@ -31,10 +31,13 @@ def obter_ou_criar_fatura(cliente, mes_ref=None):
 
     if not fatura:
         taxa = cliente.taxa_consultoria if cliente.taxa_consultoria is not None else Decimal("1621.00")
+        # Verifica se e a primeira fatura do cliente (taxa de implantacao)
+        primeira = Fatura.query.filter_by(cliente_id=cliente.id).first() is None
         fatura = Fatura(
             cliente_id=cliente.id,
             mes_referencia=mes,
             taxa_consultoria=taxa,
+            taxa_implantacao=Decimal("2000.00") if primeira else Decimal("0"),
             vencimento=_vencimento_fatura(mes),
             status="aberta",
         )

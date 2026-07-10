@@ -361,6 +361,7 @@ class Fatura(db.Model):
     cliente_id = db.Column(db.Integer, db.ForeignKey("clientes.id"), nullable=False)
     mes_referencia = db.Column(db.Date, nullable=False)  # sempre dia 1 do mes
     taxa_consultoria = db.Column(db.Numeric(10, 2), nullable=False, default=1621.00)
+    taxa_implantacao = db.Column(db.Numeric(10, 2), nullable=False, default=0)  # 2000 so na 1a fatura
     vencimento = db.Column(db.Date, nullable=False)  # dia 10 do mes seguinte
     status = db.Column(db.String(20), nullable=False, default="aberta")
     boleto_caminho = db.Column(db.String(500), nullable=True)
@@ -377,7 +378,7 @@ class Fatura(db.Model):
 
     @property
     def total(self):
-        return (self.taxa_consultoria or 0) + self.total_empenhos
+        return (self.taxa_consultoria or 0) + (self.taxa_implantacao or 0) + self.total_empenhos
 
     @property
     def nome_mes(self):

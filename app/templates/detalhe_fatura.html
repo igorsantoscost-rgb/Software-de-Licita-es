@@ -37,6 +37,13 @@
             <td>Taxa mensal de consultoria</td>
             <td style="text-align:right;">R$ {{ "{:,.2f}".format(fatura.taxa_consultoria).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
           </tr>
+          <!-- Taxa de implantacao (so na 1a fatura) -->
+          {% if fatura.taxa_implantacao and fatura.taxa_implantacao > 0 %}
+          <tr>
+            <td>Taxa de implantacao (unica)</td>
+            <td style="text-align:right;">R$ {{ "{:,.2f}".format(fatura.taxa_implantacao).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
+          </tr>
+          {% endif %}
           <!-- Itens de empenho (2%) -->
           {% for item in fatura.itens %}
           <tr>
