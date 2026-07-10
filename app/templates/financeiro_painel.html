@@ -42,8 +42,9 @@
         <th>Fatura</th>
         <th>Cliente</th>
         <th>Consultoria</th>
-        <th>Empenhos (2%)</th>
-        <th>Total</th>
+        <th>Valor Empenhado</th>
+        <th>Comissao (2%)</th>
+        <th>Total Fatura</th>
         <th>Vencimento</th>
         <th>Status</th>
         <th>Boleto</th>
@@ -56,6 +57,7 @@
         <td><strong>{{ f.nome_mes }}</strong></td>
         <td>{{ f.cliente.nome }}</td>
         <td>R$ {{ "{:,.2f}".format(f.taxa_consultoria).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
+        <td>R$ {{ "{:,.2f}".format(f.total_valor_empenhado).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
         <td>R$ {{ "{:,.2f}".format(f.total_empenhos).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
         <td><strong>R$ {{ "{:,.2f}".format(f.total).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong></td>
         <td>{{ f.vencimento.strftime('%d/%m/%Y') }}</td>

@@ -374,7 +374,13 @@ class Fatura(db.Model):
 
     @property
     def total_empenhos(self):
+        """Soma das comissoes (2%) dos empenhos."""
         return sum(i.valor for i in self.itens if i.valor)
+
+    @property
+    def total_valor_empenhado(self):
+        """Soma do valor total dos empenhos (valor cheio, nao a comissao)."""
+        return sum(i.empenho.valor_total for i in self.itens if i.empenho and i.empenho.valor_total)
 
     @property
     def total(self):

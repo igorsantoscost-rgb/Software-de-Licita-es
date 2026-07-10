@@ -45,13 +45,19 @@
           </tr>
           {% endif %}
           <!-- Itens de empenho (2%) -->
+          {% if fatura.itens %}
+          <tr style="background:#f8fafc;">
+            <td colspan="2" style="padding:12px 8px 4px;font-weight:600;color:#14532d;">
+              Comissao sobre empenhos — Total empenhado: R$ {{ "{:,.2f}".format(fatura.total_valor_empenhado).replace(",", "X").replace(".", ",").replace("X", ".") }} × 2% = R$ {{ "{:,.2f}".format(fatura.total_empenhos).replace(",", "X").replace(".", ",").replace("X", ".") }}
+            </td>
+          </tr>
           {% for item in fatura.itens %}
           <tr>
-            <td>{{ item.descricao }}</td>
+            <td style="padding-left:24px;">{{ item.descricao }}{% if item.empenho and item.empenho.valor_total %} <span class="muted">(empenho: R$ {{ "{:,.2f}".format(item.empenho.valor_total).replace(",", "X").replace(".", ",").replace("X", ".") }})</span>{% endif %}</td>
             <td style="text-align:right;">R$ {{ "{:,.2f}".format(item.valor).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
           </tr>
           {% endfor %}
-          {% if not fatura.itens %}
+          {% else %}
           <tr>
             <td class="muted" colspan="2">Nenhum empenho neste mes.</td>
           </tr>
