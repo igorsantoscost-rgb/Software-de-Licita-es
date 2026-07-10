@@ -19,8 +19,23 @@ class User(UserMixin, db.Model):
 class Cliente(db.Model):
     __tablename__ = "clientes"
     id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(200), nullable=False)
+    nome = db.Column(db.String(200), nullable=False)  # Razao Social
     cnpj = db.Column(db.String(20), nullable=True)
+    # Endereco
+    rua = db.Column(db.String(300), nullable=True)
+    numero = db.Column(db.String(20), nullable=True)
+    complemento = db.Column(db.String(100), nullable=True)
+    bairro = db.Column(db.String(100), nullable=True)
+    cidade = db.Column(db.String(100), nullable=True)
+    estado = db.Column(db.String(2), nullable=True)
+    cep = db.Column(db.String(10), nullable=True)
+    # Contato
+    nome_contato = db.Column(db.String(200), nullable=True)
+    cargo_contato = db.Column(db.String(100), nullable=True)
+    telefone_fixo = db.Column(db.String(20), nullable=True)
+    telefone_wpp = db.Column(db.String(20), nullable=True)
+    email_contato = db.Column(db.String(150), nullable=True)  # Avisos
+    email_financeiro = db.Column(db.String(150), nullable=True)  # Boletos
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
     usuarios = db.relationship("User", backref="cliente", lazy=True, foreign_keys=[User.cliente_id])
     licitacoes = db.relationship("Licitacao", backref="cliente", lazy=True)

@@ -8,15 +8,90 @@
 
 <div class="card card-form">
   <form method="POST">
-    <h3>Empresa</h3>
+    <h3>Dados da Empresa</h3>
     <div class="campo">
-      <label>Nome da Empresa *</label>
+      <label>Razao Social *</label>
       <input type="text" name="nome" required value="{{ cliente.nome }}">
     </div>
     <div class="campo">
       <label>CNPJ</label>
       <input type="text" name="cnpj" value="{{ cliente.cnpj or '' }}" placeholder="00.000.000/0001-00">
     </div>
+
+    <h3>Endereco</h3>
+    <div class="grid-form-2">
+      <div class="campo">
+        <label>Rua / Logradouro</label>
+        <input type="text" name="rua" value="{{ cliente.rua or '' }}" placeholder="Ex: Rua das Flores">
+      </div>
+      <div class="campo campo-sm">
+        <label>Numero</label>
+        <input type="text" name="numero" value="{{ cliente.numero or '' }}" placeholder="123">
+      </div>
+    </div>
+    <div class="grid-form-2">
+      <div class="campo">
+        <label>Complemento</label>
+        <input type="text" name="complemento" value="{{ cliente.complemento or '' }}" placeholder="Sala 101, Bloco B">
+      </div>
+      <div class="campo">
+        <label>Bairro</label>
+        <input type="text" name="bairro" value="{{ cliente.bairro or '' }}" placeholder="Centro">
+      </div>
+    </div>
+    <div class="grid-form-3">
+      <div class="campo">
+        <label>Cidade</label>
+        <input type="text" name="cidade" value="{{ cliente.cidade or '' }}" placeholder="Belo Horizonte">
+      </div>
+      <div class="campo campo-sm">
+        <label>Estado</label>
+        <select name="estado">
+          <option value="">—</option>
+          {% for uf in ufs %}
+          <option value="{{ uf }}" {% if cliente.estado == uf %}selected{% endif %}>{{ uf }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="campo campo-sm">
+        <label>CEP</label>
+        <input type="text" name="cep" value="{{ cliente.cep or '' }}" placeholder="30000-000">
+      </div>
+    </div>
+
+    <h3>Contato Principal</h3>
+    <div class="grid-form-2">
+      <div class="campo">
+        <label>Nome do Contato</label>
+        <input type="text" name="nome_contato" value="{{ cliente.nome_contato or '' }}" placeholder="Nome completo">
+      </div>
+      <div class="campo">
+        <label>Cargo</label>
+        <input type="text" name="cargo_contato" value="{{ cliente.cargo_contato or '' }}" placeholder="Ex: Diretor, Gerente">
+      </div>
+    </div>
+    <div class="grid-form-2">
+      <div class="campo">
+        <label>Telefone Fixo</label>
+        <input type="text" name="telefone_fixo" value="{{ cliente.telefone_fixo or '' }}" placeholder="(31) 3333-4444">
+      </div>
+      <div class="campo">
+        <label>WhatsApp</label>
+        <input type="text" name="telefone_wpp" value="{{ cliente.telefone_wpp or '' }}" placeholder="(31) 99999-8888">
+      </div>
+    </div>
+    <div class="grid-form-2">
+      <div class="campo">
+        <label>E-mail de Contato (avisos)</label>
+        <input type="email" name="email_contato" value="{{ cliente.email_contato or '' }}" placeholder="contato@empresa.com">
+        <small class="muted">Recebera notificacoes de licitacoes e comentarios.</small>
+      </div>
+      <div class="campo">
+        <label>E-mail Financeiro (boletos)</label>
+        <input type="email" name="email_financeiro" value="{{ cliente.email_financeiro or '' }}" placeholder="financeiro@empresa.com">
+      </div>
+    </div>
+
     <div class="form-btns">
       <a href="{{ url_for('main.clientes') }}" class="btn">Cancelar</a>
       <button type="submit" class="btn btn-primary">Salvar</button>

@@ -191,6 +191,31 @@ def _migrar_coluna_tipo_documento():
                 if existe.first() is None:
                     conn.execute(text(f"ALTER TABLE licitacoes ADD COLUMN {coluna} {tipo}"))
                     conn.commit()
+
+            # Colunas novas na tabela de clientes (cadastro expandido)
+            colunas_cliente = {
+                "rua": "VARCHAR(300)",
+                "numero": "VARCHAR(20)",
+                "complemento": "VARCHAR(100)",
+                "bairro": "VARCHAR(100)",
+                "cidade": "VARCHAR(100)",
+                "estado": "VARCHAR(2)",
+                "cep": "VARCHAR(10)",
+                "nome_contato": "VARCHAR(200)",
+                "cargo_contato": "VARCHAR(100)",
+                "telefone_fixo": "VARCHAR(20)",
+                "telefone_wpp": "VARCHAR(20)",
+                "email_contato": "VARCHAR(150)",
+                "email_financeiro": "VARCHAR(150)",
+            }
+            for coluna, tipo in colunas_cliente.items():
+                existe = conn.execute(text("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name = 'clientes' AND column_name = :col
+                """), {"col": coluna})
+                if existe.first() is None:
+                    conn.execute(text(f"ALTER TABLE clientes ADD COLUMN {coluna} {tipo}"))
+                    conn.commit()
     except Exception:
         # Se for sqlite ou outro banco sem information_schema, ignora
         # (db.create_all() ja cobre o caso de banco novo/vazio).

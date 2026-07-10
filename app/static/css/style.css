@@ -233,7 +233,11 @@ a:hover { text-decoration: underline; }
 .card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 14px; color: #14532d; }
 .card-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
 .card-header-row h3 { margin-bottom: 0; }
-.card-form { max-width: 700px; }
+.card-form { max-width: 800px; }
+.grid-form-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+.grid-form-3 { display: grid; grid-template-columns: 1fr auto auto; gap: 0 16px; }
+.campo-sm { max-width: 140px; }
+@media (max-width: 600px) { .grid-form-2, .grid-form-3 { grid-template-columns: 1fr; } .campo-sm { max-width: none; } }
 
 /* ── Grid ── */
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; }

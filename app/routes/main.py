@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, request, flash
 from flask_login import login_required, current_user
 from app.models import Licitacao, Cliente, User, STATUS_CHOICES, PalavraChaveCliente
 from app import db, bcrypt
+from app.capag import UFS
 from datetime import datetime, date, timedelta
 import calendar
 
@@ -167,8 +168,24 @@ def novo_cliente():
         nome_user = request.form.get("nome_usuario", "").strip()
         if not nome or not email_user or not senha_user:
             flash("Preencha todos os campos obrigatorios.", "erro")
-            return render_template("form_cliente.html")
-        cliente = Cliente(nome=nome, cnpj=cnpj)
+            return render_template("form_cliente.html", ufs=UFS)
+        cliente = Cliente(
+            nome=nome,
+            cnpj=cnpj,
+            rua=request.form.get("rua", "").strip(),
+            numero=request.form.get("numero", "").strip(),
+            complemento=request.form.get("complemento", "").strip(),
+            bairro=request.form.get("bairro", "").strip(),
+            cidade=request.form.get("cidade", "").strip(),
+            estado=request.form.get("estado", "").strip().upper(),
+            cep=request.form.get("cep", "").strip(),
+            nome_contato=request.form.get("nome_contato", "").strip(),
+            cargo_contato=request.form.get("cargo_contato", "").strip(),
+            telefone_fixo=request.form.get("telefone_fixo", "").strip(),
+            telefone_wpp=request.form.get("telefone_wpp", "").strip(),
+            email_contato=request.form.get("email_contato", "").strip(),
+            email_financeiro=request.form.get("email_financeiro", "").strip(),
+        )
         db.session.add(cliente)
         db.session.flush()
         user = User(
@@ -182,7 +199,7 @@ def novo_cliente():
         db.session.commit()
         flash("Cliente criado com sucesso.", "ok")
         return redirect(url_for("main.clientes"))
-    return render_template("form_cliente.html")
+    return render_template("form_cliente.html", ufs=UFS)
 
 
 @main_bp.route("/clientes/<int:id>/editar", methods=["GET", "POST"])
@@ -193,16 +210,28 @@ def editar_cliente(id):
     cliente = Cliente.query.get_or_404(id)
     if request.method == "POST":
         nome = request.form.get("nome", "").strip()
-        cnpj = request.form.get("cnpj", "").strip()
         if not nome:
             flash("O nome da empresa é obrigatório.", "erro")
-            return render_template("form_cliente_editar.html", cliente=cliente)
+            return render_template("form_cliente_editar.html", cliente=cliente, ufs=UFS)
         cliente.nome = nome
-        cliente.cnpj = cnpj
+        cliente.cnpj = request.form.get("cnpj", "").strip()
+        cliente.rua = request.form.get("rua", "").strip()
+        cliente.numero = request.form.get("numero", "").strip()
+        cliente.complemento = request.form.get("complemento", "").strip()
+        cliente.bairro = request.form.get("bairro", "").strip()
+        cliente.cidade = request.form.get("cidade", "").strip()
+        cliente.estado = request.form.get("estado", "").strip().upper()
+        cliente.cep = request.form.get("cep", "").strip()
+        cliente.nome_contato = request.form.get("nome_contato", "").strip()
+        cliente.cargo_contato = request.form.get("cargo_contato", "").strip()
+        cliente.telefone_fixo = request.form.get("telefone_fixo", "").strip()
+        cliente.telefone_wpp = request.form.get("telefone_wpp", "").strip()
+        cliente.email_contato = request.form.get("email_contato", "").strip()
+        cliente.email_financeiro = request.form.get("email_financeiro", "").strip()
         db.session.commit()
         flash("Cliente atualizado.", "ok")
         return redirect(url_for("main.clientes"))
-    return render_template("form_cliente_editar.html", cliente=cliente)
+    return render_template("form_cliente_editar.html", cliente=cliente, ufs=UFS)
 
 
 @main_bp.route("/clientes/<int:id>/palavras-chave/adicionar", methods=["POST"])

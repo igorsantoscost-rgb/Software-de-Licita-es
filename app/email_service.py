@@ -54,10 +54,20 @@ def _enviar(destinatarios, assunto, html):
 
 
 def _emails_do_cliente(cliente):
-    """Retorna lista de e-mails dos usuarios vinculados ao cliente."""
-    if not cliente or not cliente.usuarios:
+    """Retorna lista de e-mails dos usuarios vinculados ao cliente
+    mais o email_contato cadastrado (se houver)."""
+    if not cliente:
         return []
-    return [u.email for u in cliente.usuarios if u.email]
+    emails = []
+    # Email de contato do cadastro do cliente (campo de avisos)
+    if cliente.email_contato:
+        emails.append(cliente.email_contato)
+    # Emails dos usuarios vinculados
+    if cliente.usuarios:
+        for u in cliente.usuarios:
+            if u.email and u.email not in emails:
+                emails.append(u.email)
+    return emails
 
 
 def _emails_assessores():
