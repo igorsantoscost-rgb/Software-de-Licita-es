@@ -141,6 +141,12 @@ def nova():
         _aplicar_capag(lic)
         _processar_uploads_form(lic.id)
         db.session.commit()
+        # Notifica cliente e assessores por e-mail
+        from app.email_service import notificar_nova_licitacao
+        try:
+            notificar_nova_licitacao(lic)
+        except Exception:
+            pass  # Nao trava o cadastro se o e-mail falhar
         flash("Licitacao criada.", "ok")
         return redirect(url_for("lic.detalhe", id=lic.id))
     return render_template("form_licitacao.html", clientes=clientes,
@@ -529,6 +535,13 @@ def comentar(id):
     )
     db.session.add(comentario)
     db.session.commit()
+    # Se o autor for assessor, notifica o cliente por e-mail
+    if current_user.is_assessor():
+        from app.email_service import notificar_novo_comentario
+        try:
+            notificar_novo_comentario(comentario, lic)
+        except Exception:
+            pass  # Nao trava o comentario se o e-mail falhar
     flash("Comentário enviado.", "ok")
     return redirect(url_for("lic.detalhe", id=id))
 

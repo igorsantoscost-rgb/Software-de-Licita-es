@@ -76,6 +76,17 @@ def create_app():
     return app
 
 
+def create_app_for_cli():
+    """Cria a app Flask para uso em scripts CLI (ex: lembrete_diario.py).
+    Igual a create_app() mas sem seed/migrations — o banco ja existe."""
+    app = Flask(__name__)
+    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret")
+    app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///licitacoes.db")
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    db.init_app(app)
+    return app
+
+
 def _migrar_coluna_tipo_documento():
     """Adiciona colunas novas se o banco for de uma versao anterior."""
     from sqlalchemy import text

@@ -20,6 +20,8 @@ services:
       DATABASE_URL: postgresql://licitacoes:licitacoes123@db:5432/licitacoes
       SECRET_KEY: troque-esta-chave-secreta-em-producao
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      BASE_URL: https://licitabidfy.com.br
     volumes:
       - ./uploads:/app/uploads
     depends_on:
