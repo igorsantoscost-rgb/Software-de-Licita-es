@@ -71,7 +71,11 @@ def create_app():
         return any(c.autor and c.autor.perfil == "assessor" for c in licitacao.comentarios)
 
     with app.app_context():
-        db.create_all()
+        try:
+            db.create_all()
+        except Exception:
+            # Corrida entre workers do gunicorn — ignora se outro worker ja criou
+            db.session.rollback()
         _migrar_coluna_tipo_documento()
         _seed_admin(app)
         _seed_capag_estados()
