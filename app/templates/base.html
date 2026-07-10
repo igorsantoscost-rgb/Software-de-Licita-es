@@ -19,6 +19,7 @@
     <a href="{{ url_for('main.calendario') }}">Calendário</a>
     {% if current_user.is_assessor() %}
     <a href="{{ url_for('main.clientes') }}">Clientes</a>
+    <a href="{{ url_for('emp.painel') }}">Empenhos</a>
     <a href="{{ url_for('lic.nova') }}">+ Nova</a>
     {% endif %}
     {% if current_user.is_master() %}

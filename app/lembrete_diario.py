@@ -2,11 +2,6 @@
 Script de lembretes e alertas diarios do Bidfy.
 Roda via cron todo dia as 8h.
 
-Logica:
-  - Todo dia      -> lembrete de pregoes com disputa amanha
-  - Todo dia 1    -> alerta de documentos que vencem no mes
-  - Toda segunda  -> alerta de documentos que vencem nos proximos 7 dias
-
 Uso: python -m app.lembrete_diario
 """
 
@@ -16,6 +11,8 @@ from app.email_service import (
     enviar_lembretes_diarios,
     enviar_alertas_vencimento_mensal,
     enviar_alertas_vencimento_semanal,
+    enviar_lembretes_empenho_ciencia,
+    enviar_lembretes_prazo_empenho,
 )
 
 
@@ -32,16 +29,24 @@ def main():
         # 2. Alerta mensal de documentos (todo dia 1)
         if hoje.day == 1:
             res = enviar_alertas_vencimento_mensal()
-            print(f"Alerta mensal: {res['clientes_alertados']} cliente(s) notificado(s).")
+            print(f"Alerta mensal docs: {res['clientes_alertados']} cliente(s) notificado(s).")
         else:
-            print("Alerta mensal: nao e dia 1, pulando.")
+            print("Alerta mensal docs: nao e dia 1, pulando.")
 
         # 3. Alerta semanal de documentos (toda segunda = weekday 0)
         if hoje.weekday() == 0:
             res = enviar_alertas_vencimento_semanal()
-            print(f"Alerta semanal: {res['clientes_alertados']} cliente(s) notificado(s).")
+            print(f"Alerta semanal docs: {res['clientes_alertados']} cliente(s) notificado(s).")
         else:
-            print("Alerta semanal: nao e segunda-feira, pulando.")
+            print("Alerta semanal docs: nao e segunda-feira, pulando.")
+
+        # 4. Lembrete empenhos sem ciencia > 2 dias (todo dia)
+        res = enviar_lembretes_empenho_ciencia()
+        print(f"Empenhos sem ciencia: {res['total']} encontrados, {res['enviados']} lembretes enviados.")
+
+        # 5. Alerta prazo entrega empenho < 10 dias (todo dia)
+        res = enviar_lembretes_prazo_empenho()
+        print(f"Empenhos prazo proximo: {res['total']} encontrados, {res['enviados']} alertas enviados.")
 
         print("=== Concluido ===")
 

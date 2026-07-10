@@ -710,3 +710,17 @@ small { font-size: .8rem; }
 /* Vermelho: D */
 .capag-nota-d .capag-badge { background: #c0392b; }
 .capag-nota-d { border-color: #efc2bb; background: #fdf0ee; }
+
+/* Barra de progresso de empenho */
+.status-progresso { display: flex; align-items: center; justify-content: center; gap: 0; padding: 16px 0; }
+.etapa { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 100px; }
+.etapa-circulo { width: 36px; height: 36px; border-radius: 50%; background: #e5e7eb; color: #6b7280; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .9rem; }
+.etapa-ativa .etapa-circulo { background: #14532d; color: #fff; }
+.etapa-atual .etapa-circulo { box-shadow: 0 0 0 3px #4ade80; }
+.etapa-label { font-size: .75rem; color: #6b7280; text-align: center; }
+.etapa-ativa .etapa-label { color: #14532d; font-weight: 600; }
+.etapa-linha { flex: 1; height: 3px; background: #e5e7eb; min-width: 30px; }
+.etapa-linha-ativa { background: #14532d; }
+.tabela-detalhes { width: 100%; }
+.tabela-detalhes td { padding: 6px 8px; border-bottom: 1px solid #f3f4f6; }
+.tabela-detalhes .label-td { color: #6b7280; width: 140px; font-size: .85rem; }

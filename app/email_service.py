@@ -370,3 +370,132 @@ def notificar_novo_comentario(comentario, licitacao):
         border-radius: 6px; text-decoration: none; display: inline-block;">Ver Licitacao</a></p>
     """
     _enviar(destinatarios, assunto, _template_base(conteudo))
+
+
+# ─── GATILHO 6: Novo empenho cadastrado ──────────────────────────────────────
+
+def notificar_novo_empenho(emp):
+    """Envia e-mail para o cliente e assessores quando um empenho é cadastrado."""
+    cliente = emp.cliente
+    destinatarios = _emails_do_cliente(cliente) + _emails_assessores()
+    destinatarios = list(dict.fromkeys(destinatarios))
+    if not destinatarios:
+        return
+
+    lic = emp.licitacao
+    assunto = f"Novo empenho recebido — {lic.orgao_licitante}"
+    conteudo = f"""
+    <h2 style="color:#14532d;margin-top:0;">Novo Empenho Cadastrado</h2>
+    <p>Um novo empenho foi registrado para <strong>{cliente.nome}</strong>.</p>
+    <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+      <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;color:#6b7280;">N. Empenho</td>
+          <td style="padding:8px;border-bottom:1px solid #e5e7eb;font-weight:600;">{emp.numero_empenho or '—'}</td></tr>
+      <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;color:#6b7280;">Licitacao</td>
+          <td style="padding:8px;border-bottom:1px solid #e5e7eb;font-weight:600;">{lic.orgao_licitante} — {lic.numero_pregao}</td></tr>
+      <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;color:#6b7280;">Contrato</td>
+          <td style="padding:8px;border-bottom:1px solid #e5e7eb;font-weight:600;">{emp.contrato or 'Sem contrato'}</td></tr>
+      <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;color:#6b7280;">Tipo</td>
+          <td style="padding:8px;border-bottom:1px solid #e5e7eb;font-weight:600;">{emp.tipo.title()}</td></tr>
+      <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;color:#6b7280;">Valor</td>
+          <td style="padding:8px;border-bottom:1px solid #e5e7eb;font-weight:600;">R$ {emp.valor_total:,.2f}</td></tr>
+      <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;color:#6b7280;">Prazo Entrega</td>
+          <td style="padding:8px;border-bottom:1px solid #e5e7eb;font-weight:600;">{emp.prazo_entrega.strftime('%d/%m/%Y') if emp.prazo_entrega else '—'}</td></tr>
+    </table>
+    <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px 16px;margin:16px 0;border-radius:4px;">
+      <strong style="color:#92400e;">Acao necessaria:</strong> O cliente precisa confirmar a ciencia do recebimento deste empenho no sistema.
+    </div>
+    <p><a href="{BASE_URL}/empenhos/{emp.id}" style="background:#14532d;color:#fff;padding:10px 20px;
+        border-radius:6px;text-decoration:none;display:inline-block;">Ver Empenho</a></p>
+    """
+    _enviar(destinatarios, assunto, _template_base(conteudo))
+
+
+# ─── GATILHO 7: Lembrete empenho sem ciencia (2 dias) ────────────────────────
+
+def enviar_lembretes_empenho_ciencia():
+    """Envia lembrete para empenhos com status 'recebido' ha mais de 2 dias."""
+    from app.models import Empenho
+    from datetime import timedelta
+
+    limite = datetime.now() - timedelta(days=2)
+    empenhos = Empenho.query.filter(
+        Empenho.status == "recebido",
+        Empenho.criado_em <= limite,
+    ).all()
+
+    enviados = 0
+    for emp in empenhos:
+        cliente = emp.cliente
+        destinatarios = _emails_do_cliente(cliente) + _emails_assessores()
+        destinatarios = list(dict.fromkeys(destinatarios))
+        if not destinatarios:
+            continue
+
+        dias = (datetime.now() - emp.criado_em).days
+        assunto = f"LEMBRETE: empenho aguardando ciencia ha {dias} dias — {emp.licitacao.orgao_licitante}"
+        conteudo = f"""
+        <h2 style="color:#dc2626;margin-top:0;">Empenho Aguardando Ciencia</h2>
+        <p>O empenho abaixo de <strong>{cliente.nome}</strong> foi cadastrado ha
+        <strong>{dias} dias</strong> e ainda nao teve a ciencia confirmada.</p>
+        <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+          <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;color:#6b7280;">N. Empenho</td>
+              <td style="padding:8px;border-bottom:1px solid #e5e7eb;font-weight:600;">{emp.numero_empenho or '—'}</td></tr>
+          <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;color:#6b7280;">Licitacao</td>
+              <td style="padding:8px;border-bottom:1px solid #e5e7eb;font-weight:600;">{emp.licitacao.orgao_licitante} — {emp.licitacao.numero_pregao}</td></tr>
+          <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;color:#6b7280;">Prazo Entrega</td>
+              <td style="padding:8px;border-bottom:1px solid #e5e7eb;font-weight:600;color:#dc2626;">{emp.prazo_entrega.strftime('%d/%m/%Y') if emp.prazo_entrega else '—'}</td></tr>
+        </table>
+        <p><a href="{BASE_URL}/empenhos/{emp.id}" style="background:#dc2626;color:#fff;padding:10px 20px;
+            border-radius:6px;text-decoration:none;display:inline-block;">Confirmar Ciencia</a></p>
+        """
+        if _enviar(destinatarios, assunto, _template_base(conteudo)):
+            enviados += 1
+    return {"total": len(empenhos), "enviados": enviados}
+
+
+# ─── GATILHO 8: Prazo entrega empenho < 10 dias ──────────────────────────────
+
+def enviar_lembretes_prazo_empenho():
+    """Envia alerta de empenhos com prazo de entrega nos proximos 10 dias."""
+    from app.models import Empenho
+    from datetime import timedelta
+
+    hoje = datetime.now().date()
+    limite = hoje + timedelta(days=10)
+
+    empenhos = Empenho.query.filter(
+        Empenho.prazo_entrega >= hoje,
+        Empenho.prazo_entrega <= limite,
+        Empenho.status.in_(["recebido", "em atendimento"]),
+    ).all()
+
+    enviados = 0
+    for emp in empenhos:
+        cliente = emp.cliente
+        destinatarios = _emails_do_cliente(cliente) + _emails_assessores()
+        destinatarios = list(dict.fromkeys(destinatarios))
+        if not destinatarios:
+            continue
+
+        dias = (emp.prazo_entrega - hoje).days
+        urgencia = "HOJE" if dias == 0 else f"em {dias} dia(s)"
+        assunto = f"PRAZO: entrega do empenho {urgencia} — {emp.licitacao.orgao_licitante}"
+        conteudo = f"""
+        <h2 style="color:#dc2626;margin-top:0;">Prazo de Entrega Proximo</h2>
+        <p>O empenho abaixo de <strong>{cliente.nome}</strong> vence <strong>{urgencia}</strong>.</p>
+        <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+          <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;color:#6b7280;">N. Empenho</td>
+              <td style="padding:8px;border-bottom:1px solid #e5e7eb;font-weight:600;">{emp.numero_empenho or '—'}</td></tr>
+          <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;color:#6b7280;">Licitacao</td>
+              <td style="padding:8px;border-bottom:1px solid #e5e7eb;font-weight:600;">{emp.licitacao.orgao_licitante} — {emp.licitacao.numero_pregao}</td></tr>
+          <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;color:#6b7280;">Prazo</td>
+              <td style="padding:8px;border-bottom:1px solid #e5e7eb;font-weight:700;color:#dc2626;">{emp.prazo_entrega.strftime('%d/%m/%Y')} ({urgencia})</td></tr>
+          <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;color:#6b7280;">Status</td>
+              <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{emp.status.title()}</td></tr>
+        </table>
+        <p><a href="{BASE_URL}/empenhos/{emp.id}" style="background:#dc2626;color:#fff;padding:10px 20px;
+            border-radius:6px;text-decoration:none;display:inline-block;">Ver Empenho</a></p>
+        """
+        if _enviar(destinatarios, assunto, _template_base(conteudo)):
+            enviados += 1
+    return {"total": len(empenhos), "enviados": enviados}

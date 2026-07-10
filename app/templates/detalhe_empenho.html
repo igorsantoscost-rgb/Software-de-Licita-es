@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block titulo %}Empenho {{ emp.numero_empenho or emp.id }}{% endblock %}
+{% block conteudo %}
+
+<div class="page-header">
+  <h2>Empenho {{ emp.numero_empenho or '#' ~ emp.id }}</h2>
+  <a href="{{ url_for('emp.painel') }}" class="btn">← Voltar</a>
+</div>
+
+<!-- Barra de progresso do status -->
+<div class="card">
+  <div class="status-progresso">
+    {% set etapas = ["recebido", "em atendimento", "aguardando pagamento", "pago"] %}
+    {% set idx_atual = etapas.index(emp.status) if emp.status in etapas else 0 %}
+    {% for etapa in etapas %}
+    <div class="etapa {% if loop.index0 <= idx_atual %}etapa-ativa{% endif %} {% if loop.index0 == idx_atual %}etapa-atual{% endif %}">
+      <div class="etapa-circulo">{{ loop.index }}</div>
+      <span class="etapa-label">{{ etapa|title }}</span>
+    </div>
+    {% if not loop.last %}<div class="etapa-linha {% if loop.index0 < idx_atual %}etapa-linha-ativa{% endif %}"></div>{% endif %}
+    {% endfor %}
+  </div>
+</div>
+
+<div class="grid-4" style="grid-template-columns: 1fr 1fr;">
+  <!-- Coluna esquerda: Dados + Acao -->
+  <div>
+    <div class="card">
+      <h3>Informacoes</h3>
+      <table class="tabela-detalhes">
+        <tr><td class="label-td">Cliente</td><td>{{ emp.cliente.nome }}</td></tr>
+        <tr><td class="label-td">Licitacao</td><td>{{ emp.licitacao.orgao_licitante }} — {{ emp.licitacao.numero_pregao }}</td></tr>
+        <tr><td class="label-td">Contrato</td><td>{{ emp.contrato or 'Sem contrato' }}</td></tr>
+        <tr><td class="label-td">Tipo</td><td>{{ emp.tipo|title }}{% if emp.tipo == 'ordinario' %} (paga ao entregar tudo){% else %} (admite entrega parcial){% endif %}</td></tr>
+        <tr><td class="label-td">Valor Total</td><td>{{ "R$ {:,.2f}".format(emp.valor_total).replace(",", "X").replace(".", ",").replace("X", ".") if emp.valor_total else '—' }}</td></tr>
+        <tr><td class="label-td">Prazo de Entrega</td>
+            <td>
+              {% if emp.prazo_entrega %}
+                {{ emp.prazo_entrega.strftime('%d/%m/%Y') }}
+                {% set dias = (emp.prazo_entrega - today).days if today else 0 %}
+                {% if dias <= 0 %}<span style="color:#dc2626;font-weight:700;"> (VENCIDO)</span>
+                {% elif dias <= 10 %}<span style="color:#dc2626;font-weight:700;"> ({{ dias }} dias)</span>
+                {% else %}<span class="muted"> ({{ dias }} dias)</span>{% endif %}
+              {% else %}—{% endif %}
+            </td></tr>
+        <tr><td class="label-td">Status</td><td><span class="filtro-pill status-{{ emp.status|replace(' ', '-') }}">{{ emp.status|title }}</span></td></tr>
+        <tr><td class="label-td">Cadastrado em</td><td>{{ emp.criado_em.strftime('%d/%m/%Y %H:%M') }}</td></tr>
+        {% if emp.data_ciencia %}<tr><td class="label-td">Ciencia em</td><td>{{ emp.data_ciencia.strftime('%d/%m/%Y %H:%M') }}</td></tr>{% endif %}
+        {% if emp.data_despacho %}<tr><td class="label-td">Despacho em</td><td>{{ emp.data_despacho.strftime('%d/%m/%Y %H:%M') }}</td></tr>{% endif %}
+        {% if emp.data_pagamento %}<tr><td class="label-td">Pago em</td><td>{{ emp.data_pagamento.strftime('%d/%m/%Y %H:%M') }}</td></tr>{% endif %}
+      </table>
+    </div>
+
+    <!-- Acoes de status -->
+    <div class="card">
+      <h3>Acao</h3>
+      {% if emp.status == 'recebido' %}
+        <p>O cliente precisa confirmar a ciencia do recebimento deste empenho.</p>
+        <form method="POST" action="{{ url_for('emp.confirmar_ciencia', id=emp.id) }}">
+          <button type="submit" class="btn btn-primary" onclick="return confirm('Confirmar ciencia do empenho?')">
+            Confirmar Ciencia do Empenho
+          </button>
+        </form>
+      {% elif emp.status == 'em atendimento' %}
+        <p>Quando o material for despachado ao orgao, informe aqui.</p>
+        <form method="POST" action="{{ url_for('emp.informar_despacho', id=emp.id) }}">
+          <button type="submit" class="btn btn-primary" onclick="return confirm('Confirmar que o material foi despachado?')">
+            Informar Despacho do Material
+          </button>
+        </form>
+      {% elif emp.status == 'aguardando pagamento' %}
+        {% if current_user.is_assessor() %}
+        <p>Marque como pago quando o pagamento for confirmado.</p>
+        <form method="POST" action="{{ url_for('emp.marcar_pago', id=emp.id) }}">
+          <button type="submit" class="btn btn-primary" onclick="return confirm('Confirmar pagamento?')">
+            Marcar como Pago
+          </button>
+        </form>
+        {% else %}
+        <p class="muted">Aguardando confirmacao de pagamento pelo assessor.</p>
+        {% endif %}
+      {% else %}
+        <p class="muted" style="color:#16a34a;font-weight:600;">Empenho pago e concluido.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Coluna direita: Documentos + Observacoes -->
+  <div>
+    <div class="card">
+      <h3>Documentos</h3>
+      {% if emp.documentos %}
+      <ul class="lista-docs">
+        {% for d in emp.documentos %}
+        <li class="doc-item">
+          <span>{{ d.nome_original }}</span>
+          {% if current_user.is_assessor() %}
+          <form method="POST" action="{{ url_for('emp.excluir_documento', doc_id=d.id) }}" class="form-inline">
+            <button type="submit" class="btn-excluir-mini" onclick="return confirm('Remover?')">✕</button>
+          </form>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">Nenhum documento anexado.</p>
+      {% endif %}
+
+      <form method="POST" action="{{ url_for('emp.upload_documento', id=emp.id) }}" enctype="multipart/form-data" style="margin-top:12px;">
+        <input type="file" name="documentos" multiple>
+        <button type="submit" class="btn btn-sm btn-primary" style="margin-top:8px;">Enviar</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>Observacoes</h3>
+      {% if emp.observacoes %}
+      <div class="comentarios-lista">
+        {% for o in emp.observacoes %}
+        <div class="comentario">
+          <div class="comentario-header">
+            <strong>{{ o.autor.nome }}</strong>
+            <span class="muted">{{ o.criado_em.strftime('%d/%m/%Y %H:%M') }}</span>
+          </div>
+          <p>{{ o.texto }}</p>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="muted">Nenhuma observacao registrada.</p>
+      {% endif %}
+
+      <form method="POST" action="{{ url_for('emp.nova_observacao', id=emp.id) }}" style="margin-top:12px;">
+        <textarea name="texto" rows="3" placeholder="Registrar observacao..." style="width:100%;"></textarea>
+        <button type="submit" class="btn btn-sm btn-primary" style="margin-top:8px;">Enviar</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

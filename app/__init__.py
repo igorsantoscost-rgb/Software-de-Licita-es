@@ -39,6 +39,9 @@ def create_app():
     app.register_blueprint(lic_bp)
     app.register_blueprint(docs_bp)
 
+    from app.routes.empenhos import emp_bp
+    app.register_blueprint(emp_bp)
+
     @app.template_filter("markdown_seguro")
     def markdown_seguro(texto):
         """Converte markdown (texto gerado por IA) em HTML seguro para exibicao.

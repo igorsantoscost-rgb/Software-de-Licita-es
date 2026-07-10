@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block titulo %}Novo Empenho{% endblock %}
+{% block conteudo %}
+
+<div class="page-header">
+  <h2>Novo Empenho</h2>
+</div>
+
+<div class="card card-form">
+  <form method="POST" enctype="multipart/form-data">
+    <h3>Dados do Empenho</h3>
+    <div class="grid-form-2">
+      <div class="campo">
+        <label>Licitacao (homologada) *</label>
+        <select name="licitacao_id" required onchange="atualizarCliente(this)">
+          <option value="">— Selecione —</option>
+          {% for l in licitacoes %}
+          <option value="{{ l.id }}" data-cliente="{{ l.cliente_id }}">
+            {{ l.orgao_licitante }} — {{ l.numero_pregao }} ({{ l.cliente.nome }})
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="campo">
+        <label>Cliente *</label>
+        <select name="cliente_id" id="sel-cliente" required>
+          <option value="">— Selecione a licitacao —</option>
+          {% for c in clientes %}
+          <option value="{{ c.id }}">{{ c.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="grid-form-2">
+      <div class="campo">
+        <label>Numero do Empenho</label>
+        <input type="text" name="numero_empenho" placeholder="Ex: 2026NE001234">
+      </div>
+      <div class="campo">
+        <label>Contrato (se houver)</label>
+        <input type="text" name="contrato" placeholder="Ex: CT 001/2026">
+        <small class="muted">Deixe em branco se nao houver contrato.</small>
+      </div>
+    </div>
+
+    <div class="grid-form-2">
+      <div class="campo">
+        <label>Tipo de Empenho *</label>
+        <select name="tipo" required>
+          <option value="ordinario">Ordinario (paga ao entregar tudo)</option>
+          <option value="global">Global (admite entrega parcial)</option>
+        </select>
+      </div>
+      <div class="campo">
+        <label>Valor Total (R$)</label>
+        <input type="text" name="valor_total" placeholder="0,00">
+      </div>
+    </div>
+
+    <div class="campo">
+      <label>Prazo de Entrega</label>
+      <input type="date" name="prazo_entrega">
+    </div>
+
+    <h3>Documentos</h3>
+    <p class="muted">Anexe o empenho e outros documentos acessorios.</p>
+    <div class="campo">
+      <input type="file" name="documentos" multiple>
+    </div>
+
+    <div class="form-btns">
+      <a href="{{ url_for('emp.painel') }}" class="btn">Cancelar</a>
+      <button type="submit" class="btn btn-primary">Cadastrar Empenho</button>
+    </div>
+  </form>
+</div>
+
+<script>
+function atualizarCliente(sel) {
+  var opt = sel.options[sel.selectedIndex];
+  var clienteId = opt.getAttribute('data-cliente');
+  var selCliente = document.getElementById('sel-cliente');
+  if (clienteId) {
+    selCliente.value = clienteId;
+  }
+}
+</script>
+
+{% endblock %}
