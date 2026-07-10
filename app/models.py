@@ -2,18 +2,52 @@ from app import db
 from flask_login import UserMixin
 from datetime import datetime
 
+# Tabela de vinculo N:N entre assessores e clientes
+assessor_clientes = db.Table(
+    "assessor_clientes",
+    db.Column("assessor_id", db.Integer, db.ForeignKey("users.id"), primary_key=True),
+    db.Column("cliente_id", db.Integer, db.ForeignKey("clientes.id"), primary_key=True),
+)
+
+
 class User(UserMixin, db.Model):
     __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
     nome = db.Column(db.String(120), nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=True)  # so pra notificacoes
     senha = db.Column(db.String(255), nullable=False)
-    perfil = db.Column(db.String(20), nullable=False, default="cliente")  # assessor | cliente
+    perfil = db.Column(db.String(20), nullable=False, default="cliente")  # master | assessor | cliente
     cliente_id = db.Column(db.Integer, db.ForeignKey("clientes.id"), nullable=True)
+    telefone = db.Column(db.String(20), nullable=True)
+    endereco = db.Column(db.String(300), nullable=True)
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # Clientes que este assessor/master atende (N:N)
+    clientes_atendidos = db.relationship(
+        "Cliente", secondary=assessor_clientes,
+        backref=db.backref("assessores", lazy="dynamic"),
+        lazy="dynamic",
+    )
+
+    def is_master(self):
+        return self.perfil == "master"
+
     def is_assessor(self):
+        """Retorna True para assessor E master (ambos podem operar licitacoes)."""
+        return self.perfil in ("assessor", "master")
+
+    def is_assessor_puro(self):
+        """Retorna True apenas para assessor (nao master)."""
         return self.perfil == "assessor"
+
+    def pode_ver_cliente(self, cliente_id):
+        """Master ve tudo. Assessor ve so clientes vinculados. Cliente ve so o proprio."""
+        if self.perfil == "master":
+            return True
+        if self.perfil == "assessor":
+            return self.clientes_atendidos.filter_by(id=cliente_id).first() is not None
+        return self.cliente_id == cliente_id
 
 
 class Cliente(db.Model):

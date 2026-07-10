@@ -216,6 +216,16 @@ def _migrar_coluna_tipo_documento():
                 if existe.first() is None:
                     conn.execute(text(f"ALTER TABLE clientes ADD COLUMN {coluna} {tipo}"))
                     conn.commit()
+
+            # Tabela N:N assessor_clientes
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS assessor_clientes (
+                    assessor_id INTEGER NOT NULL REFERENCES users(id),
+                    cliente_id INTEGER NOT NULL REFERENCES clientes(id),
+                    PRIMARY KEY (assessor_id, cliente_id)
+                )
+            """))
+            conn.commit()
     except Exception:
         # Se for sqlite ou outro banco sem information_schema, ignora
         # (db.create_all() ja cobre o caso de banco novo/vazio).
@@ -224,14 +234,65 @@ def _migrar_coluna_tipo_documento():
 def _seed_admin(app):
     from app.models import User
     from app import bcrypt
-    if not User.query.filter_by(email="admin@consultoria.com").first():
-        admin = User(
-            nome="Administrador",
+    from sqlalchemy import text
+
+    # Migra coluna username se nao existir
+    try:
+        with db.engine.connect() as conn:
+            # username
+            r = conn.execute(text("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name='users' AND column_name='username'
+            """))
+            if r.first() is None:
+                conn.execute(text("ALTER TABLE users ADD COLUMN username VARCHAR(80)"))
+                conn.commit()
+                # Preenche username com base no nome (sem espacos, minusculo) pra usuarios existentes
+                conn.execute(text("""
+                    UPDATE users SET username = LOWER(REPLACE(nome, ' ', '_'))
+                    WHERE username IS NULL
+                """))
+                conn.commit()
+                # Torna unique depois de preencher
+                conn.execute(text("""
+                    ALTER TABLE users ADD CONSTRAINT users_username_unique UNIQUE (username)
+                """))
+                conn.commit()
+            # telefone
+            r2 = conn.execute(text("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name='users' AND column_name='telefone'
+            """))
+            if r2.first() is None:
+                conn.execute(text("ALTER TABLE users ADD COLUMN telefone VARCHAR(20)"))
+                conn.execute(text("ALTER TABLE users ADD COLUMN endereco VARCHAR(300)"))
+                conn.commit()
+            # email nullable
+            conn.execute(text("""
+                ALTER TABLE users ALTER COLUMN email DROP NOT NULL
+            """))
+            conn.commit()
+    except Exception:
+        pass
+
+    # Promove admin existente a master e define username Igor
+    admin = User.query.filter_by(email="admin@consultoria.com").first()
+    if admin:
+        admin.perfil = "master"
+        if not admin.username or admin.username == "administrador":
+            admin.username = "Igor"
+        db.session.commit()
+
+    # Cria master se nao existir nenhum
+    if not User.query.filter_by(perfil="master").first():
+        master = User(
+            username="Igor",
+            nome="Igor Costa",
             email="admin@consultoria.com",
             senha=bcrypt.generate_password_hash("admin123").decode("utf-8"),
-            perfil="assessor"
+            perfil="master",
         )
-        db.session.add(admin)
+        db.session.add(master)
         db.session.commit()
 
 

@@ -21,9 +21,13 @@
     <a href="{{ url_for('main.clientes') }}">Clientes</a>
     <a href="{{ url_for('lic.nova') }}">+ Nova</a>
     {% endif %}
+    {% if current_user.is_master() %}
+    <a href="{{ url_for('main.assessores') }}">Assessores</a>
+    <a href="{{ url_for('main.gestao_acessos') }}">Acessos</a>
+    {% endif %}
   </div>
   <div class="nav-user">
-    <span>{{ current_user.nome }}</span>
+    <span>{{ current_user.username }}</span>
     <span class="badge-perfil">{{ current_user.perfil }}</span>
     <a href="{{ url_for('auth.logout') }}">Sair</a>
   </div>

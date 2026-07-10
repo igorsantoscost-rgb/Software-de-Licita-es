@@ -265,3 +265,147 @@ def excluir_palavra_chave(palavra_id):
     db.session.commit()
     flash("Palavra-chave removida.", "ok")
     return redirect(url_for("main.editar_cliente", id=cliente_id))
+
+
+# ─── Gestão de Assessores (só master) ────────────────────────────────────────
+
+@main_bp.route("/assessores")
+@login_required
+def assessores():
+    if not current_user.is_master():
+        return redirect(url_for("main.painel"))
+    todos = User.query.filter_by(perfil="assessor").order_by(User.nome).all()
+    return render_template("assessores.html", assessores=todos)
+
+
+@main_bp.route("/assessores/novo", methods=["GET", "POST"])
+@login_required
+def novo_assessor():
+    if not current_user.is_master():
+        return redirect(url_for("main.painel"))
+    clientes = Cliente.query.order_by(Cliente.nome).all()
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        nome = request.form.get("nome", "").strip()
+        email = request.form.get("email", "").strip().lower() or None
+        senha = request.form.get("senha", "")
+        telefone = request.form.get("telefone", "").strip()
+        endereco = request.form.get("endereco", "").strip()
+        clientes_ids = request.form.getlist("clientes_ids")
+        if not username or not nome or not senha:
+            flash("Nome de usuário, nome e senha são obrigatórios.", "erro")
+            return render_template("form_assessor.html", clientes=clientes)
+        if User.query.filter(db.func.lower(User.username) == username.lower()).first():
+            flash("Esse nome de usuário já está em uso.", "erro")
+            return render_template("form_assessor.html", clientes=clientes)
+        assessor = User(
+            username=username,
+            nome=nome,
+            email=email,
+            senha=bcrypt.generate_password_hash(senha).decode("utf-8"),
+            perfil="assessor",
+            telefone=telefone,
+            endereco=endereco,
+        )
+        db.session.add(assessor)
+        db.session.flush()
+        for cid in clientes_ids:
+            c = Cliente.query.get(int(cid))
+            if c:
+                assessor.clientes_atendidos.append(c)
+        db.session.commit()
+        flash(f"Assessor {nome} criado com sucesso.", "ok")
+        return redirect(url_for("main.assessores"))
+    return render_template("form_assessor.html", clientes=clientes, assessor=None)
+
+
+@main_bp.route("/assessores/<int:id>/editar", methods=["GET", "POST"])
+@login_required
+def editar_assessor(id):
+    if not current_user.is_master():
+        return redirect(url_for("main.painel"))
+    assessor = User.query.get_or_404(id)
+    clientes = Cliente.query.order_by(Cliente.nome).all()
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        nome = request.form.get("nome", "").strip()
+        email = request.form.get("email", "").strip().lower() or None
+        telefone = request.form.get("telefone", "").strip()
+        endereco = request.form.get("endereco", "").strip()
+        nova_senha = request.form.get("senha", "").strip()
+        clientes_ids = request.form.getlist("clientes_ids")
+        if not username or not nome:
+            flash("Nome de usuário e nome são obrigatórios.", "erro")
+            return render_template("form_assessor.html", clientes=clientes, assessor=assessor)
+        conflito = User.query.filter(
+            db.func.lower(User.username) == username.lower(),
+            User.id != id
+        ).first()
+        if conflito:
+            flash("Esse nome de usuário já está em uso.", "erro")
+            return render_template("form_assessor.html", clientes=clientes, assessor=assessor)
+        assessor.username = username
+        assessor.nome = nome
+        assessor.email = email
+        assessor.telefone = telefone
+        assessor.endereco = endereco
+        if nova_senha:
+            assessor.senha = bcrypt.generate_password_hash(nova_senha).decode("utf-8")
+        # Atualiza vinculos
+        assessor.clientes_atendidos = []
+        for cid in clientes_ids:
+            c = Cliente.query.get(int(cid))
+            if c:
+                assessor.clientes_atendidos.append(c)
+        db.session.commit()
+        flash("Assessor atualizado.", "ok")
+        return redirect(url_for("main.assessores"))
+    return render_template("form_assessor.html", clientes=clientes, assessor=assessor)
+
+
+# ─── Gestão de Acessos (só master) ───────────────────────────────────────────
+
+@main_bp.route("/gestao-acessos")
+@login_required
+def gestao_acessos():
+    if not current_user.is_master():
+        return redirect(url_for("main.painel"))
+    usuarios = User.query.order_by(User.perfil, User.nome).all()
+    return render_template("gestao_acessos.html", usuarios=usuarios)
+
+
+@main_bp.route("/gestao-acessos/<int:id>/editar", methods=["GET", "POST"])
+@login_required
+def editar_acesso(id):
+    if not current_user.is_master():
+        return redirect(url_for("main.painel"))
+    usuario = User.query.get_or_404(id)
+    clientes = Cliente.query.order_by(Cliente.nome).all()
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        nome = request.form.get("nome", "").strip()
+        email = request.form.get("email", "").strip().lower() or None
+        nova_senha = request.form.get("senha", "").strip()
+        perfil = request.form.get("perfil", usuario.perfil)
+        cliente_id = request.form.get("cliente_id") or None
+        if not username or not nome:
+            flash("Nome de usuário e nome são obrigatórios.", "erro")
+            return render_template("form_acesso.html", usuario=usuario, clientes=clientes)
+        conflito = User.query.filter(
+            db.func.lower(User.username) == username.lower(),
+            User.id != id
+        ).first()
+        if conflito:
+            flash("Esse nome de usuário já está em uso.", "erro")
+            return render_template("form_acesso.html", usuario=usuario, clientes=clientes)
+        usuario.username = username
+        usuario.nome = nome
+        usuario.email = email
+        usuario.perfil = perfil
+        usuario.cliente_id = int(cliente_id) if cliente_id else None
+        if nova_senha:
+            usuario.senha = bcrypt.generate_password_hash(nova_senha).decode("utf-8")
+        db.session.commit()
+        flash("Acesso atualizado.", "ok")
+        return redirect(url_for("main.gestao_acessos"))
+    return render_template("form_acesso.html", usuario=usuario, clientes=clientes)

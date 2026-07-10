@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block titulo %}Gestão de Acessos{% endblock %}
+{% block conteudo %}
+<div class="page-header">
+  <h2>Gestão de Acessos</h2>
+</div>
+<div class="tabela-wrap">
+  <table class="tabela">
+    <thead>
+      <tr><th>Usuário</th><th>Nome</th><th>Perfil</th><th>E-mail</th><th>Empresa</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for u in usuarios %}
+      <tr>
+        <td><strong>{{ u.username }}</strong></td>
+        <td>{{ u.nome }}</td>
+        <td>
+          <span class="filtro-pill status-{{ u.perfil }}" style="font-size:.75rem;">{{ u.perfil|title }}</span>
+        </td>
+        <td>{{ u.email or '—' }}</td>
+        <td>{{ u.cliente.nome if u.cliente else '—' }}</td>
+        <td><a href="{{ url_for('main.editar_acesso', id=u.id) }}" class="btn btn-sm">✏️ Editar</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

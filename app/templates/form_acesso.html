@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block titulo %}Editar Acesso — {{ usuario.nome }}{% endblock %}
+{% block conteudo %}
+<div class="page-header">
+  <h2>Editar Acesso — {{ usuario.nome }}</h2>
+</div>
+<div class="card card-form">
+  <form method="POST">
+    <h3>Login</h3>
+    <div class="grid-form-2">
+      <div class="campo">
+        <label>Nome de Usuário *</label>
+        <input type="text" name="username" required value="{{ usuario.username }}">
+      </div>
+      <div class="campo">
+        <label>Nova Senha</label>
+        <input type="password" name="senha" placeholder="Deixe em branco para manter">
+      </div>
+    </div>
+
+    <h3>Dados</h3>
+    <div class="grid-form-2">
+      <div class="campo">
+        <label>Nome Completo *</label>
+        <input type="text" name="nome" required value="{{ usuario.nome }}">
+      </div>
+      <div class="campo">
+        <label>E-mail</label>
+        <input type="email" name="email" value="{{ usuario.email or '' }}">
+      </div>
+    </div>
+
+    <h3>Perfil</h3>
+    <div class="grid-form-2">
+      <div class="campo">
+        <label>Perfil</label>
+        <select name="perfil">
+          <option value="master" {{ 'selected' if usuario.perfil == 'master' }}>Master</option>
+          <option value="assessor" {{ 'selected' if usuario.perfil == 'assessor' }}>Assessor</option>
+          <option value="cliente" {{ 'selected' if usuario.perfil == 'cliente' }}>Cliente</option>
+        </select>
+      </div>
+      <div class="campo">
+        <label>Empresa (se cliente)</label>
+        <select name="cliente_id">
+          <option value="">— Nenhuma —</option>
+          {% for c in clientes %}
+          <option value="{{ c.id }}" {{ 'selected' if usuario.cliente_id == c.id }}>{{ c.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="form-btns">
+      <a href="{{ url_for('main.gestao_acessos') }}" class="btn">Cancelar</a>
+      <button type="submit" class="btn btn-primary">Salvar</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

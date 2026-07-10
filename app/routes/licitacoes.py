@@ -51,9 +51,7 @@ def _aplicar_capag(lic):
 
 
 def _pode_ver(licitacao):
-    if current_user.is_assessor():
-        return True
-    return licitacao.cliente_id == current_user.cliente_id
+    return current_user.pode_ver_cliente(licitacao.cliente_id)
 
 
 def _salvar_arquivo(f, licitacao_id):
