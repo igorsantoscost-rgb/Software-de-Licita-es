@@ -49,7 +49,7 @@
         <select name="estado">
           <option value="">—</option>
           {% for uf in ufs %}
-          <option value="{{ uf }}">{{ uf }}</option>
+          <option value="{{ uf[0] }}">{{ uf[0] }}</option>
           {% endfor %}
         </select>
       </div>
