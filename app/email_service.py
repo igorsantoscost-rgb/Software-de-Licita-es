@@ -201,7 +201,149 @@ def enviar_lembretes_diarios():
     return {"total": len(lics), "enviados": enviados}
 
 
-# ─── GATILHO 3: Assessor comenta ─────────────────────────────────────────────
+# ─── GATILHO 4: Documentos que vencem no mês (dia 1 de cada mês) ─────────────
+
+def enviar_alertas_vencimento_mensal():
+    """Dia 1 de cada mes: envia e-mail listando documentos que vencem neste mes.
+    Vai para o cliente e assessores."""
+    from app.models import Cliente, DocumentoCliente, DOCUMENTOS_CLIENTE
+    from datetime import timedelta
+
+    hoje = datetime.now().date()
+    # Ultimo dia do mes atual
+    if hoje.month == 12:
+        fim_mes = hoje.replace(month=12, day=31)
+    else:
+        fim_mes = hoje.replace(month=hoje.month + 1, day=1) - timedelta(days=1)
+
+    # Mapa slug -> rotulo legivel
+    rotulos = {slug: label for slug, label in DOCUMENTOS_CLIENTE}
+
+    clientes = Cliente.query.all()
+    enviados = 0
+    for cliente in clientes:
+        docs = DocumentoCliente.query.filter(
+            DocumentoCliente.cliente_id == cliente.id,
+            DocumentoCliente.validade >= hoje,
+            DocumentoCliente.validade <= fim_mes,
+            DocumentoCliente.nao_se_aplica == False,
+        ).order_by(DocumentoCliente.validade.asc()).all()
+
+        if not docs:
+            continue
+
+        destinatarios = _emails_do_cliente(cliente) + _emails_assessores()
+        destinatarios = list(dict.fromkeys(destinatarios))
+        if not destinatarios:
+            continue
+
+        linhas = ""
+        for d in docs:
+            rotulo = rotulos.get(d.tipo, d.tipo)
+            dias_restantes = (d.validade - hoje).days
+            cor = "#dc2626" if dias_restantes <= 7 else "#92400e" if dias_restantes <= 15 else "#374151"
+            linhas += f"""
+            <tr>
+              <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{rotulo}</td>
+              <td style="padding:8px;border-bottom:1px solid #e5e7eb;font-weight:600;color:{cor};">
+                {d.validade.strftime('%d/%m/%Y')}
+              </td>
+              <td style="padding:8px;border-bottom:1px solid #e5e7eb;color:{cor};">{dias_restantes} dia(s)</td>
+            </tr>"""
+
+        assunto = f"Documentos com vencimento em {hoje.strftime('%B/%Y')} — {cliente.nome}"
+        conteudo = f"""
+        <h2 style="color:#14532d;margin-top:0;">Documentos com Vencimento Este Mes</h2>
+        <p>Os documentos abaixo de <strong>{cliente.nome}</strong> vencem durante
+        <strong>{hoje.strftime('%B de %Y')}</strong>. Providencie a renovacao com antecedencia.</p>
+        <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+          <thead>
+            <tr style="background:#f3f4f6;">
+              <th style="padding:8px;text-align:left;border-bottom:2px solid #e5e7eb;">Documento</th>
+              <th style="padding:8px;text-align:left;border-bottom:2px solid #e5e7eb;">Validade</th>
+              <th style="padding:8px;text-align:left;border-bottom:2px solid #e5e7eb;">Dias restantes</th>
+            </tr>
+          </thead>
+          <tbody>{linhas}</tbody>
+        </table>
+        <p><a href="{BASE_URL}/clientes/documentos" style="background:#14532d;color:#fff;padding:10px 20px;
+            border-radius:6px;text-decoration:none;display:inline-block;">Ver Documentos</a></p>
+        """
+        if _enviar(destinatarios, assunto, _template_base(conteudo)):
+            enviados += 1
+
+    return {"clientes_alertados": enviados}
+
+
+# ─── GATILHO 5: Documentos que vencem na semana (segunda a sexta) ─────────────
+
+def enviar_alertas_vencimento_semanal():
+    """Toda segunda-feira: envia alerta de documentos que vencem nos proximos 7 dias.
+    Vai para o cliente e assessores."""
+    from app.models import Cliente, DocumentoCliente, DOCUMENTOS_CLIENTE
+    from datetime import timedelta
+
+    hoje = datetime.now().date()
+    fim_semana = hoje + timedelta(days=7)
+
+    rotulos = {slug: label for slug, label in DOCUMENTOS_CLIENTE}
+
+    clientes = Cliente.query.all()
+    enviados = 0
+    for cliente in clientes:
+        docs = DocumentoCliente.query.filter(
+            DocumentoCliente.cliente_id == cliente.id,
+            DocumentoCliente.validade >= hoje,
+            DocumentoCliente.validade <= fim_semana,
+            DocumentoCliente.nao_se_aplica == False,
+        ).order_by(DocumentoCliente.validade.asc()).all()
+
+        if not docs:
+            continue
+
+        destinatarios = _emails_do_cliente(cliente) + _emails_assessores()
+        destinatarios = list(dict.fromkeys(destinatarios))
+        if not destinatarios:
+            continue
+
+        linhas = ""
+        for d in docs:
+            rotulo = rotulos.get(d.tipo, d.tipo)
+            dias_restantes = (d.validade - hoje).days
+            linhas += f"""
+            <tr>
+              <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{rotulo}</td>
+              <td style="padding:8px;border-bottom:1px solid #e5e7eb;font-weight:600;color:#dc2626;">
+                {d.validade.strftime('%d/%m/%Y')}
+              </td>
+              <td style="padding:8px;border-bottom:1px solid #e5e7eb;color:#dc2626;font-weight:600;">
+                {"Hoje!" if dias_restantes == 0 else f"{dias_restantes} dia(s)"}
+              </td>
+            </tr>"""
+
+        assunto = f"URGENTE: documentos vencem esta semana — {cliente.nome}"
+        conteudo = f"""
+        <h2 style="color:#dc2626;margin-top:0;">⚠️ Documentos Vencem Esta Semana</h2>
+        <p>Os documentos abaixo de <strong>{cliente.nome}</strong> vencem nos
+        <strong>proximos 7 dias</strong>. Renove com urgencia para nao perder habilitacao em licitacoes.</p>
+        <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+          <thead>
+            <tr style="background:#fef2f2;">
+              <th style="padding:8px;text-align:left;border-bottom:2px solid #fecaca;">Documento</th>
+              <th style="padding:8px;text-align:left;border-bottom:2px solid #fecaca;">Validade</th>
+              <th style="padding:8px;text-align:left;border-bottom:2px solid #fecaca;">Prazo</th>
+            </tr>
+          </thead>
+          <tbody>{linhas}</tbody>
+        </table>
+        <p><a href="{BASE_URL}/clientes/documentos" style="background:#dc2626;color:#fff;padding:10px 20px;
+            border-radius:6px;text-decoration:none;display:inline-block;">Renovar Documentos</a></p>
+        """
+        if _enviar(destinatarios, assunto, _template_base(conteudo)):
+            enviados += 1
+
+    return {"clientes_alertados": enviados}
+
 
 def notificar_novo_comentario(comentario, licitacao):
     """Envia e-mail para o cliente quando o assessor escreve um comentario."""
