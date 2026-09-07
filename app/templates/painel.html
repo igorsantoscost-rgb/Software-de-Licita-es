@@ -1,5 +1,12 @@
 {% extends "base.html" %}
 {% block titulo %}Painel — Licitações{% endblock %}
+
+{% macro th_sort(coluna, rotulo) %}
+{% set proxima_dir = 'desc' if sort_coluna == coluna and sort_dir == 'asc' else 'asc' %}
+<a href="{{ url_for('main.painel', status=status_filtro, cliente_id=cliente_filtro, sort=coluna, dir=proxima_dir) }}"
+   class="th-sort {% if sort_coluna == coluna %}th-sort-ativo{% endif %}">{{ rotulo }}{% if sort_coluna == coluna %} <span class="th-sort-seta">{{ '↑' if sort_dir == 'asc' else '↓' }}</span>{% endif %}</a>
+{% endmacro %}
+
 {% block conteudo %}
 
 <div class="page-header">
@@ -42,12 +49,12 @@
   <table class="tabela">
     <thead>
       <tr>
-        <th>Pregão / UASG</th>
-        <th>Órgão Licitante</th>
-        <th>Portal</th>
-        <th>Data da Disputa</th>
-        <th>Status</th>
-        {% if current_user.is_assessor() %}<th>Cliente</th>{% endif %}
+        <th>{{ th_sort('pregao', 'Pregão / UASG') }}</th>
+        <th>{{ th_sort('orgao', 'Órgão Licitante') }}</th>
+        <th>{{ th_sort('portal', 'Portal') }}</th>
+        <th>{{ th_sort('data', 'Data da Disputa') }}</th>
+        <th>{{ th_sort('status', 'Status') }}</th>
+        {% if current_user.is_assessor() %}<th>{{ th_sort('cliente', 'Cliente') }}</th>{% endif %}
         <th></th>
       </tr>
     </thead>
@@ -67,7 +74,20 @@
           {% else %}—{% endif %}
         </td>
         <td>
+          {% if current_user.is_assessor() %}
+          <form method="POST" action="{{ url_for('lic.atualizar_status', id=l.id) }}" class="form-status-painel">
+            <input type="hidden" name="voltar" value="painel">
+            <input type="hidden" name="valor_homologado" class="input-valor-homologado-oculto" value="{{ l.valor_homologado or '' }}">
+            <input type="hidden" name="motivo_encerramento" class="input-motivo-encerramento-oculto" value="{{ l.motivo_encerramento or '' }}">
+            <select name="status" class="select select-status-mini status-{{ l.status|replace(' ', '-') }}" data-status-atual="{{ l.status }}">
+              {% for s in status_choices %}
+              <option value="{{ s }}" {% if l.status == s %}selected{% endif %}>{{ s|title }}</option>
+              {% endfor %}
+            </select>
+          </form>
+          {% else %}
           <span class="badge status-{{ l.status|replace(' ', '-') }}">{{ l.status|title }}</span>
+          {% endif %}
           {% if l.status == 'homologada' and l.valor_homologado %}
           <br><span class="valor-destaque-homologado">R$ {{ "%.2f"|format(l.valor_homologado)|replace('.', ',') }}</span>
           {% elif l.status == 'encerrada' and l.motivo_encerramento %}

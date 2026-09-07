@@ -71,7 +71,10 @@ a:hover { text-decoration: underline; }
 /* Campos condicionais (valor homologado / motivo encerramento) soltos no topo da pagina */
 .campo-condicional-header {
   max-width: 320px;
-  margin-bottom: 16px;
+  margin-top: 20px;
+  margin-bottom: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
 }
 
 /* ── Botões ── */
@@ -234,6 +237,64 @@ a:hover { text-decoration: underline; }
 .tabela-sm { font-size: .83rem; }
 .tabela-sm th, .tabela-sm td { padding: 8px 10px; }
 
+/* ── Colunas ordenaveis do painel ── */
+.th-sort {
+  color: inherit;
+  text-decoration: none;
+  display: inline-block;
+  cursor: pointer;
+}
+.th-sort:hover { color: #16a34a; text-decoration: none; }
+.th-sort-ativo { color: #16a34a; }
+.th-sort-seta { font-size: .75rem; }
+
+/* ── Status editavel direto no painel ── */
+.form-status-painel { display: inline-block; }
+.select-status-mini {
+  border: none;
+  border-radius: 20px;
+  padding: 3px 26px 3px 10px;
+  font-size: .78rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 14px) center, calc(100% - 9px) center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+/* ── Card flutuante de justificativa (valor homologado / motivo encerramento) ── */
+.card-justificativa-flutuante {
+  position: absolute;
+  z-index: 1000;
+  width: 240px;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.15);
+  padding: 12px;
+}
+.card-justificativa-flutuante label {
+  display: block;
+  font-size: .8rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 6px;
+}
+.input-justificativa-flutuante {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: .88rem;
+  margin-bottom: 10px;
+}
+.card-justificativa-btns { display: flex; justify-content: flex-end; gap: 8px; }
+
 /* ── Card ── */
 .card {
   background: #fff;
@@ -307,6 +368,24 @@ a:hover { text-decoration: underline; }
 /* ── Documentos ── */
 .upload-form { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
 .input-file { display: none; }
+
+/* ── Upload de documentos com tipo (edital/TR/outros) + arrastar-e-soltar ── */
+.upload-form-doc { display: flex; flex-direction: column; gap: 12px; margin-bottom: 8px; }
+.upload-form-doc .campo { margin-bottom: 0; }
+.dropzone-doc { position: relative; }
+.dropzone-doc-label {
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+  justify-content: center;
+  text-align: center;
+  padding: 14px 10px;
+}
+.dropzone-doc-ativa .dropzone-doc-label {
+  background: #dcfce7;
+  border-color: #16a34a;
+  color: #15803d;
+}
 .doc-lista { list-style: none; display: flex; flex-direction: column; gap: 6px; }
 .doc-item {
   display: flex;

@@ -159,9 +159,11 @@ def detalhe(id):
     lic = Licitacao.query.get_or_404(id)
     if not _pode_ver(lic):
         abort(403)
+    docs_existentes = {d.tipo: d for d in lic.documentos if d.tipo in TIPOS_DOC_LICITACAO_UNICOS}
     return render_template("detalhe_licitacao.html", lic=lic,
                            status_choices=STATUS_CHOICES, portal_choices=PORTAL_CHOICES,
-                           capag_significado=capag_significado(lic.capag_nota))
+                           capag_significado=capag_significado(lic.capag_nota),
+                           docs_existentes=docs_existentes)
 
 
 @lic_bp.route("/capag/municipios")
@@ -266,31 +268,34 @@ def atualizar_status(id):
         abort(403)
     lic = Licitacao.query.get_or_404(id)
     novo = request.form.get("status")
+    # Quando o status e alterado direto pela linha do painel, volta pro painel
+    # (mantendo o filtro selecionado); senao volta pro detalhe da licitacao.
+    destino = url_for("main.painel") if request.form.get("voltar") == "painel" else url_for("lic.detalhe", id=lic.id)
     if novo not in STATUS_CHOICES:
-        return redirect(url_for("lic.detalhe", id=lic.id))
+        return redirect(destino)
 
     if novo == "homologada":
         valor_str = request.form.get("valor_homologado", "").strip().replace(".", "").replace(",", ".")
         if not valor_str:
             flash("Para marcar como Homologada, informe o valor total homologado.", "erro")
-            return redirect(url_for("lic.detalhe", id=lic.id))
+            return redirect(destino)
         try:
             lic.valor_homologado = float(valor_str)
         except ValueError:
             flash("Valor homologado inválido.", "erro")
-            return redirect(url_for("lic.detalhe", id=lic.id))
+            return redirect(destino)
 
     elif novo == "encerrada":
         motivo = request.form.get("motivo_encerramento", "").strip()
         if not motivo:
             flash("Para marcar como Encerrada, informe o motivo (ex: 2º colocado).", "erro")
-            return redirect(url_for("lic.detalhe", id=lic.id))
+            return redirect(destino)
         lic.motivo_encerramento = motivo
 
     lic.status = novo
     db.session.commit()
     flash(f"Status atualizado para '{novo}'.", "ok")
-    return redirect(url_for("lic.detalhe", id=lic.id))
+    return redirect(destino)
 
 
 # ─── Documentos ──────────────────────────────────────────────────────────────
@@ -301,20 +306,9 @@ def upload(id):
     if not current_user.is_assessor():
         abort(403)
     lic = Licitacao.query.get_or_404(id)
-    arquivos = request.files.getlist("arquivos")
-    for f in arquivos:
-        if not f.filename:
-            continue
-        caminho = _salvar_arquivo(f, id)
-        doc = Documento(
-            licitacao_id=id,
-            tipo="outros",
-            nome_original=f.filename,
-            caminho=caminho,
-            tamanho=os.path.getsize(caminho),
-            enviado_por=current_user.id,
-        )
-        db.session.add(doc)
+    # Mesmos campos do formulario de criacao (edital / termo_referencia / outros[]),
+    # entao o tipo do documento fica marcado igual, mesmo enviando depois de criada.
+    _processar_uploads_form(id)
     db.session.commit()
     flash("Documentos enviados.", "ok")
     return redirect(url_for("lic.detalhe", id=id))

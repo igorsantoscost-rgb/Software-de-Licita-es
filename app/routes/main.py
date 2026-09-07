@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, request, flash
+from flask import Blueprint, render_template, redirect, url_for, request, flash, session
 from flask_login import login_required, current_user
 from app.models import Licitacao, Cliente, User, STATUS_CHOICES, PalavraChaveCliente
 from app import db, bcrypt
@@ -15,7 +15,19 @@ STATUS_ATIVOS = ["agendada", "em disputa", "em julgamento", "em habilitacao"]
 _ORDEM_STATUS = {s: i for i, s in enumerate(STATUS_ATIVOS)}
 
 
-def _licitacoes_do_usuario(status_filtro=None, cliente_filtro=None):
+
+# Colunas clicaveis do painel -> funcao que extrai a chave de ordenacao de cada licitacao
+_ORDENADORES_COLUNA = {
+    "pregao": lambda l: (l.numero_pregao or "").strip().lower(),
+    "orgao": lambda l: (l.orgao_licitante or "").strip().lower(),
+    "portal": lambda l: (l.portal or "").strip().lower(),
+    "data": lambda l: l.data_disputa or datetime.max,
+    "status": lambda l: (l.status or "").strip().lower(),
+    "cliente": lambda l: ((l.cliente.nome or "").strip().lower() if l.cliente else "", l.data_disputa or datetime.max),
+}
+
+
+def _licitacoes_do_usuario(status_filtro=None, cliente_filtro=None, sort_coluna=None, sort_dir="asc"):
     q = Licitacao.query
     if not current_user.is_assessor():
         # Cliente sempre vê apenas as próprias licitações
@@ -29,8 +41,12 @@ def _licitacoes_do_usuario(status_filtro=None, cliente_filtro=None):
         # Painel geral ("Todos"): mostra apenas status ativos
         q = q.filter(Licitacao.status.in_(STATUS_ATIVOS))
     lics = q.order_by(Licitacao.data_disputa.asc()).all()
-    if status_filtro == "todos" or not status_filtro:
-        # Ordena por prioridade de status, depois por data
+
+    if sort_coluna in _ORDENADORES_COLUNA:
+        # Usuario clicou num titulo de coluna: essa ordenacao manda
+        lics.sort(key=_ORDENADORES_COLUNA[sort_coluna], reverse=(sort_dir == "desc"))
+    elif status_filtro == "todos" or not status_filtro:
+        # Padrao: ordena por prioridade de status, depois por data
         lics.sort(key=lambda l: (_ORDEM_STATUS.get(l.status, 99), l.data_disputa or datetime.max))
     return lics
 
@@ -38,9 +54,26 @@ def _licitacoes_do_usuario(status_filtro=None, cliente_filtro=None):
 @main_bp.route("/painel")
 @login_required
 def painel():
-    status_filtro = request.args.get("status", "todos")
-    cliente_filtro = request.args.get("cliente_id", "todos")
-    licitacoes = _licitacoes_do_usuario(status_filtro, cliente_filtro)
+    status_arg = request.args.get("status")
+    cliente_arg = request.args.get("cliente_id")
+    if status_arg is None and cliente_arg is None and current_user.is_assessor():
+        # Nenhum filtro veio na URL (ex: voltou do detalhe de uma licitacao):
+        # usa o ultimo filtro que o assessor selecionou nesta sessao, se houver.
+        status_filtro = session.get("painel_status_filtro", "todos")
+        cliente_filtro = session.get("painel_cliente_filtro", "todos")
+    else:
+        status_filtro = status_arg or "todos"
+        cliente_filtro = cliente_arg or "todos"
+    if current_user.is_assessor():
+        session["painel_status_filtro"] = status_filtro
+        session["painel_cliente_filtro"] = cliente_filtro
+
+    sort_coluna = request.args.get("sort", "")
+    sort_dir = request.args.get("dir", "asc")
+    if sort_dir not in ("asc", "desc"):
+        sort_dir = "asc"
+
+    licitacoes = _licitacoes_do_usuario(status_filtro, cliente_filtro, sort_coluna, sort_dir)
     clientes = Cliente.query.order_by(Cliente.nome).all() if current_user.is_assessor() else []
     return render_template(
         "painel.html",
@@ -49,6 +82,8 @@ def painel():
         status_filtro=status_filtro,
         cliente_filtro=cliente_filtro,
         clientes=clientes,
+        sort_coluna=sort_coluna,
+        sort_dir=sort_dir,
     )
 
 

@@ -222,9 +222,35 @@
     <div class="card">
       <h3>Documentos</h3>
       {% if current_user.is_assessor() %}
-      <form method="POST" action="{{ url_for('lic.upload', id=lic.id) }}" enctype="multipart/form-data" class="upload-form">
-        <input type="file" name="arquivos" multiple class="input-file" id="input-file">
-        <label for="input-file" class="btn btn-upload">📎 Selecionar arquivos</label>
+      <form method="POST" action="{{ url_for('lic.upload', id=lic.id) }}" enctype="multipart/form-data" class="upload-form-doc">
+        <div class="campo">
+          <label>Edital</label>
+          <div class="dropzone-doc">
+            <input type="file" name="edital" class="input-file input-file-doc" id="input-edital-detalhe">
+            <label for="input-edital-detalhe" class="btn btn-upload dropzone-doc-label">📎 Selecionar ou arrastar arquivo</label>
+          </div>
+          {% if docs_existentes.get('edital') %}
+          <small class="muted">Atual: {{ docs_existentes['edital'].nome_original }} — escolher outro substitui este.</small>
+          {% endif %}
+        </div>
+        <div class="campo">
+          <label>Termo de Referência</label>
+          <div class="dropzone-doc">
+            <input type="file" name="termo_referencia" class="input-file input-file-doc" id="input-tr-detalhe">
+            <label for="input-tr-detalhe" class="btn btn-upload dropzone-doc-label">📎 Selecionar ou arrastar arquivo</label>
+          </div>
+          {% if docs_existentes.get('termo_referencia') %}
+          <small class="muted">Atual: {{ docs_existentes['termo_referencia'].nome_original }} — escolher outro substitui este.</small>
+          {% endif %}
+        </div>
+        <div class="campo">
+          <label>Outros Arquivos</label>
+          <div class="dropzone-doc">
+            <input type="file" name="outros" multiple class="input-file input-file-doc" id="input-outros-detalhe">
+            <label for="input-outros-detalhe" class="btn btn-upload dropzone-doc-label">📎 Selecionar ou arrastar arquivos</label>
+          </div>
+          <small class="muted">Pode selecionar vários de uma vez; cada envio se soma aos já enviados (não substitui).</small>
+        </div>
         <button type="submit" class="btn btn-primary btn-sm">Enviar</button>
       </form>
       {% endif %}
