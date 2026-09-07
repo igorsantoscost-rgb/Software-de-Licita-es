@@ -9,10 +9,16 @@ import calendar
 main_bp = Blueprint("main", __name__)
 
 
-# Status que aparecem no painel geral (aba "Todos"), na ordem desejada
+# Status "ativos" (em andamento) — prioridade de exibição no topo do painel geral ("Todos")
 STATUS_ATIVOS = ["agendada", "em disputa", "em julgamento", "em habilitacao"]
-# Ordem de prioridade para exibição no painel geral
+# Ordem de prioridade para exibição no painel geral: ativos primeiro (nesta ordem),
+# os demais status (homologada, revogada, cancelada, encerrada) vao para o final
+# (fallback 99 em _ORDEM_STATUS.get), ordenados entre si por data da disputa.
 _ORDEM_STATUS = {s: i for i, s in enumerate(STATUS_ATIVOS)}
+
+# Status que, uma vez atingidos, tiram a licitacao do calendario (ela continua
+# disponivel no painel, so nao faz mais sentido ocupar espaco na agenda).
+STATUS_OCULTOS_CALENDARIO = ["revogada", "cancelada", "encerrada"]
 
 
 
@@ -37,9 +43,9 @@ def _licitacoes_do_usuario(status_filtro=None, cliente_filtro=None, sort_coluna=
         q = q.filter_by(cliente_id=cliente_filtro)
     if status_filtro and status_filtro != "todos":
         q = q.filter_by(status=status_filtro)
-    else:
-        # Painel geral ("Todos"): mostra apenas status ativos
-        q = q.filter(Licitacao.status.in_(STATUS_ATIVOS))
+    # "Todos": nao filtra por status — toda licitacao continua aparecendo no
+    # painel mesmo apos mudar de status; a ordenacao abaixo e que joga as
+    # concluidas (homologada/revogada/cancelada/encerrada) pro final da lista.
     lics = q.order_by(Licitacao.data_disputa.asc()).all()
 
     if sort_coluna in _ORDENADORES_COLUNA:
@@ -101,6 +107,7 @@ def calendario():
     q = Licitacao.query.filter(
         Licitacao.data_disputa >= datetime(ano, mes, 1),
         Licitacao.data_disputa <= datetime(ano, mes, ultimo_dia.day, 23, 59, 59),
+        ~Licitacao.status.in_(STATUS_OCULTOS_CALENDARIO),
     )
     if not current_user.is_assessor():
         q = q.filter(Licitacao.cliente_id == current_user.cliente_id)
@@ -151,6 +158,7 @@ def calendario_semana():
     q = Licitacao.query.filter(
         Licitacao.data_disputa >= datetime(inicio.year, inicio.month, inicio.day),
         Licitacao.data_disputa <= datetime(fim.year, fim.month, fim.day, 23, 59, 59),
+        ~Licitacao.status.in_(STATUS_OCULTOS_CALENDARIO),
     )
     if not current_user.is_assessor():
         q = q.filter(Licitacao.cliente_id == current_user.cliente_id)
