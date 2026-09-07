@@ -71,6 +71,7 @@ class Cliente(db.Model):
     email_contato = db.Column(db.String(150), nullable=True)  # Avisos
     email_financeiro = db.Column(db.String(150), nullable=True)  # Boletos
     taxa_consultoria = db.Column(db.Numeric(10, 2), nullable=True, default=1621.00)  # Taxa mensal
+    cor = db.Column(db.String(7), nullable=True)  # Cor de identificacao (hex) no calendario/painel
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
     usuarios = db.relationship("User", backref="cliente", lazy=True, foreign_keys=[User.cliente_id])
     licitacoes = db.relationship("Licitacao", backref="cliente", lazy=True)

@@ -74,7 +74,15 @@
           <br><span class="motivo-encerramento-info">{{ l.motivo_encerramento }}</span>
           {% endif %}
         </td>
-        {% if current_user.is_assessor() %}<td>{{ l.cliente.nome }}</td>{% endif %}
+        {% if current_user.is_assessor() %}
+        <td>
+          {% if l.cliente.cor %}
+          <span class="cliente-nome-tag" style="color:{{ l.cliente.cor }};">
+            <span class="cliente-dot" style="background:{{ l.cliente.cor }};"></span>{{ l.cliente.nome }}
+          </span>
+          {% else %}{{ l.cliente.nome }}{% endif %}
+        </td>
+        {% endif %}
         <td><a href="{{ url_for('lic.detalhe', id=l.id) }}" class="btn btn-sm">Ver</a></td>
       </tr>
       {% endfor %}

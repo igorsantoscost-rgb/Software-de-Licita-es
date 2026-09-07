@@ -17,6 +17,11 @@
       <label>CNPJ</label>
       <input type="text" name="cnpj" value="{{ cliente.cnpj or '' }}" placeholder="00.000.000/0001-00">
     </div>
+    <div class="campo campo-sm">
+      <label>Cor de Identificação</label>
+      <input type="color" name="cor" value="{{ cliente.cor or '#16a34a' }}" class="input-cor">
+      <small class="muted">Usada para destacar este cliente no calendário e no painel.</small>
+    </div>
 
     <h3>Endereco</h3>
     <div class="grid-form-2">

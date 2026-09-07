@@ -16,7 +16,10 @@
     <tbody>
       {% for c in clientes %}
       <tr>
-        <td>{{ c.nome }}</td>
+        <td>
+          {% if c.cor %}<span class="cliente-dot" style="background:{{ c.cor }};"></span>{% endif %}
+          {{ c.nome }}
+        </td>
         <td>{{ c.cnpj or '—' }}</td>
         <td>{{ c.criado_em.strftime('%d/%m/%Y') }}</td>
         <td>

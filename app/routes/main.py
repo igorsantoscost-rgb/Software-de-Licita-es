@@ -185,6 +185,7 @@ def novo_cliente():
             telefone_wpp=request.form.get("telefone_wpp", "").strip(),
             email_contato=request.form.get("email_contato", "").strip(),
             email_financeiro=request.form.get("email_financeiro", "").strip(),
+            cor=request.form.get("cor", "").strip() or None,
         )
         db.session.add(cliente)
         db.session.flush()
@@ -228,6 +229,7 @@ def editar_cliente(id):
         cliente.telefone_wpp = request.form.get("telefone_wpp", "").strip()
         cliente.email_contato = request.form.get("email_contato", "").strip()
         cliente.email_financeiro = request.form.get("email_financeiro", "").strip()
+        cliente.cor = request.form.get("cor", "").strip() or None
         taxa_str = request.form.get("taxa_consultoria", "").strip().replace(",", ".")
         if taxa_str:
             try:

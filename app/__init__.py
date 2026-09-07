@@ -218,6 +218,7 @@ def _migrar_coluna_tipo_documento():
                 "email_contato": "VARCHAR(150)",
                 "email_financeiro": "VARCHAR(150)",
                 "taxa_consultoria": "NUMERIC(10,2) DEFAULT 1621.00",
+                "cor": "VARCHAR(7)",
             }
             for coluna, tipo in colunas_cliente.items():
                 existe = conn.execute(text("""
@@ -227,6 +228,20 @@ def _migrar_coluna_tipo_documento():
                 if existe.first() is None:
                     conn.execute(text(f"ALTER TABLE clientes ADD COLUMN {coluna} {tipo}"))
                     conn.commit()
+
+            # Cores padrao para clientes conhecidos (so preenche quem ainda nao tem cor
+            # definida, pra nunca sobrescrever um ajuste manual feito depois pelo assessor)
+            cores_padrao = {
+                "%meridian%": "#1e3a5f",   # azul marinho
+                "%atacad%": "#eab308",     # amarelo (cobre Atacadao/Atacadão)
+                "%fibralog%": "#f97316",   # laranja
+            }
+            for padrao, cor in cores_padrao.items():
+                conn.execute(text("""
+                    UPDATE clientes SET cor = :cor
+                    WHERE cor IS NULL AND nome ILIKE :padrao
+                """), {"cor": cor, "padrao": padrao})
+                conn.commit()
 
             # Tabela N:N assessor_clientes
             conn.execute(text("""

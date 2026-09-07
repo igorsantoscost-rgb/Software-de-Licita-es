@@ -38,7 +38,8 @@
           {% if dia_date.d and dia_date.d in eventos %}
           <div class="eventos-dia">
             {% for l in eventos[dia_date.d] %}
-            <a href="{{ url_for('lic.detalhe', id=l.id) }}" class="evento-pill status-{{ l.status|replace(' ', '-') }}">
+            <a href="{{ url_for('lic.detalhe', id=l.id) }}" class="evento-pill status-{{ l.status|replace(' ', '-') }}"
+               {% if l.cliente.cor %}style="border-left-color:{{ l.cliente.cor }};"{% endif %}>
               <span class="evento-pill-topo">
                 <span class="evento-hora">{{ l.data_disputa.strftime('%H:%M') }} {{ l.numero_pregao }}</span>
                 {% if l|tem_comentario_assessor %}<span class="evento-recado-icon" title="Tem comentário do assessor">💬</span>{% endif %}

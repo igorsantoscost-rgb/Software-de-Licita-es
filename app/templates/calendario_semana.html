@@ -28,7 +28,8 @@
     <div class="semana-coluna-corpo">
       {% if dia in eventos %}
         {% for l in eventos[dia] %}
-        <a href="{{ url_for('lic.detalhe', id=l.id) }}" class="evento-card status-{{ l.status|replace(' ', '-') }}">
+        <a href="{{ url_for('lic.detalhe', id=l.id) }}" class="evento-card status-{{ l.status|replace(' ', '-') }}"
+           {% if l.cliente.cor %}style="border-left-color:{{ l.cliente.cor }};"{% endif %}>
           <div class="evento-card-topo">
             <span class="evento-card-hora">{{ l.data_disputa.strftime('%H:%M') }}</span>
             {% if l|tem_comentario_assessor %}<span class="evento-recado-icon" title="Tem comentário do assessor">💬</span>{% endif %}
