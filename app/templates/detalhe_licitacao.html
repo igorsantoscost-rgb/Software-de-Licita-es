@@ -47,260 +47,70 @@
 </div>
 {% endif %}
 
-<div class="detalhe-layout">
+<div class="grid-detalhe">
 
-  <!-- Coluna lateral: informacoes, CAPAG, comentarios, documentos e apoio -->
-  <div class="detalhe-lateral">
+  <!-- Coluna 1: informacoes + parametros da disputa -->
+  <div class="col-detalhe-principal">
 
-    <!-- Info principal -->
-    <div class="card">
-      <h3>Informações</h3>
-      <div class="info-grid">
+    <!-- Info principal (com a nota CAPAG ao lado do ente) -->
+    <div class="card card-info-compacto">
+      <div class="card-info-topo">
+        <h3>Informações</h3>
+        {% if current_user.is_assessor() %}
+        <details class="reagendar-box">
+          <summary class="btn btn-sm">↻ Reagendar disputa</summary>
+          <div class="reagendar-pop">
+            <form method="POST" action="{{ url_for('lic.reagendar', id=lic.id) }}" class="reagendar-form">
+              <label>Nova data e hora</label>
+              <input type="datetime-local" name="nova_data" required>
+              <button type="submit" class="btn btn-sm btn-primary">Salvar nova data</button>
+            </form>
+            {% if lic.data_disputa_original %}
+            <form method="POST" action="{{ url_for('lic.reagendar', id=lic.id) }}" class="form-inline" style="margin-top:6px;">
+              <input type="hidden" name="desfazer" value="1">
+              <button type="submit" class="btn btn-sm" onclick="return confirm('Voltar para a data original?')">Desfazer reagendamento</button>
+            </form>
+            {% endif %}
+          </div>
+        </details>
+        {% endif %}
+      </div>
+      <div class="info-grid info-grid-2col">
         <span class="info-label">Data da disputa</span>
         <span>
           {% if lic.data_disputa %}{{ lic.data_disputa.strftime('%d/%m/%Y às %H:%M') }}{% else %}—{% endif %}
-          {% if lic.data_disputa_original %}
-          <span class="tag-reagendada">Reagendada</span>
-          <small class="muted" style="display:block;">Data original: {{ lic.data_disputa_original.strftime('%d/%m/%Y às %H:%M') }}</small>
-          {% endif %}
+          {% if lic.data_disputa_original %}<span class="tag-reagendada" title="Data original: {{ lic.data_disputa_original.strftime('%d/%m/%Y às %H:%M') }}">Reagendada · era {{ lic.data_disputa_original.strftime('%d/%m %H:%M') }}</span>{% endif %}
         </span>
         <span class="info-label">Portal</span>
         <span>{{ lic.portal or '—' }}</span>
         <span class="info-label">UASG</span>
         <span>{{ lic.uasg or '—' }}</span>
-        {% if lic.valor_estimado %}
         <span class="info-label">Valor estimado</span>
-        <span>R$ {{ "{:,.2f}".format(lic.valor_estimado).replace(",", "X").replace(".", ",").replace("X", ".") }}</span>
-        {% endif %}
+        <span>{% if lic.valor_estimado %}R$ {{ "{:,.2f}".format(lic.valor_estimado).replace(",", "X").replace(".", ",").replace("X", ".") }}{% else %}—{% endif %}</span>
+        <span class="info-label">Ente / CAPAG</span>
+        <span>
+          {% if lic.esfera == 'federal' %}Federal <small class="muted">(sem CAPAG)</small>
+          {% elif lic.esfera == 'consorcio' %}Consórcio público <small class="muted">(sem CAPAG)</small>
+          {% elif lic.esfera %}
+            {{ lic.capag_local or ((lic.municipio ~ '/' ~ lic.uf) if lic.municipio else lic.uf) or '—' }}
+            {% if lic.capag_nota %}
+            <span class="capag-mini capag-nota-{{ lic.capag_nota|replace('+','mais')|lower }}"
+                  title="Nota CAPAG {% if lic.capag_ambito == 'municipio' %}do município{% else %}do estado{% endif %}. {{ capag_significado }}{% if lic.capag_referencia %} Fonte: {{ lic.capag_referencia }}{% endif %}">CAPAG {{ lic.capag_nota }}</span>
+            {% if lic.capag_ambito == 'estado' and lic.municipio %}<small class="muted">(nota da UF)</small>{% endif %}
+            {% else %}<small class="muted">(CAPAG não encontrada)</small>{% endif %}
+          {% else %}—{% endif %}
+        </span>
         {% if lic.link_edital %}
         <span class="info-label">Edital</span>
         <span><a href="{{ lic.link_edital }}" target="_blank">Abrir edital ↗</a></span>
         {% endif %}
       </div>
-      {% if current_user.is_assessor() %}
-      <details class="reagendar-box" {% if request.args.get('reagendar') %}open{% endif %}>
-        <summary class="btn btn-sm">↻ Reagendar disputa</summary>
-        <form method="POST" action="{{ url_for('lic.reagendar', id=lic.id) }}" class="reagendar-form">
-          <label>Nova data e hora</label>
-          <input type="datetime-local" name="nova_data" required>
-          <button type="submit" class="btn btn-sm btn-primary">Salvar nova data</button>
-        </form>
-        {% if lic.data_disputa_original %}
-        <form method="POST" action="{{ url_for('lic.reagendar', id=lic.id) }}" class="form-inline" style="margin-top:6px;">
-          <input type="hidden" name="desfazer" value="1">
-          <button type="submit" class="btn btn-sm" onclick="return confirm('Voltar para a data original?')">Desfazer reagendamento</button>
-        </form>
-        {% endif %}
-      </details>
-      {% endif %}
       {% if lic.objeto %}
-      <div class="objeto-box">
-        <strong>Objeto:</strong>
-        <p>{{ lic.objeto }}</p>
+      <div class="objeto-box objeto-recolhido" onclick="this.classList.toggle('objeto-recolhido')" title="Clique para ver o objeto inteiro">
+        <div class="objeto-texto"><strong>Objeto:</strong> {{ lic.objeto }}</div>
       </div>
       {% endif %}
     </div>
-
-    <!-- CAPAG (Capacidade de Pagamento do ente) -->
-    {% if lic.esfera %}
-    <div class="card card-capag">
-      <h3>CAPAG — Capacidade de pagamento</h3>
-      {% if lic.esfera == 'federal' %}
-        <p class="muted">Licitação federal — a CAPAG não se aplica (não existe nota para a União).</p>
-      {% elif lic.esfera == 'consorcio' %}
-        <p class="muted">Órgão é um consórcio público — a CAPAG não se aplica (não existe nota individual para consórcios).</p>
-      {% elif lic.capag_nota %}
-        <div class="capag-box capag-nota-{{ lic.capag_nota|replace('+','mais')|lower }}">
-          <span class="capag-badge">{{ lic.capag_nota }}</span>
-          <div class="capag-info">
-            <strong>{{ lic.capag_local }}</strong>
-            <span class="muted-sm">Nota {% if lic.capag_ambito == 'municipio' %}do município{% else %}do estado{% endif %}{% if lic.capag_ambito == 'estado' and lic.municipio %} (município não localizado na base — usada a nota da UF){% endif %}</span>
-            {% if capag_significado %}<span class="capag-significado">{{ capag_significado }}</span>{% endif %}
-            {% if lic.capag_referencia %}<span class="muted-sm">Fonte: {{ lic.capag_referencia }}</span>{% endif %}
-          </div>
-        </div>
-      {% else %}
-        <p class="muted">Nota CAPAG não encontrada para este ente. Verifique a UF/município na edição, ou atualize a base CAPAG no formulário de edição.</p>
-      {% endif %}
-    </div>
-    {% endif %}
-
-    <!-- Comentarios -->
-    <div class="card">
-      <h3>Comentários</h3>
-      <form method="POST" action="{{ url_for('lic.comentar', id=lic.id) }}" class="form-comentario">
-        <textarea name="texto" rows="2" placeholder="Escreva um comentário..." required></textarea>
-        <button type="submit" class="btn btn-primary btn-sm">Enviar</button>
-      </form>
-
-      {% if lic.comentarios %}
-      <ul class="comentario-lista">
-        {% for c in lic.comentarios %}
-        <li class="comentario-item" id="comentario-{{ c.id }}">
-          <div class="comentario-topo">
-            <strong>{{ c.autor.nome }}</strong>
-            <span class="muted small">
-              {{ c.criado_em.strftime('%d/%m/%Y às %H:%M') }}
-              {% if c.editado_em %}<em>(editado)</em>{% endif %}
-            </span>
-          </div>
-          <p class="comentario-texto" id="comentario-texto-{{ c.id }}">{{ c.texto }}</p>
-
-          {% if current_user.is_assessor() and c.autor_id == current_user.id %}
-          <div class="comentario-acoes">
-            <button type="button" class="btn-link-mini btn-editar-comentario" data-id="{{ c.id }}">Editar</button>
-            <form method="POST" action="{{ url_for('lic.excluir_comentario', comentario_id=c.id) }}" class="form-inline">
-              <button type="submit" class="btn-link-mini btn-link-mini-excluir" onclick="return confirm('Excluir comentário?')">Excluir</button>
-            </form>
-          </div>
-          <form method="POST" action="{{ url_for('lic.editar_comentario', comentario_id=c.id) }}"
-                class="form-editar-comentario" id="form-editar-comentario-{{ c.id }}" style="display: none;">
-            <textarea name="texto" rows="2" required>{{ c.texto }}</textarea>
-            <div class="comentario-acoes">
-              <button type="submit" class="btn btn-primary btn-sm">Salvar</button>
-              <button type="button" class="btn btn-sm btn-cancelar-edicao-comentario" data-id="{{ c.id }}">Cancelar</button>
-            </div>
-          </form>
-          {% endif %}
-        </li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <p class="muted">Nenhum comentário ainda.</p>
-      {% endif %}
-    </div>
-
-    <!-- Documentos -->
-    <div class="card">
-      <h3>Documentos</h3>
-      {% if current_user.is_assessor() %}
-      <form method="POST" action="{{ url_for('lic.upload', id=lic.id) }}" enctype="multipart/form-data" class="upload-form-doc">
-        <div class="campo">
-          <label>Edital</label>
-          <div class="dropzone-doc">
-            <input type="file" name="edital" class="input-file input-file-doc" id="input-edital-detalhe">
-            <label for="input-edital-detalhe" class="btn btn-upload dropzone-doc-label">📎 Selecionar ou arrastar arquivo</label>
-          </div>
-          {% if docs_existentes.get('edital') %}
-          <small class="muted">Atual: {{ docs_existentes['edital'].nome_original }} — escolher outro substitui este.</small>
-          {% endif %}
-        </div>
-        <div class="campo">
-          <label>Termo de referência</label>
-          <div class="dropzone-doc">
-            <input type="file" name="termo_referencia" class="input-file input-file-doc" id="input-tr-detalhe">
-            <label for="input-tr-detalhe" class="btn btn-upload dropzone-doc-label">📎 Selecionar ou arrastar arquivo</label>
-          </div>
-          {% if docs_existentes.get('termo_referencia') %}
-          <small class="muted">Atual: {{ docs_existentes['termo_referencia'].nome_original }} — escolher outro substitui este.</small>
-          {% endif %}
-        </div>
-        <div class="campo">
-          <label>Outros arquivos</label>
-          <div class="dropzone-doc">
-            <input type="file" name="outros" multiple class="input-file input-file-doc" id="input-outros-detalhe">
-            <label for="input-outros-detalhe" class="btn btn-upload dropzone-doc-label">📎 Selecionar ou arrastar arquivos</label>
-          </div>
-          <small class="muted">Pode selecionar vários de uma vez; cada envio se soma aos já enviados (não substitui).</small>
-        </div>
-        <button type="submit" class="btn btn-primary btn-sm">Enviar</button>
-      </form>
-      {% endif %}
-
-      {% set docs_processo = lic.documentos|selectattr('categoria', 'equalto', 'processo')|list %}
-      {% if docs_processo %}
-      <ul class="doc-lista">
-        {% for doc in docs_processo %}
-        <li class="doc-item">
-          <span class="doc-icon">📄</span>
-          <a href="{{ url_for('lic.download_doc', doc_id=doc.id) }}" class="doc-nome" title="{{ doc.nome_original }}">{{ doc.nome_original }}</a>
-          {% if doc.tipo == 'edital' %}
-          <span class="filtro-pill">Edital</span>
-          {% elif doc.tipo == 'termo_referencia' %}
-          <span class="filtro-pill">Termo de Referência</span>
-          {% endif %}
-          <span class="doc-tamanho muted">{{ (doc.tamanho / 1024)|round(1) }} KB</span>
-          {% if current_user.is_assessor() %}
-          <form method="POST" action="{{ url_for('lic.excluir_doc', doc_id=doc.id) }}" class="form-inline">
-            <button type="submit" class="btn-excluir" onclick="return confirm('Excluir documento?')">✕</button>
-          </form>
-          {% endif %}
-        </li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <p class="muted">Nenhum documento enviado.</p>
-      {% endif %}
-    </div>
-
-    <!-- Documentos de Apoio (cliente) -->
-    <div class="card">
-      <h3>Documentos de apoio</h3>
-      <p class="muted-sm">Tabelas de preço, notas fiscais de referência, e-mails e outros materiais para auxiliar na precificação e gestão do contrato.</p>
-
-      {% if not current_user.is_assessor() %}
-      <form method="POST" action="{{ url_for('lic.upload_apoio', id=lic.id) }}" enctype="multipart/form-data" class="upload-form-apoio">
-        <div class="campo">
-          <input type="file" name="arquivos" id="input-file-apoio">
-        </div>
-        <div class="campo">
-          <label>Renomear arquivo (opcional)</label>
-          <input type="text" name="nome_personalizado" placeholder="Ex: Tabela de preços - Junho">
-        </div>
-        <button type="submit" class="btn btn-primary btn-sm">Enviar</button>
-      </form>
-      {% endif %}
-
-      {% set docs_apoio = lic.documentos|selectattr('categoria', 'equalto', 'apoio')|list %}
-      {% if docs_apoio %}
-      <ul class="doc-lista">
-        {% for doc in docs_apoio %}
-        <li class="doc-item">
-          <span class="doc-icon">📎</span>
-          <a href="{{ url_for('lic.download_doc', doc_id=doc.id) }}" class="doc-nome" title="{{ doc.nome_original }}">{{ doc.nome_original }}</a>
-          <span class="doc-tamanho muted">{{ (doc.tamanho / 1024)|round(1) }} KB</span>
-          {% if not current_user.is_assessor() %}
-          <form method="POST" action="{{ url_for('lic.excluir_doc_apoio', doc_id=doc.id) }}" class="form-inline">
-            <button type="submit" class="btn-excluir" onclick="return confirm('Excluir documento?')">✕</button>
-          </form>
-          {% endif %}
-        </li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <p class="muted">Nenhum documento de apoio enviado ainda.</p>
-      {% endif %}
-
-      <!-- Observacoes de apoio -->
-      <div class="observacoes-apoio-bloco">
-        <h4>Observações</h4>
-        <form method="POST" action="{{ url_for('lic.adicionar_observacao_apoio', id=lic.id) }}" class="form-comentario">
-          <textarea name="texto" rows="2" placeholder="Escreva uma observação..." required></textarea>
-          <button type="submit" class="btn btn-primary btn-sm">Enviar</button>
-        </form>
-
-        {% if lic.observacoes_apoio %}
-        <ul class="comentario-lista">
-          {% for o in lic.observacoes_apoio %}
-          <li class="comentario-item">
-            <div class="comentario-topo">
-              <strong>{{ o.autor.nome }}</strong>
-              <span class="muted small">{{ o.criado_em.strftime('%d/%m/%Y às %H:%M') }}</span>
-            </div>
-            <p class="comentario-texto">{{ o.texto }}</p>
-          </li>
-          {% endfor %}
-        </ul>
-        {% else %}
-        <p class="muted">Nenhuma observação ainda.</p>
-        {% endif %}
-      </div>
-    </div>
-
-  </div>
-
-  <!-- Coluna principal: parametros da disputa (largura cheia, sem rolagem lateral) -->
-  <div class="detalhe-principal">
 
     <!-- Parametros da Disputa (ex Itens / Lotes) -->
     <div class="card">
@@ -326,7 +136,7 @@
         <tbody>
           {% for item in lic.itens %}
           <tr>
-            <td>{{ item.descricao }}</td>
+            <td><div class="item-desc" title="Clique para ver a descrição inteira" onclick="this.classList.toggle('item-desc-aberta')">{{ item.descricao }}</div></td>
             <td>{{ item.marca or '—' }}</td>
             <td>{{ item.numero_item or '—' }}</td>
             <td>{{ item.lote_grupo or '—' }}</td>
@@ -401,6 +211,188 @@
           <button type="submit" class="btn btn-primary">Salvar item</button>
         </form>
       </details>
+    </div>
+
+  </div>
+
+  <!-- Coluna 2: documentos -->
+  <div class="col-detalhe-docs">
+
+    <!-- Documentos -->
+    <div class="card">
+      <h3>Documentos</h3>
+      {% if current_user.is_assessor() %}
+      <form method="POST" action="{{ url_for('lic.upload', id=lic.id) }}" enctype="multipart/form-data" class="upload-form-doc">
+        <div class="campo">
+          <label>Edital</label>
+          <div class="dropzone-doc">
+            <input type="file" name="edital" class="input-file input-file-doc" id="input-edital-detalhe">
+            <label for="input-edital-detalhe" class="btn btn-upload dropzone-doc-label">📎 Selecionar ou arrastar arquivo</label>
+          </div>
+          {% if docs_existentes.get('edital') %}
+          <small class="muted">Atual: {{ docs_existentes['edital'].nome_original }} — escolher outro substitui este.</small>
+          {% endif %}
+        </div>
+        <div class="campo">
+          <label>Termo de referência</label>
+          <div class="dropzone-doc">
+            <input type="file" name="termo_referencia" class="input-file input-file-doc" id="input-tr-detalhe">
+            <label for="input-tr-detalhe" class="btn btn-upload dropzone-doc-label">📎 Selecionar ou arrastar arquivo</label>
+          </div>
+          {% if docs_existentes.get('termo_referencia') %}
+          <small class="muted">Atual: {{ docs_existentes['termo_referencia'].nome_original }} — escolher outro substitui este.</small>
+          {% endif %}
+        </div>
+        <div class="campo">
+          <label>Outros arquivos</label>
+          <div class="dropzone-doc">
+            <input type="file" name="outros" multiple class="input-file input-file-doc" id="input-outros-detalhe">
+            <label for="input-outros-detalhe" class="btn btn-upload dropzone-doc-label">📎 Selecionar ou arrastar arquivos</label>
+          </div>
+          <small class="muted">Pode selecionar vários de uma vez; cada envio se soma aos já enviados (não substitui).</small>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm">Enviar</button>
+      </form>
+      {% endif %}
+
+      {% set docs_processo = lic.documentos|selectattr('categoria', 'equalto', 'processo')|list %}
+      {% if docs_processo %}
+      <ul class="doc-lista">
+        {% for doc in docs_processo %}
+        <li class="doc-item">
+          <span class="doc-icon">📄</span>
+          <a href="{{ url_for('lic.download_doc', doc_id=doc.id) }}" class="doc-nome" title="{{ doc.nome_original }}">{{ doc.nome_original }}</a>
+          {% if doc.tipo == 'edital' %}
+          <span class="filtro-pill">Edital</span>
+          {% elif doc.tipo == 'termo_referencia' %}
+          <span class="filtro-pill">Termo de Referência</span>
+          {% endif %}
+          <span class="doc-tamanho muted">{{ (doc.tamanho / 1024)|round(1) }} KB</span>
+          {% if current_user.is_assessor() %}
+          <form method="POST" action="{{ url_for('lic.excluir_doc', doc_id=doc.id) }}" class="form-inline">
+            <button type="submit" class="btn-excluir" onclick="return confirm('Excluir documento?')">✕</button>
+          </form>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">Nenhum documento enviado.</p>
+      {% endif %}
+    </div>
+
+  </div>
+
+  <!-- Coluna 3: comentarios e apoio -->
+  <div class="col-detalhe-comentarios">
+
+    <!-- Comentarios -->
+    <div class="card">
+      <h3>Comentários</h3>
+      <form method="POST" action="{{ url_for('lic.comentar', id=lic.id) }}" class="form-comentario">
+        <textarea name="texto" rows="2" placeholder="Escreva um comentário..." required></textarea>
+        <button type="submit" class="btn btn-primary btn-sm">Enviar</button>
+      </form>
+
+      {% if lic.comentarios %}
+      <ul class="comentario-lista">
+        {% for c in lic.comentarios %}
+        <li class="comentario-item" id="comentario-{{ c.id }}">
+          <div class="comentario-topo">
+            <strong>{{ c.autor.nome }}</strong>
+            <span class="muted small">
+              {{ c.criado_em.strftime('%d/%m/%Y às %H:%M') }}
+              {% if c.editado_em %}<em>(editado)</em>{% endif %}
+            </span>
+          </div>
+          <p class="comentario-texto" id="comentario-texto-{{ c.id }}">{{ c.texto }}</p>
+
+          {% if current_user.is_assessor() and c.autor_id == current_user.id %}
+          <div class="comentario-acoes">
+            <button type="button" class="btn-link-mini btn-editar-comentario" data-id="{{ c.id }}">Editar</button>
+            <form method="POST" action="{{ url_for('lic.excluir_comentario', comentario_id=c.id) }}" class="form-inline">
+              <button type="submit" class="btn-link-mini btn-link-mini-excluir" onclick="return confirm('Excluir comentário?')">Excluir</button>
+            </form>
+          </div>
+          <form method="POST" action="{{ url_for('lic.editar_comentario', comentario_id=c.id) }}"
+                class="form-editar-comentario" id="form-editar-comentario-{{ c.id }}" style="display: none;">
+            <textarea name="texto" rows="2" required>{{ c.texto }}</textarea>
+            <div class="comentario-acoes">
+              <button type="submit" class="btn btn-primary btn-sm">Salvar</button>
+              <button type="button" class="btn btn-sm btn-cancelar-edicao-comentario" data-id="{{ c.id }}">Cancelar</button>
+            </div>
+          </form>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">Nenhum comentário ainda.</p>
+      {% endif %}
+    </div>
+
+    <!-- Documentos de Apoio (cliente) -->
+    <div class="card">
+      <h3>Documentos de apoio</h3>
+      <p class="muted-sm">Tabelas de preço, notas fiscais de referência, e-mails e outros materiais para auxiliar na precificação e gestão do contrato.</p>
+
+      {% if not current_user.is_assessor() %}
+      <form method="POST" action="{{ url_for('lic.upload_apoio', id=lic.id) }}" enctype="multipart/form-data" class="upload-form-apoio">
+        <div class="campo">
+          <input type="file" name="arquivos" id="input-file-apoio">
+        </div>
+        <div class="campo">
+          <label>Renomear arquivo (opcional)</label>
+          <input type="text" name="nome_personalizado" placeholder="Ex: Tabela de preços - Junho">
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm">Enviar</button>
+      </form>
+      {% endif %}
+
+      {% set docs_apoio = lic.documentos|selectattr('categoria', 'equalto', 'apoio')|list %}
+      {% if docs_apoio %}
+      <ul class="doc-lista">
+        {% for doc in docs_apoio %}
+        <li class="doc-item">
+          <span class="doc-icon">📎</span>
+          <a href="{{ url_for('lic.download_doc', doc_id=doc.id) }}" class="doc-nome" title="{{ doc.nome_original }}">{{ doc.nome_original }}</a>
+          <span class="doc-tamanho muted">{{ (doc.tamanho / 1024)|round(1) }} KB</span>
+          {% if not current_user.is_assessor() %}
+          <form method="POST" action="{{ url_for('lic.excluir_doc_apoio', doc_id=doc.id) }}" class="form-inline">
+            <button type="submit" class="btn-excluir" onclick="return confirm('Excluir documento?')">✕</button>
+          </form>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">Nenhum documento de apoio enviado ainda.</p>
+      {% endif %}
+
+      <!-- Observacoes de apoio -->
+      <div class="observacoes-apoio-bloco">
+        <h4>Observações</h4>
+        <form method="POST" action="{{ url_for('lic.adicionar_observacao_apoio', id=lic.id) }}" class="form-comentario">
+          <textarea name="texto" rows="2" placeholder="Escreva uma observação..." required></textarea>
+          <button type="submit" class="btn btn-primary btn-sm">Enviar</button>
+        </form>
+
+        {% if lic.observacoes_apoio %}
+        <ul class="comentario-lista">
+          {% for o in lic.observacoes_apoio %}
+          <li class="comentario-item">
+            <div class="comentario-topo">
+              <strong>{{ o.autor.nome }}</strong>
+              <span class="muted small">{{ o.criado_em.strftime('%d/%m/%Y às %H:%M') }}</span>
+            </div>
+            <p class="comentario-texto">{{ o.texto }}</p>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="muted">Nenhuma observação ainda.</p>
+        {% endif %}
+      </div>
     </div>
 
   </div>
