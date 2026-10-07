@@ -1439,3 +1439,8 @@ body.com-menu.relatorio-pagina { background: #eef2ee; margin: 0; padding: 0 0 40
 }
 body.relatorio-gerando .relatorio-folha { margin: 0; border-radius: 0; box-shadow: none; width: auto; max-width: none; }
 body.com-menu.relatorio-gerando { padding: 0; background: #fff; }
+
+/* Status "sem participacao" */
+.status-sem-participacao, body.com-menu .status-sem-participacao { background: #f3ece4; color: #6b4e2e; }
+/* rotulos de status ja chegam com a primeira maiuscula certa ("Sem participação") */
+.badge, .select-status-mini { text-transform: none; }

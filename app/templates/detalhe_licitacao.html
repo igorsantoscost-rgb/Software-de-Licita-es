@@ -47,8 +47,8 @@
 </div>
 
 <div class="campo campo-condicional campo-condicional-header" id="campo-motivo-encerramento" style="display: none;">
-  <label>Motivo do Encerramento *</label>
-  <input type="text" name="motivo_encerramento" form="form-status" placeholder="Ex: 2º colocado"
+  <label id="rotulo-motivo-encerramento">{{ 'Justificativa da não participação *' if lic.status == 'sem participacao' else 'Motivo do encerramento *' }}</label>
+  <input type="text" name="motivo_encerramento" form="form-status" placeholder="Ex: 2º colocado" id="input-motivo-encerramento"
          value="{{ lic.motivo_encerramento or '' }}">
 </div>
 {% endif %}

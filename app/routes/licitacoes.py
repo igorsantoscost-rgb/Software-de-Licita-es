@@ -318,16 +318,21 @@ def atualizar_status(id):
             flash("Valor homologado inválido.", "erro")
             return redirect(destino)
 
-    elif novo == "encerrada":
+    elif novo in ("encerrada", "sem participacao"):
+        # mesma coluna guarda o motivo do encerramento ou a justificativa da nao participacao
         motivo = request.form.get("motivo_encerramento", "").strip()
         if not motivo:
-            flash("Para marcar como Encerrada, informe o motivo (ex: 2º colocado).", "erro")
+            if novo == "encerrada":
+                flash("Para marcar como Encerrada, informe o motivo (ex: 2º colocado).", "erro")
+            else:
+                flash("Para marcar como Sem participação, informe a justificativa (ex: prazo de entrega inviável).", "erro")
             return redirect(destino)
-        lic.motivo_encerramento = motivo
+        lic.motivo_encerramento = motivo[:300]
 
     lic.status = novo
     db.session.commit()
-    flash(f"Status atualizado para '{novo}'.", "ok")
+    rotulos = {"em habilitacao": "Em habilitação", "sem participacao": "Sem participação"}
+    flash(f"Status atualizado para '{rotulos.get(novo, novo.capitalize())}'.", "ok")
     return redirect(destino)
 
 

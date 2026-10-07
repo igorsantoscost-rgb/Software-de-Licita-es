@@ -11,8 +11,8 @@ no mes em que foi cadastrada):
 - participada: chegou a disputa (em disputa, em julgamento, em habilitacao,
   homologada ou encerrada);
 - vencida: homologada;
-- sem participacao: revogada, cancelada ou ainda "agendada" com a data da
-  disputa ja passada;
+- sem participacao: status "sem participacao", revogada, cancelada ou ainda
+  "agendada" com a data da disputa ja passada;
 - aguardando disputa: agendada com data futura (ou sem data);
 - valor homologado: soma do valor homologado das vencidas;
 - valor empenhado: soma dos empenhos recebidos no periodo.
@@ -29,7 +29,7 @@ from app.models import Licitacao, Empenho, Cliente
 gestao_bp = Blueprint("gestao", __name__, url_prefix="/gestao")
 
 PARTICIPOU = {"em disputa", "em julgamento", "em habilitacao", "homologada", "encerrada"}
-NAO_PARTICIPOU = {"revogada", "cancelada"}
+NAO_PARTICIPOU = {"revogada", "cancelada", "sem participacao"}
 
 MESES = ["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
          "Jul", "Ago", "Set", "Out", "Nov", "Dez"]

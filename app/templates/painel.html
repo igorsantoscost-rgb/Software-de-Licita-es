@@ -115,7 +115,7 @@
           {% endif %}
           {% if l.status == 'homologada' and l.valor_homologado %}
           <br><span class="valor-destaque-homologado">R$ {{ "%.2f"|format(l.valor_homologado)|replace('.', ',') }}</span>
-          {% elif l.status == 'encerrada' and l.motivo_encerramento %}
+          {% elif l.status in ('encerrada', 'sem participacao') and l.motivo_encerramento %}
           <br><span class="motivo-encerramento-info">{{ l.motivo_encerramento }}</span>
           {% endif %}
         </td>

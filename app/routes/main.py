@@ -18,7 +18,7 @@ _ORDEM_STATUS = {s: i for i, s in enumerate(STATUS_ATIVOS)}
 
 # Status que, uma vez atingidos, tiram a licitacao do calendario (ela continua
 # disponivel no painel, so nao faz mais sentido ocupar espaco na agenda).
-STATUS_OCULTOS_CALENDARIO = ["revogada", "cancelada", "encerrada"]
+STATUS_OCULTOS_CALENDARIO = ["revogada", "cancelada", "sem participacao", "encerrada"]
 
 
 

@@ -101,6 +101,7 @@ def create_app():
 
     _ROTULOS_STATUS = {
         "em habilitacao": "Em habilitação",
+        "sem participacao": "Sem participação",
         "ordinario": "Ordinário",
         "aguardando pagamento": "Aguardando pagamento",
     }
@@ -132,6 +133,7 @@ def create_app():
         _seed_admin(app)
         _seed_capag_estados()
         _padronizar_textos_importados()
+        _migrar_encerradas_sem_participacao()
 
     return app
 
@@ -453,4 +455,27 @@ def _padronizar_textos_importados():
         db.session.commit()
     except Exception:
         # outro worker do gunicorn pode ter aplicado ao mesmo tempo (nome unico)
+        db.session.rollback()
+
+
+def _migrar_encerradas_sem_participacao():
+    """Uma unica vez: licitacoes "encerradas" cuja justificativa diz que nao
+    houve participacao passam para o status novo "sem participacao"."""
+    from app.models import Licitacao, MigracaoAplicada
+    from app.capag import normalizar
+    nome = "encerradas_sem_participacao_v1"
+    try:
+        if MigracaoAplicada.query.filter_by(nome=nome).first():
+            return
+        movidas = 0
+        for lic in Licitacao.query.filter_by(status="encerrada").all():
+            motivo = normalizar(lic.motivo_encerramento or "")
+            if "sem particip" in motivo or "nao particip" in motivo:
+                lic.status = "sem participacao"
+                movidas += 1
+        db.session.add(MigracaoAplicada(nome=nome))
+        db.session.commit()
+        if movidas:
+            print(f"[migracao] {movidas} licitacao(oes) encerrada(s) passaram para 'sem participacao'.")
+    except Exception:
         db.session.rollback()

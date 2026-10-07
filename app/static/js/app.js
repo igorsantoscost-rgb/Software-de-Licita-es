@@ -91,7 +91,14 @@ function atualizarCamposCondicionaisStatus() {
     campoValorHomologado.style.display = (valor === 'homologada') ? 'flex' : 'none';
   }
   if (campoMotivoEncerramento) {
-    campoMotivoEncerramento.style.display = (valor === 'encerrada') ? 'flex' : 'none';
+    const pedeMotivo = (valor === 'encerrada' || valor === 'sem participacao');
+    campoMotivoEncerramento.style.display = pedeMotivo ? 'flex' : 'none';
+    const rotulo = document.getElementById('rotulo-motivo-encerramento');
+    const input = document.getElementById('input-motivo-encerramento');
+    if (rotulo && pedeMotivo) {
+      rotulo.textContent = valor === 'sem participacao' ? 'Justificativa da não participação *' : 'Motivo do encerramento *';
+      if (input) input.placeholder = valor === 'sem participacao' ? 'Ex: prazo de entrega inviável' : 'Ex: 2º colocado';
+    }
   }
 }
 
@@ -133,8 +140,13 @@ document.querySelectorAll('.btn-cancelar-edicao-comentario').forEach(btn => {
     },
     encerrada: {
       inputOcultoClasse: 'input-motivo-encerramento-oculto',
-      rotulo: 'Motivo do Encerramento *',
+      rotulo: 'Motivo do encerramento *',
       placeholder: 'Ex: 2º colocado',
+    },
+    'sem participacao': {
+      inputOcultoClasse: 'input-motivo-encerramento-oculto',
+      rotulo: 'Justificativa da não participação *',
+      placeholder: 'Ex: prazo de entrega inviável',
     },
   };
 

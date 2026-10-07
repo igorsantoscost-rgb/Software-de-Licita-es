@@ -95,6 +95,7 @@ STATUS_CHOICES = [
     "homologada",
     "revogada",
     "cancelada",
+    "sem participacao",
     "encerrada",
 ]
 
