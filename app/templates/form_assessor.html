@@ -44,8 +44,8 @@
     <div class="palavras-chave-lista" style="flex-wrap:wrap;gap:8px;display:flex;">
       {% for c in clientes %}
       {% set vinculado = assessor and assessor.clientes_atendidos.filter_by(id=c.id).first() %}
-      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:6px 12px;border:1px solid #d1d5db;border-radius:20px;{{ 'background:#dcfce7;border-color:#16a34a;' if vinculado else '' }}">
-        <input type="checkbox" name="clientes_ids" value="{{ c.id }}" {{ 'checked' if vinculado else '' }} style="accent-color:#14532d;">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:6px 12px;border:1px solid #d6dbcb;border-radius:20px;{{ 'background:#e8eed8;border-color:#6d8244;' if vinculado else '' }}">
+        <input type="checkbox" name="clientes_ids" value="{{ c.id }}" {{ 'checked' if vinculado else '' }} style="accent-color:#36451f;">
         {{ c.nome }}
       </label>
       {% endfor %}

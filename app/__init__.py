@@ -15,6 +15,12 @@ def create_app():
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["UPLOAD_FOLDER"] = "/app/uploads"
     app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024 * 1024  # 1GB (pacote ZIP de editais)
+    # "Manter-me conectado": 30 dias de sessao/cookie
+    from datetime import timedelta
+    app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
+    app.config["REMEMBER_COOKIE_DURATION"] = timedelta(days=30)
+    app.config["REMEMBER_COOKIE_REFRESH_EACH_REQUEST"] = True
+    app.config["SESSION_REFRESH_EACH_REQUEST"] = True
 
     db.init_app(app)
     login_manager.init_app(app)

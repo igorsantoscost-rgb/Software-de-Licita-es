@@ -220,3 +220,57 @@ document.querySelectorAll('.btn-cancelar-edicao-comentario').forEach(btn => {
     });
   });
 })();
+
+// ─── Transições entre telas ────────────────────────────────────────────────
+// Chrome/Edge (e Safari recente) animam a troca de página sozinhos pelo CSS
+// (@view-transition). Aqui só dizemos a direção (calendário: avançar/voltar).
+// Nos navegadores sem esse recurso, o próprio script faz a saída e a entrada.
+(function () {
+  var CHAVE = 'bidfy-transicao';
+  var nativo = 'onpagereveal' in window;
+  var reduzir = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function guardar(dir) { try { sessionStorage.setItem(CHAVE, dir || 'normal'); } catch (e) {} }
+  function ler() {
+    try { var d = sessionStorage.getItem(CHAVE); sessionStorage.removeItem(CHAVE); return d; } catch (e) { return null; }
+  }
+
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[href]');
+    if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if (a.target === '_blank' || a.hasAttribute('download')) return;
+    var url = new URL(a.href, location.href);
+    if (url.origin !== location.origin || url.hash && url.pathname === location.pathname && url.search === location.search) return;
+    if (/\/(download|doc\/\d+\/download)/.test(url.pathname) || /\/download/.test(url.pathname)) return;
+    guardar(a.dataset.transicao);
+    if (!nativo && !reduzir) {
+      var c = document.querySelector('main.container');
+      if (c) {
+        e.preventDefault();
+        c.classList.add('tela-saindo');
+        setTimeout(function () { location.href = a.href; }, 150);
+      }
+    }
+  }, false);
+
+  document.addEventListener('submit', function () { guardar('normal'); }, true);
+
+  if (nativo) {
+    window.addEventListener('pagereveal', function (e) {
+      var dir = ler();
+      if (e.viewTransition && (dir === 'avancar' || dir === 'voltar')) {
+        try { e.viewTransition.types.add(dir); } catch (err) {}
+      }
+    });
+  } else if (!reduzir) {
+    var dir = ler();
+    var c = document.querySelector('main.container');
+    if (c && dir) {
+      c.classList.add(dir === 'avancar' ? 'tela-entrando-direita' : dir === 'voltar' ? 'tela-entrando-esquerda' : 'tela-entrando');
+    }
+    // voltar pelo botão do navegador sem recarregar: limpa a animação de saída
+    window.addEventListener('pageshow', function (ev) {
+      if (ev.persisted && c) c.classList.remove('tela-saindo');
+    });
+  }
+})();

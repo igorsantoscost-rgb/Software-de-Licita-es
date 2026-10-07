@@ -26,7 +26,7 @@
 
       <table class="tabela" style="margin-bottom:0;">
         <thead>
-          <tr style="background:#f3f4f6;">
+          <tr style="background:#f1f3eb;">
             <th style="text-align:left;">Descricao</th>
             <th style="text-align:right;width:150px;">Valor</th>
           </tr>
@@ -46,8 +46,8 @@
           {% endif %}
           <!-- Itens de empenho (2%) -->
           {% if fatura.itens %}
-          <tr style="background:#f8fafc;">
-            <td colspan="2" style="padding:12px 8px 4px;font-weight:600;color:#14532d;">
+          <tr style="background:#f8f9f4;">
+            <td colspan="2" style="padding:12px 8px 4px;font-weight:600;color:#36451f;">
               Comissao sobre empenhos — Total empenhado: R$ {{ "{:,.2f}".format(fatura.total_valor_empenhado).replace(",", "X").replace(".", ",").replace("X", ".") }} × 2% = R$ {{ "{:,.2f}".format(fatura.total_empenhos).replace(",", "X").replace(".", ",").replace("X", ".") }}
             </td>
           </tr>
@@ -64,9 +64,9 @@
           {% endif %}
         </tbody>
         <tfoot>
-          <tr style="background:#f0fdf4;font-weight:700;font-size:1.05rem;">
+          <tr style="background:#f3f6ea;font-weight:700;font-size:1.05rem;">
             <td>TOTAL</td>
-            <td style="text-align:right;color:#14532d;">R$ {{ "{:,.2f}".format(fatura.total).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
+            <td style="text-align:right;color:#36451f;">R$ {{ "{:,.2f}".format(fatura.total).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
           </tr>
         </tfoot>
       </table>
@@ -77,7 +77,7 @@
   <div>
     <div class="card">
       <h3>Vencimento</h3>
-      <p style="font-size:1.3rem;font-weight:700;color:#14532d;margin:8px 0;">
+      <p style="font-size:1.3rem;font-weight:700;color:#36451f;margin:8px 0;">
         {{ fatura.vencimento.strftime('%d/%m/%Y') }}
       </p>
       <p class="muted">Referente a {{ fatura.nome_mes }}</p>

@@ -10,11 +10,11 @@
       <a href="{{ url_for('main.calendario', mes=inicio.month, ano=inicio.year, busca=busca or None) }}" class="toggle-btn">Mensal</a>
       <a href="{{ url_for('main.calendario_semana', inicio=inicio.isoformat(), busca=busca or None) }}" class="toggle-btn ativo">Semanal</a>
     </div>
-    <a href="{{ url_for('main.calendario_semana', inicio=semana_anterior.isoformat(), busca=busca or None) }}" class="btn btn-sm">← Anterior</a>
+    <a href="{{ url_for('main.calendario_semana', inicio=semana_anterior.isoformat(), busca=busca or None) }}" data-transicao="voltar" class="btn btn-sm">← Anterior</a>
     <strong class="mes-label">
       {{ inicio.day }} {{ nomes_meses_curto[inicio.month] }} – {{ fim.day }} {{ nomes_meses_curto[fim.month] }} {{ fim.year }}
     </strong>
-    <a href="{{ url_for('main.calendario_semana', inicio=semana_seguinte.isoformat(), busca=busca or None) }}" class="btn btn-sm">Próximo →</a>
+    <a href="{{ url_for('main.calendario_semana', inicio=semana_seguinte.isoformat(), busca=busca or None) }}" data-transicao="avancar" class="btn btn-sm">Próximo →</a>
   </div>
 </div>
 
