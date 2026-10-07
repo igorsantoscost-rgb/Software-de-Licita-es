@@ -3,17 +3,21 @@
 {% block conteudo %}
 
 <div class="page-header">
-  <h2>Calendário de Disputas</h2>
+  <h2>Calendário de disputas</h2>
   <div class="nav-mes">
     <div class="toggle-visao">
-      <a href="{{ url_for('main.calendario', mes=mes, ano=ano) }}" class="toggle-btn ativo">Mensal</a>
-      <a href="{{ url_for('main.calendario_semana') }}" class="toggle-btn">Semanal</a>
+      <a href="{{ url_for('main.calendario', mes=mes, ano=ano, busca=busca or None) }}" class="toggle-btn ativo">Mensal</a>
+      <a href="{{ url_for('main.calendario_semana', busca=busca or None) }}" class="toggle-btn">Semanal</a>
     </div>
-    <a href="{{ url_for('main.calendario', mes=mes-1, ano=ano) }}" class="btn btn-sm">← Anterior</a>
+    <a href="{{ url_for('main.calendario', mes=mes-1, ano=ano, busca=busca or None) }}" class="btn btn-sm">← Anterior</a>
     <strong class="mes-label">{{ nome_mes }} {{ ano }}</strong>
-    <a href="{{ url_for('main.calendario', mes=mes+1, ano=ano) }}" class="btn btn-sm">Próximo →</a>
+    <a href="{{ url_for('main.calendario', mes=mes+1, ano=ano, busca=busca or None) }}" class="btn btn-sm">Próximo →</a>
   </div>
 </div>
+
+{% with acao=url_for('main.calendario'), campos_ocultos={'mes': mes, 'ano': ano} %}
+{% include "_busca_calendario.html" %}
+{% endwith %}
 
 <div class="calendario-wrap">
   <table class="calendario">
@@ -32,10 +36,10 @@
         {% if dia_num != 0 %}
           {% set dia_date.d = primeiro_dia.replace(day=dia_num) %}
         {% endif %}
-        <td {% if dia_date.d %}data-href="{{ url_for('main.calendario_semana', inicio=dia_date.d.isoformat(), dia=dia_date.d.isoformat()) }}" title="Ver a semana deste dia"{% endif %}
+        <td {% if dia_date.d %}data-href="{{ url_for('main.calendario_semana', inicio=dia_date.d.isoformat(), dia=dia_date.d.isoformat(), busca=busca or None) }}" title="Ver a semana deste dia"{% endif %}
             class="cel-dia {% if dia_date.d %}cel-clicavel{% endif %} {% if dia_num == 0 %}cel-vazia{% endif %} {% if dia_date.d and dia_date.d in eventos %}cel-com-evento{% endif %} {% if dia_date.d and dia_date.d == hoje %}cel-hoje{% endif %}">
           {% if dia_num != 0 %}
-          <a href="{{ url_for('main.calendario_semana', inicio=dia_date.d.isoformat(), dia=dia_date.d.isoformat()) }}"
+          <a href="{{ url_for('main.calendario_semana', inicio=dia_date.d.isoformat(), dia=dia_date.d.isoformat(), busca=busca or None) }}"
              class="num-dia {% if dia_date.d and dia_date.d == hoje %}num-dia-hoje{% endif %}">{{ dia_num }}</a>
           {% if dia_date.d and dia_date.d in eventos %}
           <div class="eventos-dia">
@@ -47,6 +51,7 @@
                 {% if l|tem_comentario_assessor %}<span class="evento-recado-icon" title="Tem comentário do assessor">💬</span>{% endif %}
               </span>
               <span class="evento-orgao">{{ l.orgao_licitante }}</span>
+              {% if l.data_disputa_original %}<span class="tag-reagendada tag-reagendada-mini">↻ Reagendada</span>{% endif %}
             </a>
             {% endfor %}
           </div>
@@ -62,7 +67,7 @@
 
 <div class="legenda-status">
   {% for s in ['agendada', 'em disputa', 'em julgamento', 'em habilitacao', 'homologada', 'revogada', 'cancelada'] %}
-  <span class="legenda-item"><span class="badge status-{{ s|replace(' ', '-') }}">{{ s|title }}</span></span>
+  <span class="legenda-item"><span class="badge status-{{ s|replace(' ', '-') }}">{{ s|rotulo_status }}</span></span>
   {% endfor %}
 </div>
 

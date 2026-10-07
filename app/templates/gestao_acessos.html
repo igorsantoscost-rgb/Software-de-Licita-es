@@ -15,7 +15,7 @@
         <td><strong>{{ u.username }}</strong></td>
         <td>{{ u.nome }}</td>
         <td>
-          <span class="filtro-pill status-{{ u.perfil }}" style="font-size:.75rem;">{{ u.perfil|title }}</span>
+          <span class="filtro-pill status-{{ u.perfil }}" style="font-size:.75rem;">{{ u.perfil|rotulo_status }}</span>
         </td>
         <td>{{ u.email or '—' }}</td>
         <td>{{ u.cliente.nome if u.cliente else '—' }}</td>

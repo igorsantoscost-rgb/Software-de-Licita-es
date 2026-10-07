@@ -19,7 +19,7 @@
         </div>
         <div style="text-align:right;">
           <span class="filtro-pill {% if fatura.status == 'paga' %}status-pago{% else %}status-aberta{% endif %}">
-            {{ fatura.status|title }}
+            {{ fatura.status|rotulo_status }}
           </span>
         </div>
       </div>

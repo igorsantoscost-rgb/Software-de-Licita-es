@@ -15,7 +15,7 @@
     {% for etapa in etapas %}
     <div class="etapa {% if loop.index0 <= idx_atual %}etapa-ativa{% endif %} {% if loop.index0 == idx_atual %}etapa-atual{% endif %}">
       <div class="etapa-circulo">{{ loop.index }}</div>
-      <span class="etapa-label">{{ etapa|title }}</span>
+      <span class="etapa-label">{{ etapa|rotulo_status }}</span>
     </div>
     {% if not loop.last %}<div class="etapa-linha {% if loop.index0 < idx_atual %}etapa-linha-ativa{% endif %}"></div>{% endif %}
     {% endfor %}
@@ -31,7 +31,7 @@
         <tr><td class="label-td">Cliente</td><td>{{ emp.cliente.nome }}</td></tr>
         <tr><td class="label-td">Licitacao</td><td>{{ emp.licitacao.orgao_licitante }} — {{ emp.licitacao.numero_pregao }}</td></tr>
         <tr><td class="label-td">Contrato</td><td>{{ emp.contrato or 'Sem contrato' }}</td></tr>
-        <tr><td class="label-td">Tipo</td><td>{{ emp.tipo|title }}{% if emp.tipo == 'ordinario' %} (paga ao entregar tudo){% else %} (admite entrega parcial){% endif %}</td></tr>
+        <tr><td class="label-td">Tipo</td><td>{{ emp.tipo|rotulo_status }}{% if emp.tipo == 'ordinario' %} (paga ao entregar tudo){% else %} (admite entrega parcial){% endif %}</td></tr>
         <tr><td class="label-td">Valor Total</td><td>{{ "R$ {:,.2f}".format(emp.valor_total).replace(",", "X").replace(".", ",").replace("X", ".") if emp.valor_total else '—' }}</td></tr>
         <tr><td class="label-td">Prazo de Entrega</td>
             <td>
@@ -43,7 +43,7 @@
                 {% else %}<span class="muted"> ({{ dias }} dias)</span>{% endif %}
               {% else %}—{% endif %}
             </td></tr>
-        <tr><td class="label-td">Status</td><td><span class="filtro-pill status-{{ emp.status|replace(' ', '-') }}">{{ emp.status|title }}</span></td></tr>
+        <tr><td class="label-td">Status</td><td><span class="filtro-pill status-{{ emp.status|replace(' ', '-') }}">{{ emp.status|rotulo_status }}</span></td></tr>
         <tr><td class="label-td">Cadastrado em</td><td>{{ emp.criado_em.strftime('%d/%m/%Y %H:%M') }}</td></tr>
         {% if emp.data_ciencia %}<tr><td class="label-td">Ciencia em</td><td>{{ emp.data_ciencia.strftime('%d/%m/%Y %H:%M') }}</td></tr>{% endif %}
         {% if emp.data_despacho %}<tr><td class="label-td">Despacho em</td><td>{{ emp.data_despacho.strftime('%d/%m/%Y %H:%M') }}</td></tr>{% endif %}

@@ -31,6 +31,7 @@ import zipfile
 from datetime import datetime
 
 from app.capag import UFS, UFS_VALIDAS, normalizar
+from app.texto import padronizar_nome, padronizar_frase
 
 # Limites de seguranca para o ZIP
 LIMITE_DESCOMPACTADO = 2 * 1024 * 1024 * 1024  # 2 GB
@@ -321,9 +322,9 @@ def _ler_aba_itens(ws, por_pasta, por_codigo):
             qtd = _para_float(_col(linha, idx_itens, "quantidade"))
             atual["itens"].append({
                 "numero_item": _limpar(_col(linha, idx_itens, "item") or "")[:20] or None,
-                "lote_grupo": _limpar(_col(linha, idx_itens, "grupo / lote", "grupo/lote", "lote", "grupo") or "")[:100] or None,
-                "descricao": descricao[:500],
-                "unidade": _limpar(_col(linha, idx_itens, "unidade") or "")[:50] or None,
+                "lote_grupo": padronizar_nome(_limpar(_col(linha, idx_itens, "grupo / lote", "grupo/lote", "lote", "grupo") or ""))[:100] or None,
+                "descricao": padronizar_frase(descricao)[:500],
+                "unidade": padronizar_frase(_limpar(_col(linha, idx_itens, "unidade") or ""))[:50] or None,
                 "quantidade": int(round(qtd)) if qtd is not None else None,
                 "valor_estimado": _para_float(_col(linha, idx_itens, "valor unitario")),
             })
@@ -804,8 +805,8 @@ def _analisar_pasta(nome_pasta, caminho_pasta, info, municipios, agora):
         "codigo_busca": info.get("codigo_busca") or "",
         "numero_pregao": formatar_numero(numero_bruto, ano_ref),
         "uasg": uasg,
-        "orgao_licitante": orgao[:300],
-        "objeto": objeto,
+        "orgao_licitante": padronizar_nome(orgao)[:300],
+        "objeto": padronizar_frase(objeto),
         "portal": portal,
         "data_disputa": data_disputa.strftime("%Y-%m-%dT%H:%M") if data_disputa else None,
         "valor_estimado": round(valor, 2) if valor else None,

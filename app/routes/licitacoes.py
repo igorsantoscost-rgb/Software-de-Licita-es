@@ -313,6 +313,36 @@ def atualizar_status(id):
     return redirect(destino)
 
 
+@lic_bp.route("/<int:id>/reagendar", methods=["POST"])
+@login_required
+def reagendar(id):
+    """Assessor informa a nova data da disputa. A licitacao passa a aparecer
+    no painel e no calendario na data nova; a data original fica guardada."""
+    if not current_user.is_assessor():
+        abort(403)
+    lic = Licitacao.query.get_or_404(id)
+    if request.form.get("desfazer") == "1":
+        if lic.data_disputa_original:
+            lic.data_disputa = lic.data_disputa_original
+        lic.data_disputa_original = None
+        lic.reagendada_em = None
+        db.session.commit()
+        flash("Reagendamento desfeito — voltou para a data original.", "ok")
+        return redirect(url_for("lic.detalhe", id=lic.id))
+    try:
+        nova = datetime.strptime(request.form.get("nova_data", ""), "%Y-%m-%dT%H:%M")
+    except ValueError:
+        flash("Informe a nova data e hora da disputa.", "erro")
+        return redirect(url_for("lic.detalhe", id=lic.id))
+    if lic.data_disputa_original is None:
+        lic.data_disputa_original = lic.data_disputa
+    lic.data_disputa = nova
+    lic.reagendada_em = datetime.utcnow()
+    db.session.commit()
+    flash(f"Disputa reagendada para {nova.strftime('%d/%m/%Y às %H:%M')}.", "ok")
+    return redirect(url_for("lic.detalhe", id=lic.id))
+
+
 # ─── Documentos ──────────────────────────────────────────────────────────────
 
 @lic_bp.route("/<int:id>/upload", methods=["POST"])

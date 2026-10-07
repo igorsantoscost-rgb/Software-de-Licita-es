@@ -3,28 +3,40 @@
 
 {% macro th_sort(coluna, rotulo) %}
 {% set proxima_dir = 'desc' if sort_coluna == coluna and sort_dir == 'asc' else 'asc' %}
-<a href="{{ url_for('main.painel', status=status_filtro, cliente_id=cliente_filtro, sort=coluna, dir=proxima_dir) }}"
+<a href="{{ url_for('main.painel', status=status_filtro, cliente_id=cliente_filtro, sort=coluna, dir=proxima_dir, busca=busca or None) }}"
    class="th-sort {% if sort_coluna == coluna %}th-sort-ativo{% endif %}">{{ rotulo }}{% if sort_coluna == coluna %} <span class="th-sort-seta">{{ '↑' if sort_dir == 'asc' else '↓' }}</span>{% endif %}</a>
 {% endmacro %}
 
 {% block conteudo %}
 
 <div class="page-header">
-  <h2>Painel de Licitações</h2>
+  <h2>Painel de licitações</h2>
   {% if current_user.is_assessor() %}
   <div style="display:flex; gap:8px; flex-wrap:wrap;">
     <a href="{{ url_for('imp.enviar') }}" class="btn">⇪ Importar pacote (.zip)</a>
-    <a href="{{ url_for('lic.nova') }}" class="btn btn-primary">+ Nova Licitação</a>
+    <a href="{{ url_for('lic.nova') }}" class="btn btn-primary">+ Nova licitação</a>
   </div>
   {% endif %}
 </div>
+
+<!-- Busca por texto -->
+<form method="GET" action="{{ url_for('main.painel') }}" class="busca-form">
+  <input type="hidden" name="status" value="{{ status_filtro }}">
+  <input type="hidden" name="cliente_id" value="{{ cliente_filtro }}">
+  {% if sort_coluna %}<input type="hidden" name="sort" value="{{ sort_coluna }}"><input type="hidden" name="dir" value="{{ sort_dir }}">{% endif %}
+  <input type="search" name="busca" value="{{ busca }}" class="busca-input"
+         placeholder="Buscar licitação: órgão, objeto, portal, número, UASG, cidade, item...">
+  <button type="submit" class="btn btn-primary btn-sm">Buscar</button>
+  {% if busca %}<a href="{{ url_for('main.painel', status=status_filtro, cliente_id=cliente_filtro) }}" class="btn btn-sm">Limpar</a>
+  <span class="muted-sm busca-contagem">{{ licitacoes|length }} resultado(s)</span>{% endif %}
+</form>
 
 <!-- Filtro por cliente (apenas assessor) -->
 {% if current_user.is_assessor() and clientes %}
 <div class="filtros">
   <span class="filtros-label">Filtrar por cliente:</span>
   <select class="select" style="max-width:320px;"
-          onchange="window.location.href='{{ url_for('main.painel') }}?status={{ status_filtro }}&cliente_id=' + this.value">
+          onchange="window.location.href='{{ url_for('main.painel') }}?status={{ status_filtro }}&busca={{ busca|urlencode }}&cliente_id=' + this.value">
     <option value="todos" {% if cliente_filtro == 'todos' %}selected{% endif %}>Todos os clientes</option>
     {% for c in clientes %}
     <option value="{{ c.id }}" {% if cliente_filtro == c.id|string %}selected{% endif %}>{{ c.nome }}</option>
@@ -36,12 +48,12 @@
 <!-- Filtro por status -->
 <div class="filtros">
   <span class="filtros-label">Filtrar por status:</span>
-  <a href="{{ url_for('main.painel', status='todos', cliente_id=cliente_filtro) }}"
+  <a href="{{ url_for('main.painel', status='todos', cliente_id=cliente_filtro, busca=busca or None) }}"
      class="filtro-pill {% if status_filtro == 'todos' %}ativo{% endif %}">Todos</a>
   {% for s in status_choices %}
-  <a href="{{ url_for('main.painel', status=s, cliente_id=cliente_filtro) }}"
+  <a href="{{ url_for('main.painel', status=s, cliente_id=cliente_filtro, busca=busca or None) }}"
      class="filtro-pill status-{{ s|replace(' ', '-') }} {% if status_filtro == s %}ativo{% endif %}">
-    {{ s|title }}
+    {{ s|rotulo_status }}
   </a>
   {% endfor %}
 </div>
@@ -53,9 +65,9 @@
     <thead>
       <tr>
         <th>{{ th_sort('pregao', 'Pregão / UASG') }}</th>
-        <th>{{ th_sort('orgao', 'Órgão Licitante') }}</th>
+        <th>{{ th_sort('orgao', 'Órgão licitante') }}</th>
         <th>{{ th_sort('portal', 'Portal') }}</th>
-        <th>{{ th_sort('data', 'Data da Disputa') }}</th>
+        <th>{{ th_sort('data', 'Data da disputa') }}</th>
         <th>{{ th_sort('status', 'Status') }}</th>
         {% if current_user.is_assessor() %}<th>{{ th_sort('cliente', 'Cliente') }}</th>{% endif %}
         <th></th>
@@ -74,6 +86,7 @@
           {% if l.data_disputa %}
             {{ l.data_disputa.strftime('%d/%m/%Y') }}<br>
             <small class="muted">{{ l.data_disputa.strftime('%H:%M') }}</small>
+            {% if l.data_disputa_original %}<br><span class="tag-reagendada" title="Data original: {{ l.data_disputa_original.strftime('%d/%m/%Y %H:%M') }}">↻ Reagendada</span>{% endif %}
           {% else %}—{% endif %}
         </td>
         <td>
@@ -84,12 +97,12 @@
             <input type="hidden" name="motivo_encerramento" class="input-motivo-encerramento-oculto" value="{{ l.motivo_encerramento or '' }}">
             <select name="status" class="select select-status-mini status-{{ l.status|replace(' ', '-') }}" data-status-atual="{{ l.status }}">
               {% for s in status_choices %}
-              <option value="{{ s }}" {% if l.status == s %}selected{% endif %}>{{ s|title }}</option>
+              <option value="{{ s }}" {% if l.status == s %}selected{% endif %}>{{ s|rotulo_status }}</option>
               {% endfor %}
             </select>
           </form>
           {% else %}
-          <span class="badge status-{{ l.status|replace(' ', '-') }}">{{ l.status|title }}</span>
+          <span class="badge status-{{ l.status|replace(' ', '-') }}">{{ l.status|rotulo_status }}</span>
           {% endif %}
           {% if l.status == 'homologada' and l.valor_homologado %}
           <br><span class="valor-destaque-homologado">R$ {{ "%.2f"|format(l.valor_homologado)|replace('.', ',') }}</span>
@@ -114,7 +127,7 @@
 </div>
 {% else %}
 <div class="vazio">
-  <p>Nenhuma licitação encontrada{% if status_filtro != 'todos' %} com status <strong>{{ status_filtro }}</strong>{% endif %}.</p>
+  <p>Nenhuma licitação encontrada{% if status_filtro != 'todos' %} com status <strong>{{ status_filtro|rotulo_status }}</strong>{% endif %}{% if busca %} para "<strong>{{ busca }}</strong>"{% endif %}.</p>
 </div>
 {% endif %}
 

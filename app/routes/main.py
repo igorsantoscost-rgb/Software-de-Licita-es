@@ -1,8 +1,8 @@
 from flask import Blueprint, render_template, redirect, url_for, request, flash, session
 from flask_login import login_required, current_user
-from app.models import Licitacao, Cliente, User, STATUS_CHOICES, PalavraChaveCliente
+from app.models import Licitacao, Cliente, User, STATUS_CHOICES, PalavraChaveCliente, ItemLicitacao
 from app import db, bcrypt
-from app.capag import UFS
+from app.capag import UFS, normalizar
 from datetime import datetime, date, timedelta
 import calendar
 
@@ -31,6 +31,73 @@ _ORDENADORES_COLUNA = {
     "status": lambda l: (l.status or "").strip().lower(),
     "cliente": lambda l: ((l.cliente.nome or "").strip().lower() if l.cliente else "", l.data_disputa or datetime.max),
 }
+
+
+# ─── Busca por texto (painel e calendario) ───────────────────────────────────
+
+_ACENTOS_DE = "áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ"
+_ACENTOS_PARA = "aaaaaeeeeiiiiooooouuuucnaaaaaeeeeiiiiooooouuuucn"
+
+
+def _texto_busca(l):
+    """Tudo o que a busca enxerga numa licitacao (sem acento, minusculo)."""
+    partes = [
+        l.orgao_licitante, l.objeto, l.portal, l.numero_pregao, l.uasg,
+        l.municipio, l.uf, l.status, l.codigo_busca, l.link_edital,
+        l.motivo_encerramento,
+        l.cliente.nome if l.cliente else "",
+        l.data_disputa.strftime("%d/%m/%Y %H:%M") if l.data_disputa else "",
+    ]
+    return normalizar(" ".join(p for p in partes if p))
+
+
+def _ids_por_item(ids, palavra):
+    """Licitacoes (entre ids) com algum item cuja descricao/lote contem a palavra."""
+    if not ids:
+        return set()
+    from sqlalchemy import func, or_
+    padrao = f"%{palavra}%"
+    try:
+        sem_acento = lambda col: func.translate(func.lower(col), _ACENTOS_DE, _ACENTOS_PARA)
+        linhas = (db.session.query(ItemLicitacao.licitacao_id)
+                  .filter(ItemLicitacao.licitacao_id.in_(ids))
+                  .filter(or_(sem_acento(ItemLicitacao.descricao).like(padrao),
+                              sem_acento(ItemLicitacao.lote_grupo).like(padrao)))
+                  .distinct().all())
+    except Exception:
+        # banco sem translate() (ex: sqlite de teste): busca simples
+        db.session.rollback()
+        linhas = (db.session.query(ItemLicitacao.licitacao_id)
+                  .filter(ItemLicitacao.licitacao_id.in_(ids))
+                  .filter(ItemLicitacao.descricao.ilike(padrao))
+                  .distinct().all())
+    return {r[0] for r in linhas}
+
+
+def filtrar_por_busca(lics, busca):
+    """Mantem so as licitacoes que tem TODAS as palavras buscadas em algum
+    campo (orgao, objeto, portal, numero, UASG, municipio, status, cliente,
+    data) ou na descricao de algum item."""
+    palavras = normalizar(busca).split() if busca else []
+    if not palavras:
+        return lics
+    ids = [l.id for l in lics]
+    textos = {l.id: _texto_busca(l) for l in lics}
+    por_item = {}
+    resultado = []
+    for l in lics:
+        ok = True
+        for p in palavras:
+            if p in textos[l.id]:
+                continue
+            if p not in por_item:
+                por_item[p] = _ids_por_item(ids, p)
+            if l.id not in por_item[p]:
+                ok = False
+                break
+        if ok:
+            resultado.append(l)
+    return resultado
 
 
 def _licitacoes_do_usuario(status_filtro=None, cliente_filtro=None, sort_coluna=None, sort_dir="asc"):
@@ -79,7 +146,9 @@ def painel():
     if sort_dir not in ("asc", "desc"):
         sort_dir = "asc"
 
+    busca = (request.args.get("busca") or "").strip()
     licitacoes = _licitacoes_do_usuario(status_filtro, cliente_filtro, sort_coluna, sort_dir)
+    licitacoes = filtrar_por_busca(licitacoes, busca)
     clientes = Cliente.query.order_by(Cliente.nome).all() if current_user.is_assessor() else []
     return render_template(
         "painel.html",
@@ -90,7 +159,19 @@ def painel():
         clientes=clientes,
         sort_coluna=sort_coluna,
         sort_dir=sort_dir,
+        busca=busca,
     )
+
+
+def _resultados_busca_calendario(busca):
+    """Com busca ativa, lista TODAS as licitacoes que batem (de qualquer mes),
+    para o usuario achar e pular direto para a data certa no calendario."""
+    if not busca:
+        return None
+    q = Licitacao.query.filter(Licitacao.data_disputa.isnot(None))
+    if not current_user.is_assessor():
+        q = q.filter(Licitacao.cliente_id == current_user.cliente_id)
+    return filtrar_por_busca(q.order_by(Licitacao.data_disputa.asc()).all(), busca)
 
 
 @main_bp.route("/calendario")
@@ -111,7 +192,9 @@ def calendario():
     )
     if not current_user.is_assessor():
         q = q.filter(Licitacao.cliente_id == current_user.cliente_id)
-    licitacoes_mes = q.all()
+    busca = (request.args.get("busca") or "").strip()
+    licitacoes_mes = filtrar_por_busca(q.all(), busca)
+    resultados_busca = _resultados_busca_calendario(busca)
 
     eventos = {}
     for l in licitacoes_mes:
@@ -134,6 +217,8 @@ def calendario():
         nome_mes=nomes_meses[mes],
         primeiro_dia=primeiro_dia,
         hoje=date.today(),
+        busca=busca,
+        resultados_busca=resultados_busca,
     )
 
 
@@ -169,7 +254,9 @@ def calendario_semana():
     )
     if not current_user.is_assessor():
         q = q.filter(Licitacao.cliente_id == current_user.cliente_id)
-    licitacoes_semana = q.order_by(Licitacao.data_disputa.asc()).all()
+    busca = (request.args.get("busca") or "").strip()
+    licitacoes_semana = filtrar_por_busca(q.order_by(Licitacao.data_disputa.asc()).all(), busca)
+    resultados_busca = _resultados_busca_calendario(busca)
 
     eventos = {}
     for l in licitacoes_semana:
@@ -192,6 +279,8 @@ def calendario_semana():
         nomes_meses_curto=nomes_meses_curto,
         hoje=date.today(),
         dia_destaque=dia_destaque,
+        busca=busca,
+        resultados_busca=resultados_busca,
     )
 
 

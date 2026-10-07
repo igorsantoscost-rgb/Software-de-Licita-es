@@ -1,0 +1,35 @@
+{# Caixa de busca + lista de resultados (usada no calendario mensal e semanal).
+   Espera: busca, resultados_busca, acao (url do formulario) e campos_ocultos (dict). #}
+<form method="GET" action="{{ acao }}" class="busca-form">
+  {% for nome, valor in campos_ocultos.items() %}
+  <input type="hidden" name="{{ nome }}" value="{{ valor }}">
+  {% endfor %}
+  <input type="search" name="busca" value="{{ busca }}" class="busca-input"
+         placeholder="Buscar licitação: órgão, objeto, portal, número, UASG, cidade, item...">
+  <button type="submit" class="btn btn-primary btn-sm">Buscar</button>
+  {% if busca %}<a href="{{ acao }}{% if campos_ocultos %}?{% for n, v in campos_ocultos.items() %}{{ n }}={{ v }}{% if not loop.last %}&{% endif %}{% endfor %}{% endif %}" class="btn btn-sm">Limpar</a>{% endif %}
+</form>
+
+{% if busca %}
+<div class="card busca-resultados">
+  {% if resultados_busca %}
+  <p class="busca-resultados-titulo">
+    {{ resultados_busca|length }} licitação(ões) com "<strong>{{ busca }}</strong>" — o calendário abaixo mostra só essas.
+  </p>
+  <ul class="busca-lista">
+    {% for l in resultados_busca[:30] %}
+    <li>
+      <a href="{{ url_for('main.calendario_semana', inicio=l.data_disputa.date().isoformat(), dia=l.data_disputa.date().isoformat(), busca=busca) }}"
+         class="busca-data" title="Ver a semana desta disputa">{{ l.data_disputa.strftime('%d/%m/%Y %H:%M') }}</a>
+      <a href="{{ url_for('lic.detalhe', id=l.id) }}" class="busca-orgao">{{ l.numero_pregao }} · {{ l.orgao_licitante }}</a>
+      <span class="badge status-{{ l.status|replace(' ', '-') }}">{{ l.status|rotulo_status }}</span>
+      {% if l.data_disputa_original %}<span class="tag-reagendada">Reagendada</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% if resultados_busca|length > 30 %}<p class="muted-sm">Mostrando as 30 primeiras. Refine a busca para ver menos.</p>{% endif %}
+  {% else %}
+  <p class="muted" style="margin:0;">Nenhuma licitação encontrada com "<strong>{{ busca }}</strong>".</p>
+  {% endif %}
+</div>
+{% endif %}

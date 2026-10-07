@@ -68,6 +68,20 @@ def create_app():
         html_limpo = bleach.clean(html, tags=tags_permitidas, attributes=atributos_permitidos, strip=True)
         return Markup(html_limpo)
 
+    _ROTULOS_STATUS = {
+        "em habilitacao": "Em habilitação",
+        "ordinario": "Ordinário",
+        "aguardando pagamento": "Aguardando pagamento",
+    }
+
+    @app.template_filter("rotulo_status")
+    def rotulo_status(valor):
+        """'em habilitacao' -> 'Em habilitação' (primeira maiuscula, resto minusculo)."""
+        if not valor:
+            return ""
+        v = str(valor).strip()
+        return _ROTULOS_STATUS.get(v.lower(), v[:1].upper() + v[1:].lower())
+
     @app.template_filter("tem_comentario_assessor")
     def tem_comentario_assessor(licitacao):
         """True se a licitacao tem ao menos um comentario escrito por um assessor.
@@ -85,6 +99,7 @@ def create_app():
         _migrar_coluna_tipo_documento()
         _seed_admin(app)
         _seed_capag_estados()
+        _padronizar_textos_importados()
 
     return app
 
@@ -210,6 +225,8 @@ def _migrar_coluna_tipo_documento():
                 ("licitacoes", "valor_estimado", "NUMERIC(14,2)"),
                 ("licitacoes", "codigo_busca", "VARCHAR(40)"),
                 ("itens_licitacao", "valor_estimado", "NUMERIC(14,4)"),
+                ("licitacoes", "data_disputa_original", "TIMESTAMP"),
+                ("licitacoes", "reagendada_em", "TIMESTAMP"),
             ]
             for tabela, coluna, tipo in colunas_importacao:
                 existe = conn.execute(text("""
@@ -366,4 +383,29 @@ def _seed_capag_estados():
                 ))
         db.session.commit()
     except Exception:
+        db.session.rollback()
+
+
+def _padronizar_textos_importados():
+    """Uma unica vez: deixa em "primeira maiuscula" os textos das licitacoes
+    que vieram do pacote de editais (orgao, objeto e itens), que chegaram
+    TODO EM MAIUSCULO. Licitacoes cadastradas a mao nao sao tocadas, e o que
+    o operador editar depois tambem nao (a rotina nao roda de novo)."""
+    from app.models import Licitacao, MigracaoAplicada
+    from app.texto import padronizar_nome, padronizar_frase
+    nome = "padronizar_textos_importados_v1"
+    try:
+        if MigracaoAplicada.query.filter_by(nome=nome).first():
+            return
+        for lic in Licitacao.query.filter(Licitacao.codigo_busca.isnot(None)).all():
+            lic.orgao_licitante = padronizar_nome(lic.orgao_licitante)
+            lic.objeto = padronizar_frase(lic.objeto)
+            for item in lic.itens:
+                item.descricao = padronizar_frase(item.descricao)
+                item.unidade = padronizar_frase(item.unidade)
+                item.lote_grupo = padronizar_nome(item.lote_grupo)
+        db.session.add(MigracaoAplicada(nome=nome))
+        db.session.commit()
+    except Exception:
+        # outro worker do gunicorn pode ter aplicado ao mesmo tempo (nome unico)
         db.session.rollback()

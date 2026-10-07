@@ -30,7 +30,7 @@
      class="filtro-pill {% if status_filtro == 'todos' %}ativo{% endif %}">Todos</a>
   {% for s in status_choices %}
   <a href="{{ url_for('fin.painel', status=s, cliente_id=cliente_filtro) }}"
-     class="filtro-pill {% if status_filtro == s %}ativo{% endif %}">{{ s|title }}</a>
+     class="filtro-pill {% if status_filtro == s %}ativo{% endif %}">{{ s|rotulo_status }}</a>
   {% endfor %}
 </div>
 
@@ -61,7 +61,7 @@
         <td>R$ {{ "{:,.2f}".format(f.total_empenhos).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
         <td><strong>R$ {{ "{:,.2f}".format(f.total).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong></td>
         <td>{{ f.vencimento.strftime('%d/%m/%Y') }}</td>
-        <td><span class="filtro-pill {% if f.status == 'paga' %}status-pago{% else %}status-aberta{% endif %}" style="font-size:.75rem;">{{ f.status|title }}</span></td>
+        <td><span class="filtro-pill {% if f.status == 'paga' %}status-pago{% else %}status-aberta{% endif %}" style="font-size:.75rem;">{{ f.status|rotulo_status }}</span></td>
         <td>{% if f.boleto_caminho %}📎{% else %}—{% endif %}</td>
         <td><a href="{{ url_for('fin.detalhe_fatura', id=f.id) }}" class="btn btn-sm">Ver</a></td>
       </tr>

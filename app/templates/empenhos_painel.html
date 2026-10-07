@@ -29,7 +29,7 @@
   {% for s in status_choices %}
   <a href="{{ url_for('emp.painel', status=s, cliente_id=cliente_filtro) }}"
      class="filtro-pill status-{{ s|replace(' ', '-') }} {% if status_filtro == s %}ativo{% endif %}">
-    {{ s|title }}
+    {{ s|rotulo_status }}
   </a>
   {% endfor %}
 </div>
@@ -55,10 +55,10 @@
         <td><strong>{{ e.numero_empenho or '—' }}</strong></td>
         <td>{{ e.cliente.nome }}</td>
         <td>{{ e.licitacao.orgao_licitante }} — {{ e.licitacao.numero_pregao }}</td>
-        <td>{{ e.tipo|title }}</td>
+        <td>{{ e.tipo|rotulo_status }}</td>
         <td>{{ "R$ {:,.2f}".format(e.valor_total).replace(",", "X").replace(".", ",").replace("X", ".") if e.valor_total else '—' }}</td>
         <td>{{ e.prazo_entrega.strftime('%d/%m/%Y') if e.prazo_entrega else '—' }}</td>
-        <td><span class="filtro-pill status-{{ e.status|replace(' ', '-') }}" style="font-size:.75rem;">{{ e.status|title }}</span></td>
+        <td><span class="filtro-pill status-{{ e.status|replace(' ', '-') }}" style="font-size:.75rem;">{{ e.status|rotulo_status }}</span></td>
         <td><a href="{{ url_for('emp.detalhe', id=e.id) }}" class="btn btn-sm">Ver</a></td>
       </tr>
       {% endfor %}

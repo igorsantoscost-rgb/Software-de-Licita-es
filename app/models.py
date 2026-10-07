@@ -134,6 +134,9 @@ class Licitacao(db.Model):
     valor_homologado = db.Column(db.Numeric(14, 2), nullable=True)
     valor_estimado = db.Column(db.Numeric(14, 2), nullable=True)
     codigo_busca = db.Column(db.String(40), nullable=True, index=True)  # ID do edital no sistema de busca (importacao em lote)
+    # Reagendamento: data_disputa passa a ser a nova data; a primeira data fica guardada aqui
+    data_disputa_original = db.Column(db.DateTime, nullable=True)
+    reagendada_em = db.Column(db.DateTime, nullable=True)
     motivo_encerramento = db.Column(db.String(300), nullable=True)
     resumo_ia = db.Column(db.Text, nullable=True)
     # CAPAG (Capacidade de Pagamento - Tesouro Nacional)
@@ -414,3 +417,12 @@ class ItemFatura(db.Model):
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
 
     empenho = db.relationship("Empenho")
+
+
+# ─── Controle de ajustes de dados que rodam uma unica vez ────────────────────
+
+class MigracaoAplicada(db.Model):
+    __tablename__ = "migracoes_aplicadas"
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100), unique=True, nullable=False)
+    aplicada_em = db.Column(db.DateTime, default=datetime.utcnow)
