@@ -837,3 +837,10 @@ small { font-size: .8rem; }
 .import-linha-off td { opacity: .55; }
 .import-linha-off td:first-child { opacity: 1; }
 .import-rodape { margin-top: 14px; }
+
+/* Calendario mensal: clicar no dia abre a semana */
+.cel-clicavel { cursor: pointer; }
+.cel-clicavel:hover { background: #f8fafc; }
+a.num-dia { color: inherit; text-decoration: none; }
+a.num-dia:hover { text-decoration: underline; }
+.semana-coluna-destaque { box-shadow: 0 0 0 2px #16a34a inset; background: #f0fdf4; }

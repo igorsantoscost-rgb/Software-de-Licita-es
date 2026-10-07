@@ -149,6 +149,13 @@ def calendario_semana():
     else:
         inicio = date.today()
 
+    # Dia clicado no calendario mensal (fica destacado na semana)
+    dia_destaque = None
+    try:
+        dia_destaque = datetime.strptime(request.args.get("dia", ""), "%Y-%m-%d").date()
+    except ValueError:
+        pass
+
     # Volta para o domingo da semana de 'inicio' (igual ao calendario mensal: domingo primeiro)
     inicio = inicio - timedelta(days=(inicio.weekday() + 1) % 7)
     fim = inicio + timedelta(days=6)
@@ -184,6 +191,7 @@ def calendario_semana():
         semana_seguinte=inicio + timedelta(days=7),
         nomes_meses_curto=nomes_meses_curto,
         hoje=date.today(),
+        dia_destaque=dia_destaque,
     )
 
 

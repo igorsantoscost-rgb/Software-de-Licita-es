@@ -20,7 +20,7 @@
 
 <div class="semana-wrap">
   {% for dia in dias_semana %}
-  <div class="semana-coluna {% if dia == hoje %}semana-coluna-hoje{% endif %}">
+  <div class="semana-coluna {% if dia == hoje %}semana-coluna-hoje{% endif %} {% if dia == dia_destaque %}semana-coluna-destaque{% endif %}">
     <div class="semana-coluna-header">
       <span class="semana-dia-nome">{{ ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][(dia.weekday()+1) % 7] }}</span>
       <span class="semana-dia-num">{{ dia.day }}/{{ dia.month }}</span>

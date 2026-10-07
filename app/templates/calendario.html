@@ -32,9 +32,11 @@
         {% if dia_num != 0 %}
           {% set dia_date.d = primeiro_dia.replace(day=dia_num) %}
         {% endif %}
-        <td class="cel-dia {% if dia_num == 0 %}cel-vazia{% endif %} {% if dia_date.d and dia_date.d in eventos %}cel-com-evento{% endif %} {% if dia_date.d and dia_date.d == hoje %}cel-hoje{% endif %}">
+        <td {% if dia_date.d %}data-href="{{ url_for('main.calendario_semana', inicio=dia_date.d.isoformat(), dia=dia_date.d.isoformat()) }}" title="Ver a semana deste dia"{% endif %}
+            class="cel-dia {% if dia_date.d %}cel-clicavel{% endif %} {% if dia_num == 0 %}cel-vazia{% endif %} {% if dia_date.d and dia_date.d in eventos %}cel-com-evento{% endif %} {% if dia_date.d and dia_date.d == hoje %}cel-hoje{% endif %}">
           {% if dia_num != 0 %}
-          <span class="num-dia {% if dia_date.d and dia_date.d == hoje %}num-dia-hoje{% endif %}">{{ dia_num }}</span>
+          <a href="{{ url_for('main.calendario_semana', inicio=dia_date.d.isoformat(), dia=dia_date.d.isoformat()) }}"
+             class="num-dia {% if dia_date.d and dia_date.d == hoje %}num-dia-hoje{% endif %}">{{ dia_num }}</a>
           {% if dia_date.d and dia_date.d in eventos %}
           <div class="eventos-dia">
             {% for l in eventos[dia_date.d] %}
@@ -63,5 +65,16 @@
   <span class="legenda-item"><span class="badge status-{{ s|replace(' ', '-') }}">{{ s|title }}</span></span>
   {% endfor %}
 </div>
+
+<script>
+// Clicar em qualquer parte do dia (fora de uma licitacao) abre a semana daquele dia
+document.querySelectorAll('.cel-clicavel').forEach(function (td) {
+  td.addEventListener('click', function (e) {
+    // clique na licitacao, no numero ou na barra de rolagem da lista nao conta
+    if (e.target.closest('a') || e.target.closest('.eventos-dia')) return;
+    window.location.href = td.dataset.href;
+  });
+});
+</script>
 
 {% endblock %}
