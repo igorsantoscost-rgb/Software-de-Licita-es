@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Relatório de gestão — {{ nome_mes }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=costa7">
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+</head>
+<body class="com-menu relatorio-pagina">
+
+<div class="relatorio-barra">
+  <span id="relatorio-status">Gerando o PDF…</span>
+  <button type="button" class="btn btn-primary btn-sm" id="btn-baixar-pdf">Baixar PDF</button>
+  <button type="button" class="btn btn-sm" onclick="window.print()">Imprimir</button>
+  <a href="{{ url_for('gestao.painel') }}" class="btn btn-sm">Voltar para a Gestão</a>
+</div>
+
+<div class="relatorio-folha" id="relatorio">
+  <header class="relatorio-topo">
+    <div class="relatorio-marca">
+      <img src="{{ url_for('static', filename='img/bidfy-icone.png') }}" alt="">
+      <span>BID<span>FY</span></span>
+    </div>
+    <div class="relatorio-titulo">
+      <h1>Relatório de gestão</h1>
+      <p>{{ nome_mes }}{% if cliente_nome %} · {{ cliente_nome }}{% else %} · Todos os clientes{% endif %}</p>
+    </div>
+    <div class="relatorio-gerado">Gerado em {{ gerado_em.strftime('%d/%m/%Y às %H:%M') }}</div>
+  </header>
+
+  {% include "_gestao_conteudo.html" %}
+
+  <footer class="relatorio-rodape">Costa Consultoria · Bidfy — plataforma de licitações</footer>
+</div>
+
+<script src="{{ url_for('static', filename='js/vendor/html2pdf.bundle.min.js') }}"></script>
+<script>
+(function () {
+  var status = document.getElementById('relatorio-status');
+  function gerar() {
+    status.textContent = 'Gerando o PDF…';
+    var folha = document.getElementById('relatorio');
+    document.body.classList.add('relatorio-gerando');
+    window.scrollTo(0, 0);
+    return html2pdf().set({
+      margin: [6, 6, 6, 6],
+      filename: {{ (nome_arquivo ~ '.pdf')|tojson }},
+      image: { type: 'jpeg', quality: 0.96 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+      pagebreak: { mode: ['css', 'legacy'], avoid: ['.card', '.gestao-card', 'tr'] }
+    }).from(folha).save().then(function () {
+      document.body.classList.remove('relatorio-gerando');
+      status.textContent = 'PDF baixado. Se não apareceu, clique em "Baixar PDF".';
+    }).catch(function () {
+      document.body.classList.remove('relatorio-gerando');
+      status.textContent = 'Não consegui gerar o PDF aqui. Use "Imprimir" e escolha "Salvar como PDF".';
+    });
+  }
+  document.getElementById('btn-baixar-pdf').addEventListener('click', gerar);
+  {% if baixar_automatico %}
+  (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(function () { setTimeout(gerar, 300); });
+  {% else %}
+  status.textContent = 'Prévia do relatório';
+  {% endif %}
+})();
+</script>
+</body>
+</html>

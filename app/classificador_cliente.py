@@ -117,3 +117,20 @@ class Classificador:
             "ranking": ranking[:4],
             "empate": empate,
         }
+
+
+def itens_do_cliente(cliente, itens):
+    """Separa os itens que tem alguma palavra-chave do cliente.
+    Devolve (visiveis, ocultos, palavras_cadastradas). Sem palavras-chave
+    cadastradas, ou sem nenhum item que combine, todos ficam visiveis."""
+    palavras = [p.palavra for p in (cliente.palavras_chave if cliente else [])]
+    padroes = [rx for rx in (_padrao(p) for p in palavras) if rx]
+    if not padroes:
+        return list(itens), [], palavras
+    visiveis, ocultos = [], []
+    for item in itens:
+        txt = _normalizar(f"{item.descricao or ''} {item.lote_grupo or ''}")
+        (visiveis if any(rx.search(txt) for rx in padroes) else ocultos).append(item)
+    if not visiveis:
+        return list(itens), [], palavras
+    return visiveis, ocultos, palavras

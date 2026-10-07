@@ -11,12 +11,12 @@ import uuid
 from datetime import datetime
 
 from flask import (Blueprint, render_template, redirect, url_for, request,
-                   flash, abort, current_app)
+                   flash, abort, current_app, send_file)
 from flask_login import login_required, current_user
 
 from app import db
 from app.models import (Licitacao, Documento, ItemLicitacao, Cliente,
-                        CapagMunicipio)
+                        CapagMunicipio, PacoteImportado)
 from app.capag import consultar as consultar_capag, normalizar
 from app.importador_pacote import extrair_zip, analisar_pacote, BaseMunicipios
 from app.classificador_cliente import Classificador
@@ -25,6 +25,7 @@ imp_bp = Blueprint("imp", __name__, url_prefix="/licitacoes/importar")
 
 UPLOAD_FOLDER = "/app/uploads"
 PASTA_IMPORTACOES = os.path.join(UPLOAD_FOLDER, "_importacoes")
+PASTA_PACOTES = os.path.join(UPLOAD_FOLDER, "_pacotes")  # zips originais (historico)
 HORAS_PARA_LIMPAR = 48
 
 
@@ -112,65 +113,156 @@ def enviar():
             flash("Envie o arquivo .zip gerado pelo sistema de busca de editais.", "erro")
             return redirect(url_for("imp.enviar"))
 
-        _limpar_importacoes_antigas()
-        token = uuid.uuid4().hex
-        pasta = _pasta_token(token)
-        os.makedirs(pasta, exist_ok=True)
-        caminho_zip = os.path.join(pasta, "pacote.zip")
+        # O zip original fica guardado e registrado no historico de pacotes
+        os.makedirs(PASTA_PACOTES, exist_ok=True)
+        caminho_zip = os.path.join(PASTA_PACOTES, f"{uuid.uuid4().hex}.zip")
         arquivo.save(caminho_zip)
+        pacote = PacoteImportado(nome_arquivo=(arquivo.filename or "pacote.zip")[:300],
+                                 caminho_zip=caminho_zip, tamanho=os.path.getsize(caminho_zip),
+                                 enviado_por=current_user.id, situacao="em conferencia")
+        db.session.add(pacote)
+        db.session.commit()
+        return _analisar_e_conferir(pacote, cliente_forcado, clientes)
 
-        try:
-            raiz = extrair_zip(caminho_zip, os.path.join(pasta, "extraido"))
-            analise = analisar_pacote(raiz, _base_municipios())
-        except Exception as e:
-            shutil.rmtree(pasta, ignore_errors=True)
-            flash(f"Não consegui abrir o ZIP: {e}", "erro")
-            return redirect(url_for("imp.enviar"))
-        finally:
-            try:
-                os.remove(caminho_zip)
-            except OSError:
-                pass
-
-        if not analise["propostas"]:
-            shutil.rmtree(pasta, ignore_errors=True)
-            flash("O ZIP não tem nenhuma pasta de processo dentro.", "erro")
-            return redirect(url_for("imp.enviar"))
-
-        classificador = _classificador(clientes)
-        for p in analise["propostas"]:
-            resultado = classificador.classificar(p.get("itens"))
-            p["classificacao"] = resultado
-            if cliente_forcado:
-                p["cliente_sugerido"] = cliente_forcado
-                p["origem_cliente"] = "escolhido"
-            else:
-                p["cliente_sugerido"] = resultado["cliente_id"]
-                p["origem_cliente"] = "itens" if resultado["cliente_id"] else None
-                if not resultado["itens_total"]:
-                    p["avisos"].insert(0, "Sem itens na planilha: escolha o cliente.")
-                elif not resultado["cliente_id"]:
-                    p["avisos"].insert(0, "Nenhuma palavra-chave de cliente nos itens: escolha o cliente.")
-                elif resultado["empate"]:
-                    p["avisos"].insert(0, "Empate entre clientes: confira o cliente sugerido.")
-            p["ja_cadastrada"] = None
-            if p["cliente_sugerido"]:
-                existente = _ja_cadastrada(p["cliente_sugerido"], p)
-                if existente:
-                    p["ja_cadastrada"] = existente.id
-                    p["selecionada"] = False
-                    p["avisos"].insert(0, "Já cadastrada para este cliente.")
-
-        analise["cliente_id"] = cliente_forcado
-        analise["nome_pacote"] = arquivo.filename
-        analise["criado_por"] = current_user.id
-        analise["criado_em"] = datetime.now().isoformat()
-        with open(os.path.join(pasta, "analise.json"), "w", encoding="utf-8") as f:
-            json.dump(analise, f, ensure_ascii=False)
-        return redirect(url_for("imp.conferir", token=token))
-
+    pacotes = PacoteImportado.query.order_by(PacoteImportado.enviado_em.desc()).limit(200).all()
+    for pc in pacotes:
+        pc.conferencia_aberta = bool(pc.token and _ler_analise(pc.token))
     sem_palavras = [c for c in clientes if not c.palavras_chave]
-    return render_template("importar_pacote.html", clientes=clientes, sem_palavras=sem_palavras)
+    return render_template("importar_pacote.html", clientes=clientes, sem_palavras=sem_palavras,
+                           pacotes=pacotes)
+
+
+def _analisar_e_conferir(pacote, cliente_forcado, clientes):
+    """Extrai o zip guardado do pacote, monta as propostas e abre a conferencia."""
+    _limpar_importacoes_antigas()
+    token = uuid.uuid4().hex
+    pasta = _pasta_token(token)
+    os.makedirs(pasta, exist_ok=True)
+    try:
+        raiz = extrair_zip(pacote.caminho_zip, os.path.join(pasta, "extraido"))
+        analise = analisar_pacote(raiz, _base_municipios())
+    except Exception as e:
+        shutil.rmtree(pasta, ignore_errors=True)
+        pacote.situacao = "com erro"
+        db.session.commit()
+        flash(f"Não consegui abrir o ZIP: {e}", "erro")
+        return redirect(url_for("imp.enviar"))
+
+    if not analise["propostas"]:
+        shutil.rmtree(pasta, ignore_errors=True)
+        pacote.situacao = "com erro"
+        db.session.commit()
+        flash("O ZIP não tem nenhuma pasta de processo dentro.", "erro")
+        return redirect(url_for("imp.enviar"))
+
+    classificador = _classificador(clientes)
+    for p in analise["propostas"]:
+        resultado = classificador.classificar(p.get("itens"))
+        p["classificacao"] = resultado
+        if cliente_forcado:
+            p["cliente_sugerido"] = cliente_forcado
+            p["origem_cliente"] = "escolhido"
+        else:
+            p["cliente_sugerido"] = resultado["cliente_id"]
+            p["origem_cliente"] = "itens" if resultado["cliente_id"] else None
+            if not resultado["itens_total"]:
+                p["avisos"].insert(0, "Sem itens na planilha: escolha o cliente.")
+            elif not resultado["cliente_id"]:
+                p["avisos"].insert(0, "Nenhuma palavra-chave de cliente nos itens: escolha o cliente.")
+            elif resultado["empate"]:
+                p["avisos"].insert(0, "Empate entre clientes: confira o cliente sugerido.")
+        p["ja_cadastrada"] = None
+        if p["cliente_sugerido"]:
+            existente = _ja_cadastrada(p["cliente_sugerido"], p)
+            if existente:
+                p["ja_cadastrada"] = existente.id
+                p["selecionada"] = False
+                p["avisos"].insert(0, "Já cadastrada para este cliente.")
+
+    analise["cliente_id"] = cliente_forcado
+    analise["nome_pacote"] = pacote.nome_arquivo
+    analise["pacote_id"] = pacote.id
+    analise["criado_por"] = current_user.id
+    analise["criado_em"] = datetime.now().isoformat()
+    with open(os.path.join(pasta, "analise.json"), "w", encoding="utf-8") as f:
+        json.dump(analise, f, ensure_ascii=False)
+    pacote.token = token
+    pacote.situacao = "em conferencia" if pacote.situacao != "importado" else pacote.situacao
+    pacote.qtd_processos = len(analise["propostas"])
+    db.session.commit()
+    return redirect(url_for("imp.conferir", token=token))
+
+
+def _pacote_do_token(token, analise):
+    pid = (analise or {}).get("pacote_id")
+    return PacoteImportado.query.get(pid) if pid else PacoteImportado.query.filter_by(token=token).first()
+
+
+# ─── Historico: conferir de novo, baixar e excluir ───────────────────────────
+
+@imp_bp.route("/pacote/<int:id>/conferir", methods=["POST"])
+@login_required
+def reconferir(id):
+    if not current_user.is_assessor():
+        abort(403)
+    pacote = PacoteImportado.query.get_or_404(id)
+    if pacote.token and _ler_analise(pacote.token):
+        return redirect(url_for("imp.conferir", token=pacote.token))
+    if not pacote.caminho_zip or not os.path.exists(pacote.caminho_zip):
+        flash("O arquivo deste pacote não está mais guardado.", "erro")
+        return redirect(url_for("imp.enviar"))
+    return _analisar_e_conferir(pacote, None, _clientes_do_usuario())
+
+
+@imp_bp.route("/pacote/<int:id>/baixar")
+@login_required
+def baixar_pacote(id):
+    if not current_user.is_assessor():
+        abort(403)
+    pacote = PacoteImportado.query.get_or_404(id)
+    if not pacote.caminho_zip or not os.path.exists(pacote.caminho_zip):
+        flash("O arquivo deste pacote não está mais guardado.", "erro")
+        return redirect(url_for("imp.enviar"))
+    return send_file(pacote.caminho_zip, as_attachment=True, download_name=pacote.nome_arquivo)
+
+
+@imp_bp.route("/pacote/<int:id>/excluir", methods=["POST"])
+@login_required
+def excluir_pacote(id):
+    if not current_user.is_assessor():
+        abort(403)
+    from app import lixeira
+    pacote = PacoteImportado.query.get_or_404(id)
+    excluidas, mantidas = 0, 0
+    if request.form.get("com_licitacoes") == "1":
+        for lic_id in pacote.ids_licitacoes:
+            lic = Licitacao.query.get(lic_id)
+            if not lic:
+                continue
+            if lic.empenhos:
+                mantidas += 1
+                continue
+            lixeira.enviar_licitacao(lic, usuario_id=current_user.id,
+                                     motivo=f"pacote {pacote.nome_arquivo}")
+            db.session.delete(lic)
+            excluidas += 1
+    if pacote.token:
+        shutil.rmtree(_pasta_token(pacote.token), ignore_errors=True)
+        pacote.token = None
+    detalhe = f"{pacote.qtd_processos or 0} processo(s)"
+    if pacote.qtd_criadas:
+        detalhe += f" · {pacote.qtd_criadas} licitação(ões) criada(s)"
+    lixeira.enviar([pacote], "uploads", "pacote", pacote.nome_arquivo, detalhe,
+                   arquivos=[pacote.caminho_zip], usuario_id=current_user.id)
+    db.session.delete(pacote)
+    db.session.commit()
+    msg = f"Pacote \"{pacote.nome_arquivo}\" excluído (fica 30 dias na lixeira)."
+    if excluidas:
+        msg += f" {excluidas} licitação(ões) criada(s) por ele também foram para a lixeira."
+    if mantidas:
+        msg += f" {mantidas} licitação(ões) com empenho foram mantidas."
+    flash(msg, "ok")
+    return redirect(url_for("imp.enviar"))
 
 
 # ─── Passo 2: conferir ───────────────────────────────────────────────────────
@@ -207,9 +299,15 @@ def conferir(token):
 def cancelar(token):
     if not current_user.is_assessor():
         abort(403)
+    pacote = _pacote_do_token(token, _ler_analise(token))
     shutil.rmtree(_pasta_token(token), ignore_errors=True)
-    flash("Importação cancelada.", "ok")
-    return redirect(url_for("main.painel"))
+    if pacote:
+        pacote.token = None
+        if pacote.situacao != "importado":
+            pacote.situacao = "descartado"
+        db.session.commit()
+    flash("Conferência descartada. O pacote continua no histórico, para conferir de novo ou excluir.", "ok")
+    return redirect(url_for("imp.enviar"))
 
 
 # ─── Passo 3: criar as licitacoes ────────────────────────────────────────────
@@ -342,7 +440,16 @@ def confirmar(token):
             except Exception:
                 pass
 
+    pacote = _pacote_do_token(token, analise)
     shutil.rmtree(_pasta_token(token), ignore_errors=True)
+    if pacote:
+        ids = pacote.ids_licitacoes + [l.id for l in criadas]
+        pacote.licitacoes_ids = ",".join(str(i) for i in ids)
+        pacote.qtd_criadas = len(ids)
+        pacote.situacao = "importado" if ids else pacote.situacao
+        pacote.importado_em = datetime.utcnow()
+        pacote.token = None
+        db.session.commit()
 
     if criadas:
         por_cliente = {}

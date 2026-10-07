@@ -50,6 +50,8 @@
   <span class="filtros-label">Filtrar por status:</span>
   <a href="{{ url_for('main.painel', status='todos', cliente_id=cliente_filtro, busca=busca or None) }}"
      class="filtro-pill {% if status_filtro == 'todos' %}ativo{% endif %}">Todos</a>
+  <a href="{{ url_for('main.painel', status='favoritas', cliente_id=cliente_filtro, busca=busca or None) }}"
+     class="filtro-pill filtro-favoritas {% if status_filtro == 'favoritas' %}ativo{% endif %}">★ Favoritas</a>
   {% for s in status_choices %}
   <a href="{{ url_for('main.painel', status=s, cliente_id=cliente_filtro, busca=busca or None) }}"
      class="filtro-pill status-{{ s|replace(' ', '-') }} {% if status_filtro == s %}ativo{% endif %}">
@@ -64,6 +66,7 @@
   <table class="tabela">
     <thead>
       <tr>
+        <th class="col-fav" aria-label="Favorita"></th>
         <th>{{ th_sort('pregao', 'Pregão / UASG') }}</th>
         <th>{{ th_sort('orgao', 'Órgão licitante') }}</th>
         <th>{{ th_sort('portal', 'Portal') }}</th>
@@ -76,6 +79,12 @@
     <tbody>
       {% for l in licitacoes %}
       <tr>
+        <td class="col-fav">
+          <form method="POST" action="{{ url_for('lic.favoritar', id=l.id) }}" class="form-favorito">
+            <button type="submit" class="btn-favorito {% if l.id in fav_ids %}favorita{% endif %}"
+                    title="{{ 'Tirar dos favoritos' if l.id in fav_ids else 'Favoritar' }}" aria-pressed="{{ 'true' if l.id in fav_ids else 'false' }}">★</button>
+          </form>
+        </td>
         <td>
           <strong>{{ l.numero_pregao }}</strong>
           {% if l.uasg %}<br><small class="muted">UASG {{ l.uasg }}</small>{% endif %}
@@ -127,7 +136,7 @@
 </div>
 {% else %}
 <div class="vazio">
-  <p>Nenhuma licitação encontrada{% if status_filtro != 'todos' %} com status <strong>{{ status_filtro|rotulo_status }}</strong>{% endif %}{% if busca %} para "<strong>{{ busca }}</strong>"{% endif %}.</p>
+  <p>{% if status_filtro == 'favoritas' %}Nenhuma licitação favorita{% if busca %} para "<strong>{{ busca }}</strong>"{% endif %}. Clique na ★ de uma licitação para favoritar.{% else %}Nenhuma licitação encontrada{% if status_filtro != 'todos' %} com status <strong>{{ status_filtro|rotulo_status }}</strong>{% endif %}{% if busca %} para "<strong>{{ busca }}</strong>"{% endif %}.{% endif %}</p>
 </div>
 {% endif %}
 

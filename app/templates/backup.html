@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block titulo %}Backup{% endblock %}
+{% block conteudo %}
+
+<div class="page-header">
+  <h2>Backup</h2>
+</div>
+
+<div class="backup-grid">
+  <div class="card">
+    <h3>Backup diário</h3>
+    <p class="muted-sm">Uma cópia de todos os dados do sistema (licitações, itens, clientes, empenhos, faturas, usuários, comentários...) é gerada todo dia e substitui a do dia anterior.</p>
+    {% if diario %}
+    <p class="backup-status">Última cópia: <strong>{{ diario.gerado_em.strftime('%d/%m/%Y às %H:%M') }}</strong> · {{ (diario.tamanho / 1024)|round(0)|int }} KB</p>
+    {% else %}
+    <p class="backup-status">Ainda não há cópia gerada.</p>
+    {% endif %}
+    <div class="backup-botoes">
+      <a href="{{ url_for('admin.baixar_diario') }}" class="btn btn-primary">Baixar backup diário</a>
+      <form method="POST" action="{{ url_for('admin.gerar_diario_agora') }}" class="form-inline">
+        <button type="submit" class="btn">Atualizar agora</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Baixar tudo agora</h3>
+    <p class="muted-sm">Arquivo .zip com os dados em JSON (uma lista por tabela) e um manifesto.</p>
+    <div class="backup-botoes">
+      <a href="{{ url_for('admin.baixar_dados_agora') }}" class="btn">Só os dados</a>
+      <a href="{{ url_for('admin.baixar_completo') }}" class="btn btn-primary">Dados + todos os arquivos</a>
+    </div>
+    <p class="muted-sm" style="margin-top:10px;">"Dados + todos os arquivos" inclui editais, documentos, boletos e pacotes enviados. Pode ser grande e levar alguns minutos para baixar.</p>
+  </div>
+</div>
+{% endblock %}

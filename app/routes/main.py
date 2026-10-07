@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, request, flash, session
 from flask_login import login_required, current_user
-from app.models import Licitacao, Cliente, User, STATUS_CHOICES, PalavraChaveCliente, ItemLicitacao
+from app.models import Licitacao, Cliente, User, STATUS_CHOICES, PalavraChaveCliente, ItemLicitacao, FavoritoLicitacao
 from app import db, bcrypt
 from app.capag import UFS, normalizar
 from datetime import datetime, date, timedelta
@@ -31,6 +31,11 @@ _ORDENADORES_COLUNA = {
     "status": lambda l: (l.status or "").strip().lower(),
     "cliente": lambda l: ((l.cliente.nome or "").strip().lower() if l.cliente else "", l.data_disputa or datetime.max),
 }
+
+
+def ids_favoritos():
+    """Ids das licitacoes que o usuario logado marcou com estrela."""
+    return {f.licitacao_id for f in FavoritoLicitacao.query.filter_by(user_id=current_user.id)}
 
 
 def _lembrar_tela(url, rotulo):
@@ -116,7 +121,10 @@ def _licitacoes_do_usuario(status_filtro=None, cliente_filtro=None, sort_coluna=
     elif cliente_filtro and cliente_filtro != "todos":
         # Assessor pode filtrar por um cliente específico
         q = q.filter_by(cliente_id=cliente_filtro)
-    if status_filtro and status_filtro != "todos":
+    if status_filtro == "favoritas":
+        q = q.filter(Licitacao.id.in_(
+            db.session.query(FavoritoLicitacao.licitacao_id).filter_by(user_id=current_user.id)))
+    elif status_filtro and status_filtro != "todos":
         q = q.filter_by(status=status_filtro)
     # "Todos": nao filtra por status — toda licitacao continua aparecendo no
     # painel mesmo apos mudar de status; a ordenacao abaixo e que joga as
@@ -126,7 +134,7 @@ def _licitacoes_do_usuario(status_filtro=None, cliente_filtro=None, sort_coluna=
     if sort_coluna in _ORDENADORES_COLUNA:
         # Usuario clicou num titulo de coluna: essa ordenacao manda
         lics.sort(key=_ORDENADORES_COLUNA[sort_coluna], reverse=(sort_dir == "desc"))
-    elif status_filtro == "todos" or not status_filtro:
+    elif status_filtro in ("todos", "favoritas") or not status_filtro:
         # Padrao: ordena por prioridade de status, depois por data
         lics.sort(key=lambda l: (_ORDEM_STATUS.get(l.status, 99), l.data_disputa or datetime.max))
     return lics
@@ -171,6 +179,7 @@ def painel():
         sort_coluna=sort_coluna,
         sort_dir=sort_dir,
         busca=busca,
+        fav_ids=ids_favoritos(),
     )
 
 

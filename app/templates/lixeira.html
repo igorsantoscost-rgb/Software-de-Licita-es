@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block titulo %}Lixeira{% endblock %}
+{% block conteudo %}
+
+<div class="page-header">
+  <h2>Lixeira</h2>
+  <span class="muted-sm">Tudo o que é excluído fica aqui por {{ dias }} dias e pode ser restaurado. Depois disso é apagado de vez.</span>
+</div>
+
+<div class="filtros">
+  <a href="{{ url_for('admin.lixeira', qual='licitacoes') }}" class="filtro-pill {% if qual == 'licitacoes' %}ativo{% endif %}">Licitações ({{ contagem.licitacoes }})</a>
+  <a href="{{ url_for('admin.lixeira', qual='uploads') }}" class="filtro-pill {% if qual == 'uploads' %}ativo{% endif %}">Uploads ({{ contagem.uploads }})</a>
+</div>
+
+<div class="card">
+  {% if itens %}
+  <div class="tabela-wrap tabela-wrap-card">
+    <table class="tabela tabela-sm">
+      <thead>
+        <tr>
+          <th>{{ 'Licitação' if qual == 'licitacoes' else 'Arquivo' }}</th>
+          {% if qual == 'uploads' %}<th>Tipo</th>{% endif %}
+          <th>Excluído</th>
+          <th>Some em</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for it in itens %}
+        <tr>
+          <td class="lixeira-titulo">
+            <strong>{{ it.titulo }}</strong>
+            {% if it.detalhe %}<span class="muted-sm">{{ it.detalhe }}</span>{% endif %}
+            {% if qual == 'licitacoes' and it.qtd_arquivos %}<span class="muted-sm">{{ it.qtd_arquivos }} arquivo(s) guardado(s)</span>{% endif %}
+          </td>
+          {% if qual == 'uploads' %}<td>{{ it.rotulo_tipo }}{% if it.tamanho %}<br><span class="muted-sm">{{ (it.tamanho / 1048576)|round(2) }} MB</span>{% endif %}</td>{% endif %}
+          <td style="white-space:nowrap;">{{ it.excluido_em.strftime('%d/%m/%Y %H:%M') }}<br><span class="muted-sm">{{ it.usuario.nome if it.usuario else '—' }}</span></td>
+          <td style="white-space:nowrap;"><span class="lixeira-dias {% if it.dias <= 5 %}lixeira-dias-fim{% endif %}">{{ it.dias }} dia(s)</span></td>
+          <td class="lixeira-acoes">
+            <form method="POST" action="{{ url_for('admin.restaurar', id=it.id) }}" class="form-inline">
+              <button type="submit" class="btn btn-sm btn-primary">Restaurar</button>
+            </form>
+            {% if it.tem_arquivo %}<a href="{{ url_for('admin.baixar', id=it.id) }}" class="btn btn-sm">Baixar</a>{% endif %}
+            <form method="POST" action="{{ url_for('admin.apagar', id=it.id) }}" class="form-inline">
+              <button type="submit" class="btn btn-sm btn-excluir-licitacao" data-confirm="Apagar &quot;{{ it.titulo }}&quot; definitivamente? Não dá para desfazer." onclick="return confirm(this.dataset.confirm)">Apagar agora</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">A lixeira de {{ 'licitações' if qual == 'licitacoes' else 'uploads' }} está vazia.</p>
+  {% endif %}
+</div>
+{% endblock %}

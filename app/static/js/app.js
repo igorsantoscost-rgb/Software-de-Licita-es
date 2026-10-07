@@ -353,3 +353,20 @@ document.querySelectorAll('.btn-cancelar-edicao-comentario').forEach(btn => {
     e.preventDefault(); contador = 0; document.body.classList.remove('arrastando-arquivo');
   });
 })();
+
+// Favoritar sem recarregar a pagina
+document.querySelectorAll('.form-favorito').forEach((form) => {
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const btn = form.querySelector('.btn-favorito');
+    fetch(form.action, { method: 'POST', headers: { 'X-Requested-With': 'fetch' }, credentials: 'same-origin' })
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((d) => {
+        btn.classList.toggle('favorita', d.favorita);
+        btn.setAttribute('aria-pressed', d.favorita ? 'true' : 'false');
+        btn.title = d.favorita ? 'Tirar dos favoritos' : 'Favoritar';
+        btn.classList.remove('favorito-pulso'); void btn.offsetWidth; btn.classList.add('favorito-pulso');
+      })
+      .catch(() => form.submit());
+  });
+});

@@ -48,6 +48,15 @@ def main():
         res = enviar_lembretes_prazo_empenho()
         print(f"Empenhos prazo proximo: {res['total']} encontrados, {res['enviados']} alertas enviados.")
 
+        # 6. Backup diario (sobrescreve o do dia anterior) e limpeza da lixeira
+        try:
+            from app.backup import gerar_backup_diario
+            from app.lixeira import limpar_vencidos
+            print("Backup diario:", "gerado" if gerar_backup_diario() else "ja em andamento")
+            print(f"Lixeira: {limpar_vencidos()} item(ns) com mais de 30 dias apagado(s).")
+        except Exception as e:
+            print(f"Backup diario: falhou ({e})")
+
         print("=== Concluido ===")
 
 

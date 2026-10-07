@@ -154,6 +154,17 @@ class Licitacao(db.Model):
     documentos = db.relationship("Documento", backref="licitacao", lazy=True, cascade="all, delete-orphan")
     itens = db.relationship("ItemLicitacao", backref="licitacao", lazy=True, cascade="all, delete-orphan",
                             order_by="ItemLicitacao.id")
+    favoritos = db.relationship("FavoritoLicitacao", backref="licitacao", lazy=True, cascade="all, delete-orphan")
+
+
+class FavoritoLicitacao(db.Model):
+    """Licitacao marcada com estrela por um usuario (cada um tem as suas)."""
+    __tablename__ = "favoritos_licitacao"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    licitacao_id = db.Column(db.Integer, db.ForeignKey("licitacoes.id"), nullable=False, index=True)
+    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint("user_id", "licitacao_id", name="uq_favorito_user_licitacao"),)
 
 
 class Documento(db.Model):
@@ -442,3 +453,45 @@ class MigracaoAplicada(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), unique=True, nullable=False)
     aplicada_em = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+# ─── Pacotes de editais enviados (historico da guia Importar) ────────────────
+
+class PacoteImportado(db.Model):
+    __tablename__ = "pacotes_importados"
+    id = db.Column(db.Integer, primary_key=True)
+    token = db.Column(db.String(32), nullable=True, index=True)   # pasta temporaria da conferencia
+    nome_arquivo = db.Column(db.String(300), nullable=False)
+    caminho_zip = db.Column(db.String(500), nullable=True)        # zip original guardado
+    tamanho = db.Column(db.BigInteger, nullable=True)
+    enviado_por = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    enviado_em = db.Column(db.DateTime, default=datetime.utcnow)
+    situacao = db.Column(db.String(30), nullable=False, default="em conferencia")  # em conferencia | importado | descartado
+    qtd_processos = db.Column(db.Integer, nullable=True)
+    qtd_criadas = db.Column(db.Integer, nullable=True)
+    licitacoes_ids = db.Column(db.Text, nullable=True)            # "12,13,14"
+    importado_em = db.Column(db.DateTime, nullable=True)
+
+    usuario = db.relationship("User")
+
+    @property
+    def ids_licitacoes(self):
+        return [int(x) for x in (self.licitacoes_ids or "").split(",") if x.strip().isdigit()]
+
+
+# ─── Lixeira (30 dias para restaurar) ────────────────────────────────────────
+
+class ItemLixeira(db.Model):
+    __tablename__ = "lixeira"
+    id = db.Column(db.Integer, primary_key=True)
+    lixeira = db.Column(db.String(20), nullable=False, index=True)  # licitacoes | uploads
+    tipo = db.Column(db.String(30), nullable=False)    # licitacao | documento | documento_cliente | documento_empenho | pacote
+    titulo = db.Column(db.String(400), nullable=False)
+    detalhe = db.Column(db.String(500), nullable=True)
+    dados = db.Column(db.PickleType, nullable=False)   # linhas do banco para recriar
+    arquivos = db.Column(db.PickleType, nullable=True)  # [(caminho_original, caminho_na_lixeira), ...]
+    tamanho = db.Column(db.BigInteger, nullable=True)
+    excluido_por = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    excluido_em = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+    usuario = db.relationship("User")

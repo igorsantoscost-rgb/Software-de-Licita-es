@@ -57,6 +57,20 @@ def create_app():
     from app.routes.gestao import gestao_bp, pode_ver_gestao
     app.register_blueprint(gestao_bp)
 
+    from app.routes.admin import admin_bp
+    app.register_blueprint(admin_bp)
+
+    @app.before_request
+    def _backup_do_dia():
+        # Gera o backup diario (em segundo plano) na primeira visita de cada dia
+        from flask import request as _req
+        if _req.endpoint and _req.endpoint != "static":
+            try:
+                from app.backup import garantir_backup_do_dia
+                garantir_backup_do_dia(app)
+            except Exception:
+                pass
+
     @app.context_processor
     def _contexto_gestao():
         from flask_login import current_user

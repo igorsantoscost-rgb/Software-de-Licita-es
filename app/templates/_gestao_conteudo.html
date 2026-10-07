@@ -1,0 +1,121 @@
+{# Conteudo da guia Gestao: usado na tela e no relatorio em PDF #}
+{% macro brl(v) %}R$ {{ "{:,.2f}".format(v or 0).replace(",", "X").replace(".", ",").replace("X", ".") }}{% endmacro %}
+{% macro brl_curto(v) %}{% if (v or 0) >= 1000000 %}R$ {{ "{:,.1f}".format(v / 1000000).replace(".", ",") }} mi{% elif (v or 0) >= 1000 %}R$ {{ "{:,.0f}".format(v / 1000).replace(",", ".") }} mil{% else %}{{ brl(v) }}{% endif %}{% endmacro %}
+<div class="gestao-cards">
+  <div class="card gestao-card">
+    <span class="gestao-card-rotulo">Disponibilizadas</span>
+    <strong class="gestao-card-valor">{{ resumo.disponibilizadas }}</strong>
+    <span class="gestao-card-sub">Oportunidades enviadas</span>
+  </div>
+  <div class="card gestao-card">
+    <span class="gestao-card-rotulo">Participadas</span>
+    <strong class="gestao-card-valor">{{ resumo.participadas }}</strong>
+    <span class="gestao-card-sub">{% if resumo.disponibilizadas %}{{ (100 * resumo.participadas / resumo.disponibilizadas)|round|int }}% das disponibilizadas{% else %}—{% endif %}</span>
+  </div>
+  <div class="card gestao-card">
+    <span class="gestao-card-rotulo">Sem participação</span>
+    <strong class="gestao-card-valor">{{ resumo.sem_participacao }}</strong>
+    <span class="gestao-card-sub">{% if resumo.aguardando %}{{ resumo.aguardando }} aguardando disputa{% else %}Revogadas, canceladas ou não disputadas{% endif %}</span>
+  </div>
+  <div class="card gestao-card gestao-card-destaque">
+    <span class="gestao-card-rotulo">Vencidas</span>
+    <strong class="gestao-card-valor">{{ resumo.vencidas }}</strong>
+    <span class="gestao-card-sub">{% if resumo.aproveitamento is not none %}{{ resumo.aproveitamento }}% de aproveitamento{% else %}—{% endif %}</span>
+  </div>
+  <div class="card gestao-card">
+    <span class="gestao-card-rotulo">Valor homologado</span>
+    <strong class="gestao-card-valor" title="{{ brl(resumo.valor_homologado) }}">{{ brl_curto(resumo.valor_homologado) }}</strong>
+    <span class="gestao-card-sub">Soma das vencidas</span>
+  </div>
+  <div class="card gestao-card">
+    <span class="gestao-card-rotulo">Valor empenhado</span>
+    <strong class="gestao-card-valor" title="{{ brl(resumo.valor_empenhado) }}">{{ brl_curto(resumo.valor_empenhado) }}</strong>
+    <span class="gestao-card-sub">Empenhos recebidos no período</span>
+  </div>
+</div>
+
+<div class="gestao-graficos">
+  <div class="card">
+    <h3>Resultado das oportunidades</h3>
+    {% if total_pizza %}
+    <div class="gestao-pizza">
+      <svg viewBox="0 0 200 200" width="210" height="210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Gráfico de pizza do resultado das oportunidades">
+        {% for f in fatias %}
+          {% if f.cheio %}<circle cx="100" cy="100" r="90" fill="{{ f.cor }}"><title>{{ f.rotulo }}: {{ f.valor }}</title></circle>
+          {% elif f.caminho %}<path d="{{ f.caminho }}" fill="{{ f.cor }}" stroke="#fff" stroke-width="2"><title>{{ f.rotulo }}: {{ f.valor }} ({{ f.pct }}%)</title></path>{% endif %}
+        {% endfor %}
+        <circle cx="100" cy="100" r="52" fill="#fff"/>
+        <text x="100" y="98" text-anchor="middle" class="gestao-pizza-num" font-size="30" font-weight="800" fill="#123524" font-family="Manrope, sans-serif">{{ total_pizza }}</text>
+        <text x="100" y="118" text-anchor="middle" class="gestao-pizza-txt" font-size="11" fill="#5f6b64" font-family="Manrope, sans-serif">oportunidades</text>
+      </svg>
+      <ul class="gestao-legenda">
+        {% for f in fatias %}
+        <li><span class="gestao-cor" style="background:{{ f.cor }}"></span>{{ f.rotulo }}<strong>{{ f.valor }}</strong><em>{{ f.pct }}%</em></li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% else %}
+    <p class="muted">Nenhuma oportunidade neste período.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h3>Mês a mês</h3>
+    {% if evolucao %}
+    <div class="gestao-meses-lista">
+      {% for e in evolucao %}
+      <div class="gestao-mes-linha">
+        <span class="gestao-mes-rotulo">{{ e.rotulo }}</span>
+        <div class="gestao-barra" title="{{ e.disponibilizadas }} disponibilizadas · {{ e.participadas }} participadas · {{ e.vencidas }} vencidas">
+          <span class="gestao-barra-disp" style="width:{{ (100 * e.disponibilizadas / maior)|round(1) }}%"></span>
+          <span class="gestao-barra-part" style="width:{{ (100 * e.participadas / maior)|round(1) }}%"></span>
+          <span class="gestao-barra-venc" style="width:{{ (100 * e.vencidas / maior)|round(1) }}%"></span>
+        </div>
+        <span class="gestao-mes-num">{{ e.disponibilizadas }} · {{ e.participadas }} · {{ e.vencidas }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    <ul class="gestao-legenda gestao-legenda-linha">
+      <li><span class="gestao-cor" style="background:#dbe9df"></span>Disponibilizadas</li>
+      <li><span class="gestao-cor" style="background:#6fa585"></span>Participadas</li>
+      <li><span class="gestao-cor" style="background:#1f4d36"></span>Vencidas</li>
+    </ul>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <h3>Por cliente</h3>
+  <p class="muted-sm" style="margin:-4px 0 12px;">Número grande: {{ rotulo_periodo }}. Embaixo: desde o início dos trabalhos ({{ inicio_trabalhos }}).</p>
+  {% if linhas %}
+  <div class="tabela-wrap tabela-wrap-card">
+    <table class="tabela gestao-tabela">
+      <thead>
+        <tr>
+          <th>Cliente</th>
+          <th>Disponibilizadas</th>
+          <th>Participadas</th>
+          <th>Sem participação</th>
+          <th>Vencidas</th>
+          <th>Valor homologado</th>
+          <th>Valor empenhado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for l in linhas %}
+        <tr class="{% if cliente_filtro == l.cliente.id %}gestao-linha-ativa{% endif %}">
+          <td>{% if modo_relatorio %}<strong>{{ l.cliente.nome }}</strong>{% else %}<a href="{{ url_for('gestao.painel', periodo=periodo, de=de, ate=ate, cliente_id=l.cliente.id) }}"><strong>{{ l.cliente.nome }}</strong></a>{% endif %}</td>
+          {% for chave in ['disponibilizadas', 'participadas', 'sem_participacao', 'vencidas'] %}
+          <td><span class="gestao-num">{{ l.periodo[chave] }}</span><span class="gestao-total">{{ l.total[chave] }} no total</span></td>
+          {% endfor %}
+          <td><span class="gestao-num">{{ brl(l.periodo.valor_homologado) }}</span><span class="gestao-total">{{ brl(l.total.valor_homologado) }} no total</span></td>
+          <td><span class="gestao-num">{{ brl(l.periodo.valor_empenhado) }}</span><span class="gestao-total">{{ brl(l.total.valor_empenhado) }} no total</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">Nenhum cliente com licitações cadastradas ainda.</p>
+  {% endif %}
+</div>

@@ -98,10 +98,10 @@ def _processar_uploads_form(lic_id):
             # remove o anterior desse tipo (slot unico, sempre o mais recente vale)
             anterior = Documento.query.filter_by(licitacao_id=lic_id, tipo=tipo).all()
             for doc_antigo in anterior:
-                try:
-                    os.remove(doc_antigo.caminho)
-                except FileNotFoundError:
-                    pass
+                # o arquivo substituido vai para a lixeira de uploads (30 dias)
+                from app import lixeira
+                lixeira.enviar_documento(doc_antigo, "documento", "Substituído por um arquivo novo",
+                                         usuario_id=current_user.id)
                 db.session.delete(doc_antigo)
             caminho = _salvar_arquivo(f, lic_id)
             doc = Documento(
@@ -184,10 +184,18 @@ def detalhe(id):
     if not _pode_ver(lic):
         abort(403)
     docs_existentes = {d.tipo: d for d in lic.documentos if d.tipo in TIPOS_DOC_LICITACAO_UNICOS}
+    # Parametros da disputa: so os itens com palavras-chave do cliente
+    from app.classificador_cliente import itens_do_cliente
+    itens_visiveis, itens_ocultos, palavras_cliente = itens_do_cliente(lic.cliente, lic.itens)
+    todos_itens = request.args.get("todos_itens") == "1"
     return render_template("detalhe_licitacao.html", lic=lic,
                            status_choices=STATUS_CHOICES, portal_choices=PORTAL_CHOICES,
                            capag_significado=capag_significado(lic.capag_nota),
-                           docs_existentes=docs_existentes)
+                           docs_existentes=docs_existentes,
+                           itens_lista=lic.itens if todos_itens else itens_visiveis,
+                           itens_ocultos=len(itens_ocultos), todos_itens=todos_itens,
+                           palavras_cliente=palavras_cliente,
+                           favorita=any(f.user_id == current_user.id for f in lic.favoritos))
 
 
 @lic_bp.route("/capag/municipios")
@@ -264,13 +272,13 @@ def excluir(id):
     if not current_user.is_assessor():
         abort(403)
     lic = Licitacao.query.get_or_404(id)
+    if lic.empenhos:
+        flash("Esta licitação tem empenho(s) cadastrado(s). Exclua os empenhos antes de excluir a licitação.", "erro")
+        return redirect(url_for("lic.detalhe", id=lic.id))
 
-    # Remove os arquivos fisicos de todos os documentos da licitacao (processo + apoio)
-    for doc in lic.documentos:
-        try:
-            os.remove(doc.caminho)
-        except FileNotFoundError:
-            pass
+    # Vai para a lixeira de licitacoes (30 dias para restaurar), com os arquivos
+    from app import lixeira
+    lixeira.enviar_licitacao(lic, usuario_id=current_user.id)
 
     # Remove a pasta de uploads da licitacao, se existir e estiver vazia
     pasta_lic = os.path.join(UPLOAD_FOLDER, str(id))
@@ -282,7 +290,7 @@ def excluir(id):
     numero_pregao = lic.numero_pregao
     db.session.delete(lic)
     db.session.commit()
-    flash(f"Licitação '{numero_pregao}' excluída.", "ok")
+    flash(f"Licitação '{numero_pregao}' excluída. Ela fica 30 dias na lixeira e pode ser restaurada.", "ok")
     return redirect(_url_voltar())
 
 
@@ -389,10 +397,8 @@ def excluir_doc(doc_id):
         abort(403)
     doc = Documento.query.get_or_404(doc_id)
     lic_id = doc.licitacao_id
-    try:
-        os.remove(doc.caminho)
-    except FileNotFoundError:
-        pass
+    from app import lixeira
+    lixeira.enviar_documento(doc, "documento", doc.licitacao.orgao_licitante, usuario_id=current_user.id)
     db.session.delete(doc)
     db.session.commit()
     flash("Documento removido.", "ok")
@@ -536,10 +542,8 @@ def excluir_doc_apoio(doc_id):
     if current_user.is_assessor() or lic.cliente_id != current_user.cliente_id:
         abort(403)
     lic_id = doc.licitacao_id
-    try:
-        os.remove(doc.caminho)
-    except FileNotFoundError:
-        pass
+    from app import lixeira
+    lixeira.enviar_documento(doc, "documento_apoio", lic.orgao_licitante, usuario_id=current_user.id)
     db.session.delete(doc)
     db.session.commit()
     flash("Documento de apoio removido.", "ok")
@@ -804,3 +808,25 @@ FORMATAÇÃO (importante, será renderizada como Markdown):
     db.session.commit()
     flash("Resumo gerado com sucesso.", "ok")
     return redirect(url_for("lic.detalhe", id=id))
+
+
+# ─── Favoritos (cada usuario tem os seus) ────────────────────────────────────
+
+@lic_bp.route("/<int:id>/favoritar", methods=["POST"])
+@login_required
+def favoritar(id):
+    from app.models import FavoritoLicitacao
+    lic = Licitacao.query.get_or_404(id)
+    if not _pode_ver(lic):
+        abort(403)
+    fav = FavoritoLicitacao.query.filter_by(user_id=current_user.id, licitacao_id=lic.id).first()
+    if fav:
+        db.session.delete(fav)
+        favorita = False
+    else:
+        db.session.add(FavoritoLicitacao(user_id=current_user.id, licitacao_id=lic.id))
+        favorita = True
+    db.session.commit()
+    if request.headers.get("X-Requested-With") == "fetch":
+        return jsonify({"favorita": favorita})
+    return redirect(request.referrer or url_for("lic.detalhe", id=lic.id))

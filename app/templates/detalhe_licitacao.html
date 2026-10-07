@@ -7,7 +7,13 @@
   <div>
     {% set voltar_url = session.get('voltar_url') if (session.get('voltar_url') or '').startswith('/') and not (session.get('voltar_url') or '').startswith('//') else url_for('main.painel') %}
     <a href="{{ voltar_url }}" class="voltar">← Voltar para {{ session.get('voltar_rotulo') or 'Painel' }}</a>
-    <h2>{{ lic.orgao_licitante }}</h2>
+    <h2 class="titulo-com-favorito">
+      <form method="POST" action="{{ url_for('lic.favoritar', id=lic.id) }}" class="form-favorito">
+        <button type="submit" class="btn-favorito btn-favorito-grande {% if favorita %}favorita{% endif %}"
+                title="{{ 'Tirar dos favoritos' if favorita else 'Favoritar' }}" aria-pressed="{{ 'true' if favorita else 'false' }}">★</button>
+      </form>
+      {{ lic.orgao_licitante }}
+    </h2>
     <p class="muted">Pregão {{ lic.numero_pregao }}{% if lic.uasg %} · UASG {{ lic.uasg }}{% endif %}{% if lic.portal %} · {{ lic.portal }}{% endif %}</p>
   </div>
   <div class="acoes-header">
@@ -116,6 +122,19 @@
     <div class="card">
       <h3>Parâmetros da disputa</h3>
       <p class="muted-sm">Preencha os valores mínimos para orientar a disputa.</p>
+      {% if lic.itens %}
+      <p class="muted-sm itens-filtro-info">
+        {% if not palavras_cliente %}
+          Mostrando todos os {{ lic.itens|length }} itens: o cliente ainda não tem palavras-chave cadastradas.
+        {% elif todos_itens %}
+          Mostrando todos os {{ lic.itens|length }} itens.
+          <a href="{{ url_for('lic.detalhe', id=lic.id) }}">Mostrar só os itens com palavras-chave do cliente</a>
+        {% elif itens_ocultos %}
+          Mostrando {{ itens_lista|length }} de {{ lic.itens|length }} itens, os que têm palavras-chave do cliente.
+          <a href="{{ url_for('lic.detalhe', id=lic.id, todos_itens=1) }}">Ver todos os itens</a>
+        {% endif %}
+      </p>
+      {% endif %}
 
       {% if lic.itens %}
       <div class="tabela-wrap tabela-wrap-card">
@@ -134,7 +153,7 @@
           </tr>
         </thead>
         <tbody>
-          {% for item in lic.itens %}
+          {% for item in itens_lista %}
           <tr>
             <td><div class="item-desc" title="Clique para ver a descrição inteira" onclick="this.classList.toggle('item-desc-aberta')">{{ item.descricao }}</div></td>
             <td>{{ item.marca or '—' }}</td>

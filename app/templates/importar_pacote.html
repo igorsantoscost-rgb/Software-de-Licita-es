@@ -52,6 +52,65 @@
   </form>
 </div>
 
+<div class="card pacotes-historico">
+  <h3>Pacotes enviados</h3>
+  {% if pacotes %}
+  <div class="tabela-wrap tabela-wrap-card">
+    <table class="tabela tabela-sm">
+      <thead>
+        <tr>
+          <th>Pacote</th>
+          <th>Enviado</th>
+          <th>Situação</th>
+          <th>Processos</th>
+          <th>Licitações criadas</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for pc in pacotes %}
+        <tr>
+          <td class="pacote-nome">
+            <strong>{{ pc.nome_arquivo }}</strong>
+            {% if pc.tamanho %}<span class="muted-sm">{{ (pc.tamanho / 1048576)|round(1) }} MB</span>{% endif %}
+          </td>
+          <td style="white-space:nowrap;">{{ pc.enviado_em.strftime('%d/%m/%Y %H:%M') }}<br><span class="muted-sm">{{ pc.usuario.nome if pc.usuario else '—' }}</span></td>
+          <td>
+            {% if pc.situacao == 'importado' %}<span class="pacote-sit pacote-sit-ok">Importado</span>
+            {% elif pc.situacao == 'em conferencia' and pc.conferencia_aberta %}<span class="pacote-sit pacote-sit-aberta">Em conferência</span>
+            {% elif pc.situacao == 'descartado' %}<span class="pacote-sit">Conferência descartada</span>
+            {% elif pc.situacao == 'com erro' %}<span class="pacote-sit pacote-sit-erro">Não foi possível ler</span>
+            {% else %}<span class="pacote-sit">Conferência expirada</span>{% endif %}
+            {% if pc.importado_em %}<br><span class="muted-sm">{{ pc.importado_em.strftime('%d/%m/%Y') }}</span>{% endif %}
+          </td>
+          <td>{{ pc.qtd_processos if pc.qtd_processos is not none else '—' }}</td>
+          <td>{{ pc.qtd_criadas or 0 }}</td>
+          <td class="pacote-acoes">
+            <form method="POST" action="{{ url_for('imp.reconferir', id=pc.id) }}" class="form-inline">
+              <button type="submit" class="btn btn-sm">{{ 'Continuar conferência' if pc.conferencia_aberta else ('Importar mais processos' if pc.situacao == 'importado' else 'Conferir de novo') }}</button>
+            </form>
+            <a href="{{ url_for('imp.baixar_pacote', id=pc.id) }}" class="btn btn-sm" title="Baixar o .zip original">Baixar</a>
+            <details class="pacote-excluir">
+              <summary class="btn btn-sm btn-excluir-licitacao">Excluir</summary>
+              <form method="POST" action="{{ url_for('imp.excluir_pacote', id=pc.id) }}" class="pacote-excluir-form">
+                {% if pc.qtd_criadas %}
+                <label><input type="checkbox" name="com_licitacoes" value="1"> Excluir também as {{ pc.qtd_criadas }} licitação(ões) criadas por este pacote</label>
+                {% endif %}
+                <p class="muted-sm">Vai para a lixeira e pode ser restaurado em até 30 dias.</p>
+                <button type="submit" class="btn btn-sm btn-excluir-licitacao">Confirmar exclusão</button>
+              </form>
+            </details>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">Nenhum pacote enviado ainda.</p>
+  {% endif %}
+</div>
+
 <script>
 document.getElementById('form-importar').addEventListener('submit', function () {
   var b = document.getElementById('btn-importar');

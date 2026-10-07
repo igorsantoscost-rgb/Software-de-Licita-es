@@ -26,6 +26,11 @@ def _status_validade(validade):
     return "ok"
 
 
+
+def _nome_cliente(cliente_id):
+    c = Cliente.query.get(cliente_id)
+    return c.nome if c else ""
+
 @docs_bp.route("/<int:cliente_id>/documentos")
 @login_required
 def documentos(cliente_id):
@@ -142,7 +147,12 @@ def upload_doc(cliente_id):
     if nao_aplica:
         # Remove docs anteriores do mesmo tipo e registra nao_se_aplica
         if tipo not in TIPOS_MULTIPLOS:
-            DocumentoCliente.query.filter_by(cliente_id=cliente_id, tipo=tipo).delete()
+            from app import lixeira
+            for a in DocumentoCliente.query.filter_by(cliente_id=cliente_id, tipo=tipo).all():
+                if a.caminho and not a.nao_se_aplica:
+                    lixeira.enviar_documento(a, "documento_cliente", f"{_nome_cliente(a.cliente_id)} · substituído por \"não se aplica\"",
+                                             usuario_id=current_user.id)
+                db.session.delete(a)
         doc = DocumentoCliente(
             cliente_id=cliente_id,
             tipo=tipo,
@@ -172,12 +182,11 @@ def upload_doc(cliente_id):
     # Para tipos únicos, remove o anterior
     if tipo not in TIPOS_MULTIPLOS:
         antigos = DocumentoCliente.query.filter_by(cliente_id=cliente_id, tipo=tipo).all()
+        from app import lixeira
         for a in antigos:
-            if a.caminho and os.path.exists(a.caminho):
-                try:
-                    os.remove(a.caminho)
-                except Exception:
-                    pass
+            if a.caminho and not a.nao_se_aplica:
+                lixeira.enviar_documento(a, "documento_cliente", f"{_nome_cliente(a.cliente_id)} · substituído por um arquivo novo",
+                                         usuario_id=current_user.id)
             db.session.delete(a)
 
     doc = DocumentoCliente(
@@ -217,11 +226,10 @@ def excluir(doc_id):
         abort(403)
     doc = DocumentoCliente.query.get_or_404(doc_id)
     cliente_id = doc.cliente_id
-    if doc.caminho and os.path.exists(doc.caminho):
-        try:
-            os.remove(doc.caminho)
-        except Exception:
-            pass
+    if doc.caminho and not doc.nao_se_aplica:
+        from app import lixeira
+        lixeira.enviar_documento(doc, "documento_cliente", _nome_cliente(doc.cliente_id),
+                                 usuario_id=current_user.id)
     db.session.delete(doc)
     db.session.commit()
     flash("Documento removido.", "ok")

@@ -267,10 +267,10 @@ def excluir_documento(doc_id):
         abort(403)
     doc = DocumentoEmpenho.query.get_or_404(doc_id)
     emp_id = doc.empenho_id
-    try:
-        os.remove(doc.caminho)
-    except OSError:
-        pass
+    from app import lixeira
+    lixeira.enviar_documento(doc, "documento_empenho",
+                             f"Empenho {doc.empenho.numero_empenho or '#' + str(emp_id)} · {doc.empenho.cliente.nome if doc.empenho.cliente else ''}",
+                             usuario_id=current_user.id)
     db.session.delete(doc)
     db.session.commit()
     flash("Documento removido.", "ok")

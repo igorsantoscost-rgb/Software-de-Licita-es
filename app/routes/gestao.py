@@ -122,12 +122,8 @@ def _pizza(m):
     return fatias, total
 
 
-@gestao_bp.route("/")
-@login_required
-def painel():
-    if not pode_ver_gestao(current_user):
-        abort(404)
-
+def _contexto(periodo, de_txt, ate_txt, cliente_filtro):
+    """Todos os numeros da guia Gestao para o periodo e cliente escolhidos."""
     agora = datetime.now()
     hoje = date(agora.year, agora.month, 1)
     clientes = Cliente.query.order_by(Cliente.nome).all()
@@ -139,8 +135,7 @@ def painel():
     inicio_trabalhos = min(datas) if datas else hoje
 
     # Periodo
-    periodo = request.args.get("periodo", "mes")
-    de, ate = _mes(request.args.get("de")), _mes(request.args.get("ate"))
+    de, ate = _mes(de_txt), _mes(ate_txt)
     if periodo == "personalizado" and de and ate:
         if de > ate:
             de, ate = ate, de
@@ -155,8 +150,6 @@ def painel():
     else:
         periodo = "mes"
         de, ate = hoje, hoje
-
-    cliente_filtro = request.args.get("cliente_id", type=int)
 
     def no_periodo(d):
         return d is not None and de <= d <= ate
@@ -200,8 +193,7 @@ def painel():
     maior = max([e["disponibilizadas"] for e in evolucao] + [1])
 
     rotulo_periodo = _rotulo_mes(de) if de == ate else f"{_rotulo_mes(de)} a {_rotulo_mes(ate)}"
-    return render_template(
-        "gestao.html",
+    return dict(
         resumo=resumo, fatias=fatias, total_pizza=total_pizza, linhas=linhas,
         clientes=clientes, cliente_filtro=cliente_filtro,
         cliente_nome=next((c.nome for c in clientes if c.id == cliente_filtro), None),
@@ -209,3 +201,35 @@ def painel():
         rotulo_periodo=rotulo_periodo, evolucao=evolucao, maior=maior,
         inicio_trabalhos=_rotulo_mes(inicio_trabalhos),
     )
+
+
+@gestao_bp.route("/")
+@login_required
+def painel():
+    if not pode_ver_gestao(current_user):
+        abort(404)
+    ctx = _contexto(request.args.get("periodo", "mes"), request.args.get("de"), request.args.get("ate"),
+                    request.args.get("cliente_id", type=int))
+    return render_template("gestao.html", modo_relatorio=False, **ctx)
+
+
+@gestao_bp.route("/relatorio")
+@login_required
+def relatorio():
+    """Relatorio mensal: a mesma visualizacao da guia, de um mes, pronta para PDF."""
+    if not pode_ver_gestao(current_user):
+        abort(404)
+    mes = request.args.get("mes") or datetime.now().strftime("%Y-%m")
+    if not _mes(mes):
+        abort(400)
+    ctx = _contexto("personalizado", mes, mes, request.args.get("cliente_id", type=int))
+    meses_extenso = ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho",
+                     "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
+    d = _mes(mes)
+    nome_mes = f"{meses_extenso[d.month]} de {d.year}"
+    arquivo = f"Relatorio-Bidfy-{d.year}-{d.month:02d}"
+    if ctx["cliente_nome"]:
+        arquivo += "-" + "".join(ch for ch in ctx["cliente_nome"] if ch.isalnum() or ch in " -").strip().replace(" ", "-")[:40]
+    return render_template("gestao_relatorio.html", modo_relatorio=True, nome_mes=nome_mes,
+                           nome_arquivo=arquivo, gerado_em=datetime.now(),
+                           baixar_automatico=request.args.get("ver") != "1", **ctx)
