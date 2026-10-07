@@ -1267,3 +1267,14 @@ html:active-view-transition-type(visao)::view-transition-new(conteudo) { animati
 .container.tela-entrando-esquerda { animation: entra-da-esquerda .28s cubic-bezier(.2,.8,.2,1) both; }
 .container.tela-entrando-visao { animation: visao-entra .3s cubic-bezier(.2,.8,.2,1) both; }
 body.com-menu .menu-lateral .menu-item.ativo, body.com-menu .menu-lateral .menu-item:hover { color: #fff; }
+
+/* AJUSTE-AZUL-CARDS: cards com degrade azul suave (topo) ate branco; fundo das paginas branco */
+body.com-menu {
+  --nevoa: #ffffff;
+  --degrade-card: linear-gradient(180deg, #e3eefb 0%, #f3f8fe 45%, #ffffff 100%);
+  background: #ffffff;
+}
+body.com-menu .card {
+  background: var(--degrade-card);
+  border-color: #dbe5f3;
+}
