@@ -14,7 +14,7 @@ def create_app():
     app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///licitacoes.db")
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["UPLOAD_FOLDER"] = "/app/uploads"
-    app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50MB
+    app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024 * 1024  # 1GB (pacote ZIP de editais)
 
     db.init_app(app)
     login_manager.init_app(app)
@@ -44,6 +44,9 @@ def create_app():
 
     from app.routes.financeiro import fin_bp
     app.register_blueprint(fin_bp)
+
+    from app.routes.importacao import imp_bp
+    app.register_blueprint(imp_bp)
 
     @app.template_filter("markdown_seguro")
     def markdown_seguro(texto):
@@ -200,6 +203,21 @@ def _migrar_coluna_tipo_documento():
                 """), {"col": coluna})
                 if existe.first() is None:
                     conn.execute(text(f"ALTER TABLE licitacoes ADD COLUMN {coluna} {tipo}"))
+                    conn.commit()
+
+            # Importacao em lote: valor estimado e codigo do edital no sistema de busca
+            colunas_importacao = [
+                ("licitacoes", "valor_estimado", "NUMERIC(14,2)"),
+                ("licitacoes", "codigo_busca", "VARCHAR(40)"),
+                ("itens_licitacao", "valor_estimado", "NUMERIC(14,4)"),
+            ]
+            for tabela, coluna, tipo in colunas_importacao:
+                existe = conn.execute(text("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name = :tab AND column_name = :col
+                """), {"tab": tabela, "col": coluna})
+                if existe.first() is None:
+                    conn.execute(text(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {tipo}"))
                     conn.commit()
 
             # Colunas novas na tabela de clientes (cadastro expandido)

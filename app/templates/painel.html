@@ -12,7 +12,10 @@
 <div class="page-header">
   <h2>Painel de Licitações</h2>
   {% if current_user.is_assessor() %}
-  <a href="{{ url_for('lic.nova') }}" class="btn btn-primary">+ Nova Licitação</a>
+  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+    <a href="{{ url_for('imp.enviar') }}" class="btn">⇪ Importar pacote (.zip)</a>
+    <a href="{{ url_for('lic.nova') }}" class="btn btn-primary">+ Nova Licitação</a>
+  </div>
   {% endif %}
 </div>
 

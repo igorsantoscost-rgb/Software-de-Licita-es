@@ -109,6 +109,12 @@ PORTAL_CHOICES = [
     "BNC Bahia",
     "PROCERGS",
     "AMMLICITA",
+    "BNC",
+    "Banrisul",
+    "BBMNET",
+    "Compras BR",
+    "Atende.net (IPM)",
+    "PNCP",
     "Outro",
 ]
 
@@ -126,6 +132,8 @@ class Licitacao(db.Model):
     objeto = db.Column(db.Text, nullable=True)
     link_edital = db.Column(db.String(500), nullable=True)
     valor_homologado = db.Column(db.Numeric(14, 2), nullable=True)
+    valor_estimado = db.Column(db.Numeric(14, 2), nullable=True)
+    codigo_busca = db.Column(db.String(40), nullable=True, index=True)  # ID do edital no sistema de busca (importacao em lote)
     motivo_encerramento = db.Column(db.String(300), nullable=True)
     resumo_ia = db.Column(db.Text, nullable=True)
     # CAPAG (Capacidade de Pagamento - Tesouro Nacional)
@@ -141,7 +149,8 @@ class Licitacao(db.Model):
     atualizado_em = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     documentos = db.relationship("Documento", backref="licitacao", lazy=True, cascade="all, delete-orphan")
-    itens = db.relationship("ItemLicitacao", backref="licitacao", lazy=True, cascade="all, delete-orphan")
+    itens = db.relationship("ItemLicitacao", backref="licitacao", lazy=True, cascade="all, delete-orphan",
+                            order_by="ItemLicitacao.id")
 
 
 class Documento(db.Model):
@@ -240,6 +249,7 @@ class ItemLicitacao(db.Model):
     marca = db.Column(db.String(200), nullable=True)
     lote_grupo = db.Column(db.String(100), nullable=True)
     valor_minimo = db.Column(db.Numeric(14, 2), nullable=True)
+    valor_estimado = db.Column(db.Numeric(14, 4), nullable=True)  # valor unitario de referencia do edital
     unidade = db.Column(db.String(50), nullable=True)
     quantidade = db.Column(db.Integer, nullable=True)
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)

@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block titulo %}Conferir importação{% endblock %}
+{% block conteudo %}
+
+<div class="page-header">
+  <h2>Conferir importação</h2>
+  <form method="POST" action="{{ url_for('imp.cancelar', token=token) }}" class="form-inline">
+    <button type="submit" class="btn" onclick="return confirm('Descartar este pacote?')">Descartar pacote</button>
+  </form>
+</div>
+
+<div class="card import-resumo">
+  <p style="margin:0;">
+    Pacote <strong>{{ analise.nome_pacote }}</strong> · cliente <strong>{{ cliente.nome }}</strong> ·
+    {{ propostas|length }} processo(s) encontrado(s).
+  </p>
+  <p class="muted-sm" style="margin:6px 0 0;">
+    Já deixei desmarcados os processos com disputa vencida, os repetidos dentro do pacote e os que já estão cadastrados.
+    Depois de importar, qualquer campo pode ser corrigido no botão Editar da licitação.
+  </p>
+  {% for a in analise.avisos %}
+  <div class="alerta alerta-erro" style="margin-top:10px;">{{ a }}</div>
+  {% endfor %}
+</div>
+
+<form method="POST" action="{{ url_for('imp.confirmar', token=token) }}" id="form-confirmar">
+
+  <div class="import-barra">
+    <label class="import-check-todos">
+      <input type="checkbox" id="marcar-todos"> Marcar / desmarcar todos
+    </label>
+    <span class="muted-sm" id="contador">{{ total_selecionadas }} selecionado(s)</span>
+  </div>
+
+  <div class="tabela-wrap">
+    <table class="tabela tabela-import">
+      <thead>
+        <tr>
+          <th></th>
+          <th>Órgão</th>
+          <th>Nº / UASG</th>
+          <th>Disputa</th>
+          <th>Portal</th>
+          <th>Valor estimado</th>
+          <th>Itens</th>
+          <th>Arquivos</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in propostas %}
+        <tr class="{% if not p.selecionada %}import-linha-off{% endif %}">
+          <td><input type="checkbox" name="pastas" value="{{ p.pasta }}" class="chk-pasta" {% if p.selecionada %}checked{% endif %}></td>
+          <td class="import-orgao">
+            <strong>{{ p.orgao_licitante }}</strong>
+            {% if p.municipio or p.esfera %}
+            <span class="muted-sm import-sub">
+              {% if p.esfera == 'federal' %}Federal{% elif p.esfera == 'estadual' %}Estadual{% if p.uf %} · {{ p.uf }}{% endif %}{% elif p.esfera == 'municipal' %}Municipal{% if p.municipio %} · {{ p.municipio }}/{{ p.uf }}{% elif p.uf %} · {{ p.uf }}{% endif %}{% elif p.esfera == 'consorcio' %}Consórcio{% endif %}
+            </span>
+            {% endif %}
+            {% if p.objeto %}<span class="import-objeto" title="{{ p.objeto }}">{{ p.objeto[:140] }}{% if p.objeto|length > 140 %}…{% endif %}</span>{% endif %}
+            {% for a in p.avisos %}
+            <span class="import-aviso">⚠ {{ a }}</span>
+            {% endfor %}
+            <span class="muted-sm import-sub">Pasta: {{ p.pasta }}</span>
+          </td>
+          <td>{{ p.numero_pregao }}{% if p.uasg %}<br><span class="muted-sm">UASG {{ p.uasg }}</span>{% endif %}</td>
+          <td>{% if p.data_fmt %}{{ p.data_fmt }}{% else %}<span class="import-falta">—</span>{% endif %}</td>
+          <td>{% if p.portal %}{{ p.portal }}{% else %}<span class="import-falta">—</span>{% endif %}</td>
+          <td style="white-space:nowrap;">{% if p.valor_estimado %}R$ {{ "{:,.2f}".format(p.valor_estimado).replace(",", "X").replace(".", ",").replace("X", ".") }}{% else %}—{% endif %}</td>
+          <td>{{ p.itens|length }}{% if p.qtd_lotes %}<br><span class="muted-sm">{{ p.qtd_lotes }} lote(s)/grupo(s)</span>{% endif %}</td>
+          <td>{{ p.arquivos|length }}{% if p.edital_nome %}<br><span class="muted-sm" title="{{ p.edital_nome }}">Edital: {{ p.edital_nome[:28] }}{% if p.edital_nome|length > 28 %}…{% endif %}</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card import-rodape">
+    <label class="import-check-todos">
+      <input type="checkbox" name="avisar_email" value="1">
+      Avisar o cliente por e-mail (1 e-mail de "nova licitação" para cada processo importado)
+    </label>
+    <div class="form-btns" style="margin-top:12px;">
+      <a href="{{ url_for('imp.enviar') }}" class="btn">Enviar outro pacote</a>
+      <button type="submit" class="btn btn-primary" id="btn-confirmar">Importar selecionados</button>
+    </div>
+  </div>
+</form>
+
+<script>
+(function () {
+  var chks = Array.prototype.slice.call(document.querySelectorAll('.chk-pasta'));
+  var contador = document.getElementById('contador');
+  var todos = document.getElementById('marcar-todos');
+  function atualizar() {
+    var n = chks.filter(function (c) { return c.checked; }).length;
+    contador.innerText = n + ' selecionado(s)';
+    document.getElementById('btn-confirmar').innerText = n ? 'Importar ' + n + ' selecionado(s)' : 'Importar selecionados';
+    chks.forEach(function (c) { c.closest('tr').classList.toggle('import-linha-off', !c.checked); });
+  }
+  chks.forEach(function (c) { c.addEventListener('change', atualizar); });
+  todos.addEventListener('change', function () { chks.forEach(function (c) { c.checked = todos.checked; }); atualizar(); });
+  document.getElementById('form-confirmar').addEventListener('submit', function (e) {
+    if (!chks.some(function (c) { return c.checked; })) { e.preventDefault(); alert('Marque pelo menos um processo.'); return; }
+    var b = document.getElementById('btn-confirmar'); b.disabled = true; b.innerText = 'Importando...';
+  });
+  atualizar();
+})();
+</script>
+{% endblock %}

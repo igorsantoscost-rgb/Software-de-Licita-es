@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block titulo %}Importar pacote de editais{% endblock %}
+{% block conteudo %}
+
+<div class="page-header">
+  <h2>Importar pacote de editais</h2>
+  <a href="{{ url_for('main.painel') }}" class="btn">Voltar</a>
+</div>
+
+<div class="card card-form">
+  <p class="muted-sm" style="margin-bottom:16px;">
+    Envie o <strong>.zip</strong> gerado pelo sistema de busca de editais. O Bidfy abre pasta por pasta,
+    lê a planilha <em>resumo.xlsx</em> e os editais, e monta uma licitação para cada processo
+    (órgão, número, UASG, data e hora da disputa, portal, valor estimado, objeto, itens e arquivos).
+    Antes de criar, você confere a lista e escolhe quais entram.
+  </p>
+
+  <form method="POST" enctype="multipart/form-data" id="form-importar">
+    <div class="campo">
+      <label>Cliente *</label>
+      <select name="cliente_id" required class="select">
+        <option value="">Selecione o cliente dono destas licitações...</option>
+        {% for c in clientes %}
+        <option value="{{ c.id }}">{{ c.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="campo">
+      <label>Pacote (.zip) *</label>
+      <input type="file" name="pacote" accept=".zip" required class="input-file-doc">
+      <small class="muted">Pacotes grandes (100 MB ou mais) podem levar alguns minutos para subir.</small>
+    </div>
+
+    <div class="form-btns">
+      <a href="{{ url_for('main.painel') }}" class="btn">Cancelar</a>
+      <button type="submit" class="btn btn-primary" id="btn-importar">Ler pacote</button>
+    </div>
+    <p class="muted-sm import-aguarde" id="import-aguarde" style="display:none;">
+      ⏳ Enviando e lendo os editais... não feche esta página.
+    </p>
+  </form>
+</div>
+
+<script>
+document.getElementById('form-importar').addEventListener('submit', function () {
+  var b = document.getElementById('btn-importar');
+  b.disabled = true; b.innerText = 'Enviando...';
+  document.getElementById('import-aguarde').style.display = 'block';
+});
+</script>
+{% endblock %}

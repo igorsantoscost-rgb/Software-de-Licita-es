@@ -81,6 +81,10 @@
         <span>{{ lic.portal or '—' }}</span>
         <span class="info-label">UASG</span>
         <span>{{ lic.uasg or '—' }}</span>
+        {% if lic.valor_estimado %}
+        <span class="info-label">Valor Estimado</span>
+        <span>R$ {{ "{:,.2f}".format(lic.valor_estimado).replace(",", "X").replace(".", ",").replace("X", ".") }}</span>
+        {% endif %}
         {% if lic.link_edital %}
         <span class="info-label">Edital</span>
         <span><a href="{{ lic.link_edital }}" target="_blank">Abrir edital ↗</a></span>
@@ -134,6 +138,7 @@
             <th>Lote/Grupo</th>
             <th>Qtd</th>
             <th>Un.</th>
+            <th>Valor Est. (un.)</th>
             <th>Valor Mín.</th>
             <th></th>
           </tr>
@@ -147,6 +152,11 @@
             <td>{{ item.lote_grupo or '—' }}</td>
             <td>{{ item.quantidade or '—' }}</td>
             <td>{{ item.unidade or '—' }}</td>
+            <td style="white-space:nowrap;">
+              {% if item.valor_estimado %}
+                R$ {{ "{:,.2f}".format(item.valor_estimado).replace(",", "X").replace(".", ",").replace("X", ".") }}
+              {% else %}—{% endif %}
+            </td>
             <td>
               {% if item.valor_minimo %}
                 R$ {{ "%.2f"|format(item.valor_minimo)|replace('.', ',') }}

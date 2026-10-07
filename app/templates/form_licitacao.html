@@ -77,6 +77,9 @@
           {% for p in portal_choices %}
           <option value="{{ p }}" {% if lic and lic.portal == p %}selected{% endif %}>{{ p }}</option>
           {% endfor %}
+          {% if lic and lic.portal and lic.portal not in portal_choices %}
+          <option value="{{ lic.portal }}" selected>{{ lic.portal }}</option>
+          {% endif %}
         </select>
       </div>
       <div class="campo">
@@ -84,6 +87,12 @@
         <input type="datetime-local" name="data_disputa"
                value="{{ lic.data_disputa.strftime('%Y-%m-%dT%H:%M') if lic and lic.data_disputa else '' }}">
       </div>
+    </div>
+
+    <div class="campo">
+      <label>Valor Estimado (R$)</label>
+      <input type="text" name="valor_estimado" placeholder="0,00"
+             value="{{ ('%.2f'|format(lic.valor_estimado))|replace('.', ',') if lic and lic.valor_estimado else '' }}">
     </div>
 
     <div class="campo">

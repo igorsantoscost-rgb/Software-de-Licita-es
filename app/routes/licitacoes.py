@@ -50,6 +50,19 @@ def _aplicar_capag(lic):
         lic.capag_consultado_em = datetime.utcnow() if esfera else None
 
 
+def _valor_form(nome):
+    """Le um valor em reais do formulario ('1.234,56' ou '1234.56')."""
+    bruto = (request.form.get(nome, "") or "").strip().replace("R$", "").strip()
+    if not bruto:
+        return None
+    if "," in bruto:
+        bruto = bruto.replace(".", "").replace(",", ".")
+    try:
+        return float(bruto)
+    except ValueError:
+        return None
+
+
 def _pode_ver(licitacao):
     return current_user.pode_ver_cliente(licitacao.cliente_id)
 
@@ -133,6 +146,7 @@ def nova():
             status="agendada",
             objeto=request.form.get("objeto", "").strip(),
             link_edital=request.form.get("link_edital", "").strip(),
+            valor_estimado=_valor_form("valor_estimado"),
         )
         db.session.add(lic)
         db.session.commit()
@@ -220,6 +234,7 @@ def editar(id):
         lic.portal = request.form.get("portal", "").strip()
         lic.objeto = request.form.get("objeto", "").strip()
         lic.link_edital = request.form.get("link_edital", "").strip()
+        lic.valor_estimado = _valor_form("valor_estimado")
         _aplicar_capag(lic)
         _processar_uploads_form(lic.id)
         db.session.commit()
