@@ -84,6 +84,7 @@
   </div>
 </div>
 
+{% if not modo_relatorio %}
 <div class="card">
   <h3>Por cliente</h3>
   <p class="muted-sm" style="margin:-4px 0 12px;">Número grande: {{ rotulo_periodo }}. Embaixo: desde o início dos trabalhos ({{ inicio_trabalhos }}).</p>
@@ -119,3 +120,4 @@
   <p class="muted">Nenhum cliente com licitações cadastradas ainda.</p>
   {% endif %}
 </div>
+{% endif %}

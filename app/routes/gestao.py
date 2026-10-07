@@ -21,7 +21,7 @@ import math
 import os
 from datetime import date, datetime
 
-from flask import Blueprint, render_template, request, abort
+from flask import Blueprint, render_template, request, abort, flash, redirect, url_for
 from flask_login import login_required, current_user
 
 from app.models import Licitacao, Empenho, Cliente
@@ -222,7 +222,13 @@ def relatorio():
     mes = request.args.get("mes") or datetime.now().strftime("%Y-%m")
     if not _mes(mes):
         abort(400)
-    ctx = _contexto("personalizado", mes, mes, request.args.get("cliente_id", type=int))
+    cliente_id = request.args.get("cliente_id", type=int)
+    if not cliente_id or not Cliente.query.get(cliente_id):
+        flash("Escolha o cliente do relatório.", "erro")
+        return redirect(url_for("gestao.painel"))
+    # O relatorio e de um cliente so: nenhum numero de outro cliente entra nele
+    ctx = _contexto("personalizado", mes, mes, cliente_id)
+    ctx["linhas"] = []
     meses_extenso = ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho",
                      "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
     d = _mes(mes)

@@ -27,7 +27,7 @@
     </div>
     <div class="relatorio-titulo">
       <h1>Relatório de gestão</h1>
-      <p>{{ nome_mes }}{% if cliente_nome %} · {{ cliente_nome }}{% else %} · Todos os clientes{% endif %}</p>
+      <p>{{ cliente_nome }} · {{ nome_mes }}</p>
     </div>
     <div class="relatorio-gerado">Gerado em {{ gerado_em.strftime('%d/%m/%Y às %H:%M') }}</div>
   </header>
@@ -52,7 +52,7 @@
       image: { type: 'jpeg', quality: 0.96 },
       html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0 },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
-      pagebreak: { mode: ['css', 'legacy'], avoid: ['.card', '.gestao-card', 'tr'] }
+      pagebreak: { mode: ['avoid-all'] }
     }).from(folha).save().then(function () {
       document.body.classList.remove('relatorio-gerando');
       status.textContent = 'PDF baixado. Se não apareceu, clique em "Baixar PDF".';
