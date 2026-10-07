@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=costa8">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=costa9">
   <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
 </head>
@@ -38,6 +38,9 @@
     <p class="menu-grupo-titulo">Licitações</p>
     {{ item('main.painel', 'Painel', '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>', ep == 'main.painel' or ep.startswith('lic.')) }}
     {{ item('main.calendario', 'Calendário', '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>', ep.startswith('main.calendario')) }}
+    {% if not current_user.is_assessor() %}
+    {{ item('fin.painel', 'Financeiro', '<rect x="2.5" y="6" width="19" height="13" rx="2"/><path d="M2.5 10.5h19M6.5 15h4"/>', ep.startswith('fin.')) }}
+    {% endif %}
     {% if current_user.is_assessor() %}
     {{ item('lic.nova', 'Nova licitação', '<path d="M12 5v14M5 12h14"/>', ep == 'lic.nova') }}
     {{ item('imp.enviar', 'Importar pacote', '<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>', ep.startswith('imp.')) }}
@@ -85,6 +88,6 @@
   {% block conteudo %}{% endblock %}
 </main>
 
-<script src="{{ url_for('static', filename='js/app.js') }}?v=costa8"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}?v=costa9"></script>
 </body>
 </html>

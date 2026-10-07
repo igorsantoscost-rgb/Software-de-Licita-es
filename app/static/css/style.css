@@ -1444,3 +1444,11 @@ body.com-menu.relatorio-gerando { padding: 0; background: #fff; }
 .status-sem-participacao, body.com-menu .status-sem-participacao { background: #f3ece4; color: #6b4e2e; }
 /* rotulos de status ja chegam com a primeira maiuscula certa ("Sem participação") */
 .badge, .select-status-mini { text-transform: none; }
+
+/* Financeiro: visao do cliente */
+.faturas-cliente { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.fatura-cliente-card { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.fatura-cliente-topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.fatura-cliente-topo h3 { margin: 0 0 2px; }
+.fatura-cliente-total { margin: 0; font-size: 1.6rem; font-weight: 800; color: var(--tinta); letter-spacing: -.02em; }
+.fatura-cliente-acoes { display: flex; flex-wrap: wrap; gap: 8px; }

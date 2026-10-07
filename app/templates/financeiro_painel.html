@@ -3,10 +3,10 @@
 {% block conteudo %}
 
 <div class="page-header">
-  <h2>Financeiro</h2>
+  <h2>{{ 'Financeiro' if current_user.is_assessor() else 'Minhas faturas' }}</h2>
   {% if current_user.is_master() %}
   <form method="POST" action="{{ url_for('fin.gerar_faturas_mes') }}" style="display:inline;">
-    <button type="submit" class="btn btn-primary">Gerar Faturas do Mes</button>
+    <button type="submit" class="btn btn-primary">Gerar faturas do mês</button>
   </form>
   {% endif %}
 </div>
@@ -34,7 +34,35 @@
   {% endfor %}
 </div>
 
+{% macro brl(v) %}R$ {{ "{:,.2f}".format(v or 0).replace(",", "X").replace(".", ",").replace("X", ".") }}{% endmacro %}
+
+{% if not current_user.is_assessor() %}
+{# ─── Visao do cliente: so as faturas dele, com boleto e relatorio para baixar ─── #}
 {% if faturas %}
+<div class="faturas-cliente">
+  {% for f in faturas %}
+  <div class="card fatura-cliente-card">
+    <div class="fatura-cliente-topo">
+      <div>
+        <h3>{{ f.nome_mes }}</h3>
+        <span class="muted-sm">Vencimento {{ f.vencimento.strftime('%d/%m/%Y') }}</span>
+      </div>
+      <span class="filtro-pill {% if f.status == 'paga' %}status-pago{% else %}status-aberta{% endif %}">{{ f.status|rotulo_status }}</span>
+    </div>
+    <p class="fatura-cliente-total">{{ brl(f.total) }}</p>
+    <div class="fatura-cliente-acoes">
+      <a href="{{ url_for('fin.detalhe_fatura', id=f.id) }}" class="btn btn-sm">Ver detalhamento</a>
+      {% if f.boleto_caminho %}<a href="{{ url_for('fin.download_boleto', id=f.id) }}" class="btn btn-sm btn-primary">Baixar boleto</a>{% endif %}
+      {% if f.relatorio_caminho %}<a href="{{ url_for('fin.download_relatorio', id=f.id) }}" class="btn btn-sm">Baixar relatório</a>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="vazio"><p>Nenhuma fatura por aqui ainda.</p></div>
+{% endif %}
+
+{% elif faturas %}
 <div class="tabela-wrap">
   <table class="tabela">
     <thead>

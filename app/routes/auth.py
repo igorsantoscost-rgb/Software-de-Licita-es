@@ -12,10 +12,19 @@ def index():
         return redirect(url_for("main.painel"))
     return redirect(url_for("auth.login"))
 
+def _destino_seguro():
+    """Pagina pedida antes do login (ex: link da fatura no e-mail). So aceita
+    caminhos internos do proprio Bidfy."""
+    destino = request.args.get("next") or request.form.get("next") or ""
+    if destino.startswith("/") and not destino.startswith("//") and "\\" not in destino:
+        return destino
+    return None
+
+
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "GET" and current_user.is_authenticated:
-        return redirect(url_for("main.painel"))
+        return redirect(_destino_seguro() or url_for("main.painel"))
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         senha = request.form.get("senha", "")
@@ -28,7 +37,7 @@ def login():
             # fechar o navegador). Desmarcado: sai ao fechar o navegador.
             session.permanent = remember
             login_user(user, remember=remember)
-            return redirect(url_for("main.painel"))
+            return redirect(_destino_seguro() or url_for("main.painel"))
         flash("Usuário ou senha incorretos.", "erro")
     return render_template("login.html")
 

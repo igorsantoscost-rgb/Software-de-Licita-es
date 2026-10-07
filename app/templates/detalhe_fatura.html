@@ -8,7 +8,9 @@
     {% if current_user.is_master() %}
     <form method="POST" action="{{ url_for('fin.enviar_email', id=fatura.id) }}" class="form-inline">
       <button type="submit" class="btn btn-primary"
-              data-confirm="Enviar a fatura{% if fatura.boleto_caminho %}, o boleto{% endif %}{% if fatura.relatorio_caminho %} e o relatório{% endif %} por e-mail para {{ destinatarios_email|join(', ') if destinatarios_email else 'o cliente' }}?" onclick="return confirm(this.dataset.confirm)">
+              data-confirm="{% if not fatura.boleto_caminho or not fatura.relatorio_caminho %}Atenção: esta fatura está sem {% if not fatura.boleto_caminho and not fatura.relatorio_caminho %}boleto e sem relatório{% elif not fatura.boleto_caminho %}boleto{% else %}relatório{% endif %} anexado. Junte os arquivos nos cards Boleto e Relatório antes de enviar.
+
+Enviar mesmo assim {% else %}Enviar a fatura, o boleto e o relatório {% endif %}por e-mail para {{ destinatarios_email|join(', ') if destinatarios_email else 'o cliente' }}?" onclick="return confirm(this.dataset.confirm)">
         ✉ Enviar tudo por e-mail
       </button>
     </form>
@@ -28,6 +30,10 @@
   {% if fatura.enviada_em %}Último envio por e-mail: {{ fatura.enviada_em.strftime('%d/%m/%Y às %H:%M') }} para {{ fatura.enviada_para }}.
   {% elif destinatarios_email %}Será enviada para {{ destinatarios_email|join(', ') }}.
   {% else %}<span class="import-falta">O cliente não tem e-mail financeiro cadastrado.</span>{% endif %}
+  {% if fatura.boleto_caminho and fatura.relatorio_caminho %}Anexos: boleto e relatório.
+  {% elif fatura.boleto_caminho %}<span class="import-falta">Anexos: só o boleto (falta o relatório).</span>
+  {% elif fatura.relatorio_caminho %}<span class="import-falta">Anexos: só o relatório (falta o boleto).</span>
+  {% else %}<span class="import-falta">Ainda sem boleto e sem relatório anexados.</span>{% endif %}
 </p>
 {% endif %}
 
@@ -51,7 +57,7 @@
       <table class="tabela" style="margin-bottom:0;">
         <thead>
           <tr style="background:#f0f4f1;">
-            <th style="text-align:left;">Descricao</th>
+            <th style="text-align:left;">Descrição</th>
             <th style="text-align:right;width:150px;">Valor</th>
           </tr>
         </thead>
@@ -64,7 +70,7 @@
           <!-- Taxa de implantacao (so na 1a fatura) -->
           {% if fatura.taxa_implantacao and fatura.taxa_implantacao > 0 %}
           <tr>
-            <td>Taxa de implantacao (unica)</td>
+            <td>Taxa de implantação (única)</td>
             <td style="text-align:right;">R$ {{ "{:,.2f}".format(fatura.taxa_implantacao).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
           </tr>
           {% endif %}
@@ -73,7 +79,7 @@
           <tr style="background:#f7faf8;">
             <td colspan="2" style="padding:12px 8px 4px;font-weight:600;color:#153a29;">
               {% if fatura.comissao_padrao %}
-              Comissao sobre empenhos — Total empenhado: R$ {{ "{:,.2f}".format(fatura.total_valor_empenhado).replace(",", "X").replace(".", ",").replace("X", ".") }} × 2% = R$ {{ "{:,.2f}".format(fatura.total_empenhos).replace(",", "X").replace(".", ",").replace("X", ".") }}
+              Comissão sobre empenhos — Total empenhado: R$ {{ "{:,.2f}".format(fatura.total_valor_empenhado).replace(",", "X").replace(".", ",").replace("X", ".") }} × 2% = R$ {{ "{:,.2f}".format(fatura.total_empenhos).replace(",", "X").replace(".", ",").replace("X", ".") }}
               {% else %}
               Comissão sobre empenhos e ajustes{% if fatura.total_valor_empenhado %} — Total empenhado: R$ {{ "{:,.2f}".format(fatura.total_valor_empenhado).replace(",", "X").replace(".", ",").replace("X", ".") }}{% endif %} · Soma dos itens: R$ {{ "{:,.2f}".format(fatura.total_empenhos).replace(",", "X").replace(".", ",").replace("X", ".") }}
               {% endif %}
@@ -87,13 +93,13 @@
           {% endfor %}
           {% else %}
           <tr>
-            <td class="muted" colspan="2">Nenhum empenho neste mes.</td>
+            <td class="muted" colspan="2">Nenhum empenho neste mês.</td>
           </tr>
           {% endif %}
         </tbody>
         <tfoot>
           <tr style="background:#f1f7f2;font-weight:700;font-size:1.05rem;">
-            <td>TOTAL</td>
+            <td>Total</td>
             <td style="text-align:right;color:#153a29;">R$ {{ "{:,.2f}".format(fatura.total).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
           </tr>
         </tfoot>
@@ -116,10 +122,10 @@
       {% if fatura.boleto_caminho %}
         <p>📎 <strong>{{ fatura.boleto_nome or 'Boleto' }}</strong></p>
         <a href="{{ url_for('fin.download_boleto', id=fatura.id) }}" class="btn btn-primary btn-sm">
-          Baixar Boleto
+          Baixar boleto
         </a>
       {% else %}
-        <p class="muted">Boleto ainda nao disponivel.</p>
+        <p class="muted">Boleto ainda não disponível.</p>
       {% endif %}
 
       {% if current_user.is_master() %}
@@ -129,7 +135,7 @@
           <label>{{ 'Substituir' if fatura.boleto_caminho else 'Anexar' }} boleto</label>
           <input type="file" name="boleto" required>
         </div>
-        <button type="submit" class="btn btn-sm btn-primary">Enviar Boleto</button>
+        <button type="submit" class="btn btn-sm btn-primary">Enviar boleto</button>
       </form>
       {% endif %}
     </div>
@@ -165,17 +171,17 @@
 
     {% if current_user.is_master() %}
     <div class="card">
-      <h3>Acoes</h3>
+      <h3>Ações</h3>
       {% if fatura.status == 'aberta' %}
       <form method="POST" action="{{ url_for('fin.marcar_paga', id=fatura.id) }}">
         <button type="submit" class="btn btn-primary" onclick="return confirm('Marcar fatura como paga?')">
-          Marcar como Paga
+          Marcar como paga
         </button>
       </form>
       {% else %}
       <form method="POST" action="{{ url_for('fin.reabrir_fatura', id=fatura.id) }}">
         <button type="submit" class="btn" onclick="return confirm('Reabrir fatura?')">
-          Reabrir Fatura
+          Reabrir fatura
         </button>
       </form>
       {% endif %}

@@ -36,6 +36,7 @@
       {% endwith %}
 
       <form method="POST" action="{{ url_for('auth.login') }}">
+        {% if request.args.get('next') %}<input type="hidden" name="next" value="{{ request.args.get('next') }}">{% endif %}
         <div class="campo campo-icone">
           <label for="login-usuario">Usuário</label>
           <div class="campo-icone-caixa">
