@@ -3,37 +3,61 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login — Bidfy</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <meta name="view-transition" content="same-origin">
+  <title>Entrar — Bidfy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=costa1">
   <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
 </head>
 <body class="login-body">
-  <div class="login-card">
-    <img src="{{ url_for('static', filename='img/logo-bidfy.png') }}" alt="Bidfy" class="login-logo-img">
-    <p class="login-sub">Acesse sua conta</p>
+  <section class="login-painel" aria-hidden="true">
+    <div class="login-aneis"></div>
+    <div class="login-faixa login-faixa-1"></div>
+    <div class="login-faixa login-faixa-2"></div>
+    <div class="login-painel-texto">
+      <img src="{{ url_for('static', filename='img/bidfy-icone.png') }}" alt="" class="login-painel-icone">
+      <h1>Bem-vindo ao Bidfy</h1>
+      <p>Suas licitações, documentos e disputas num só lugar — acompanhados de perto pela Costa Consultoria Comercial.</p>
+    </div>
+    <p class="login-painel-rodape">Costa Consultoria Comercial · Assessoria especializada em licitações públicas</p>
+  </section>
 
-    {% with msgs = get_flashed_messages(with_categories=true) %}
-      {% for cat, msg in msgs %}
-        <div class="alerta alerta-{{ cat }}">{{ msg }}</div>
-      {% endfor %}
-    {% endwith %}
+  <section class="login-lado-form">
+    <div class="login-card">
+      <img src="{{ url_for('static', filename='img/logo-bidfy-transparente.png') }}" alt="Bidfy — Plataforma de licitações" class="login-logo-img">
+      <p class="login-sub">Entre com seu usuário e senha</p>
 
-    <form method="POST" action="{{ url_for('auth.login') }}">
-      <div class="campo">
-        <label>Usuário</label>
-        <input type="text" name="username" required autofocus placeholder="Seu nome de usuário">
-      </div>
-      <div class="campo">
-        <label>Senha</label>
-        <input type="password" name="senha" required placeholder="••••••••">
-      </div>
-      <div class="campo-remember">
-        <input type="checkbox" name="remember" id="remember">
-        <label for="remember">Manter-me conectado</label>
-      </div>
-      <button type="submit" class="btn btn-primary btn-block">Entrar</button>
-    </form>
-  </div>
+      {% with msgs = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in msgs %}
+          <div class="alerta alerta-{{ cat }}">{{ msg }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <form method="POST" action="{{ url_for('auth.login') }}">
+        <div class="campo campo-icone">
+          <label for="login-usuario">Usuário</label>
+          <div class="campo-icone-caixa">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg>
+            <input id="login-usuario" type="text" name="username" required autofocus autocomplete="username" placeholder="Seu nome de usuário">
+          </div>
+        </div>
+        <div class="campo campo-icone">
+          <label for="login-senha">Senha</label>
+          <div class="campo-icone-caixa">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+            <input id="login-senha" type="password" name="senha" required autocomplete="current-password" placeholder="••••••••">
+          </div>
+        </div>
+        <div class="campo-remember">
+          <input type="checkbox" name="remember" id="remember">
+          <label for="remember">Manter-me conectado</label>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block btn-entrar">Entrar</button>
+      </form>
+    </div>
+  </section>
 </body>
 </html>

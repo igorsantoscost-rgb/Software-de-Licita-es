@@ -3,37 +3,70 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="view-transition" content="same-origin">
   <title>{% block titulo %}Bidfy — Plataforma de Licitações{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=costa1">
   <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
 </head>
-<body>
+<body class="{% if current_user.is_authenticated %}com-menu{% endif %}">
 {% if current_user.is_authenticated %}
-<nav class="navbar">
-  <a href="{{ url_for('main.painel') }}" class="nav-brand nav-brand-link">
-    <span class="nav-brand-bid">BID</span><span class="nav-brand-fy">FY</span>
+{% set ep = request.endpoint or '' %}
+{% macro item(endpoint, rotulo, icone, ativo=False) %}
+<a href="{{ url_for(endpoint) }}" class="menu-item {% if ativo %}ativo{% endif %}">
+  <svg viewBox="0 0 24 24" aria-hidden="true">{{ icone|safe }}</svg>
+  <span>{{ rotulo }}</span>
+</a>
+{% endmacro %}
+
+<header class="topo-mobile">
+  <button type="button" class="menu-botao" aria-label="Abrir menu" onclick="document.body.classList.toggle('menu-aberto')">
+    <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+  </button>
+  <a href="{{ url_for('main.painel') }}" class="topo-mobile-marca">BID<span>FY</span></a>
+</header>
+
+<aside class="menu-lateral" id="menu-lateral">
+  <a href="{{ url_for('main.painel') }}" class="menu-marca">
+    <img src="{{ url_for('static', filename='img/bidfy-icone.png') }}" alt="" class="menu-marca-icone">
+    <span class="menu-marca-texto">BID<span>FY</span></span>
   </a>
-  <div class="nav-links">
-    <a href="{{ url_for('main.painel') }}">Painel</a>
-    <a href="{{ url_for('main.calendario') }}">Calendário</a>
+
+  <nav class="menu-grupos">
+    <p class="menu-grupo-titulo">Licitações</p>
+    {{ item('main.painel', 'Painel', '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>', ep == 'main.painel' or ep.startswith('lic.')) }}
+    {{ item('main.calendario', 'Calendário', '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>', ep.startswith('main.calendario')) }}
     {% if current_user.is_assessor() %}
-    <a href="{{ url_for('main.clientes') }}">Clientes</a>
-    <a href="{{ url_for('emp.painel') }}">Empenhos</a>
-    <a href="{{ url_for('fin.painel') }}">Financeiro</a>
-    <a href="{{ url_for('lic.nova') }}">+ Nova</a>
+    {{ item('lic.nova', 'Nova licitação', '<path d="M12 5v14M5 12h14"/>', ep == 'lic.nova') }}
+    {{ item('imp.enviar', 'Importar pacote', '<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>', ep.startswith('imp.')) }}
+
+    <p class="menu-grupo-titulo">Gestão</p>
+    {{ item('main.clientes', 'Clientes', '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6.5 6.5 0 0 1 3.5 5.5"/>', ep.endswith('cliente') or ep.endswith('clientes') or ep.startswith('docs.')) }}
+    {{ item('emp.painel', 'Empenhos', '<path d="M7 3h8l4 4v14H7z"/><path d="M15 3v4h4M10 12h6M10 16h6"/>', ep.startswith('emp.')) }}
+    {{ item('fin.painel', 'Financeiro', '<rect x="2.5" y="6" width="19" height="13" rx="2"/><path d="M2.5 10.5h19M6.5 15h4"/>', ep.startswith('fin.')) }}
     {% endif %}
     {% if current_user.is_master() %}
-    <a href="{{ url_for('main.assessores') }}">Assessores</a>
-    <a href="{{ url_for('main.gestao_acessos') }}">Acessos</a>
+    <p class="menu-grupo-titulo">Administração</p>
+    {{ item('main.assessores', 'Assessores', '<circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/>', ep.endswith('assessor') or ep.endswith('assessores')) }}
+    {{ item('main.gestao_acessos', 'Acessos', '<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>', ep.startswith('main.gestao') or ep.endswith('acesso')) }}
     {% endif %}
+  </nav>
+
+  <div class="menu-usuario">
+    <div class="menu-avatar">{{ (current_user.nome or current_user.username)[:1]|upper }}</div>
+    <div class="menu-usuario-info">
+      <strong>{{ current_user.nome or current_user.username }}</strong>
+      <span>{{ current_user.perfil|rotulo_status }}</span>
+    </div>
+    <a href="{{ url_for('auth.logout') }}" class="menu-sair" title="Sair" aria-label="Sair">
+      <svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 16l4-4-4-4M14 12H4"/></svg>
+    </a>
   </div>
-  <div class="nav-user">
-    <span>{{ current_user.username }}</span>
-    <span class="badge-perfil">{{ current_user.perfil }}</span>
-    <a href="{{ url_for('auth.logout') }}">Sair</a>
-  </div>
-</nav>
+</aside>
+<div class="menu-fundo" onclick="document.body.classList.remove('menu-aberto')"></div>
 {% endif %}
 
 <main class="container {% block main_classe %}{% endblock %}">
@@ -46,6 +79,6 @@
   {% block conteudo %}{% endblock %}
 </main>
 
-<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}?v=costa1"></script>
 </body>
 </html>
