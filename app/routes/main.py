@@ -33,6 +33,14 @@ _ORDENADORES_COLUNA = {
 }
 
 
+def _lembrar_tela(url, rotulo):
+    """Guarda a tela de lista (com filtros, busca e ordenacao) de onde o
+    usuario abriu a licitacao, para o botao "Voltar" do detalhe trazer de
+    volta exatamente para o mesmo lugar."""
+    session["voltar_url"] = url
+    session["voltar_rotulo"] = rotulo
+
+
 # ─── Busca por texto (painel e calendario) ───────────────────────────────────
 
 _ACENTOS_DE = "áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ"
@@ -149,6 +157,9 @@ def painel():
     busca = (request.args.get("busca") or "").strip()
     licitacoes = _licitacoes_do_usuario(status_filtro, cliente_filtro, sort_coluna, sort_dir)
     licitacoes = filtrar_por_busca(licitacoes, busca)
+    _lembrar_tela(url_for("main.painel", status=status_filtro, cliente_id=cliente_filtro,
+                          sort=sort_coluna or None, dir=sort_dir if sort_coluna else None,
+                          busca=busca or None), "Painel")
     clientes = Cliente.query.order_by(Cliente.nome).all() if current_user.is_assessor() else []
     return render_template(
         "painel.html",
@@ -194,6 +205,7 @@ def calendario():
         q = q.filter(Licitacao.cliente_id == current_user.cliente_id)
     busca = (request.args.get("busca") or "").strip()
     licitacoes_mes = filtrar_por_busca(q.all(), busca)
+    _lembrar_tela(url_for("main.calendario", mes=mes, ano=ano, busca=busca or None), "Calendário")
     resultados_busca = _resultados_busca_calendario(busca)
 
     eventos = {}
@@ -256,6 +268,9 @@ def calendario_semana():
         q = q.filter(Licitacao.cliente_id == current_user.cliente_id)
     busca = (request.args.get("busca") or "").strip()
     licitacoes_semana = filtrar_por_busca(q.order_by(Licitacao.data_disputa.asc()).all(), busca)
+    _lembrar_tela(url_for("main.calendario_semana", inicio=inicio.isoformat(),
+                          dia=dia_destaque.isoformat() if dia_destaque else None,
+                          busca=busca or None), "Calendário semanal")
     resultados_busca = _resultados_busca_calendario(busca)
 
     eventos = {}

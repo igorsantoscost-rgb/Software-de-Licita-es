@@ -139,7 +139,7 @@
     </div>
 
     <div class="form-btns">
-      <a href="{{ url_for('main.painel') }}" class="btn">Cancelar</a>
+      <a href="{{ url_for('lic.detalhe', id=lic.id) if lic else (session.get('voltar_url') if (session.get('voltar_url') or '').startswith('/') and not (session.get('voltar_url') or '').startswith('//') else url_for('main.painel')) }}" class="btn">Cancelar</a>
       <button type="submit" class="btn btn-primary">Salvar</button>
     </div>
 

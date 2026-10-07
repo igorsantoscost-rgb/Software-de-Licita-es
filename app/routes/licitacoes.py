@@ -1,5 +1,5 @@
 from flask import (Blueprint, render_template, redirect, url_for,
-                   request, flash, send_from_directory, abort, jsonify)
+                   request, flash, send_from_directory, abort, jsonify, session)
 from flask_login import login_required, current_user
 from app.models import (Licitacao, Documento, ItemLicitacao, Cliente,
                         STATUS_CHOICES, PORTAL_CHOICES, TIPOS_DOC_LICITACAO_UNICOS,
@@ -61,6 +61,16 @@ def _valor_form(nome):
         return float(bruto)
     except ValueError:
         return None
+
+
+def _url_voltar(somente_painel=False):
+    """Tela de lista (painel/calendario, com filtros) de onde o usuario veio."""
+    url = session.get("voltar_url") or ""
+    if not url.startswith("/") or url.startswith("//"):
+        return url_for("main.painel")
+    if somente_painel and not url.startswith("/painel"):
+        return url_for("main.painel")
+    return url
 
 
 def _pode_ver(licitacao):
@@ -273,7 +283,7 @@ def excluir(id):
     db.session.delete(lic)
     db.session.commit()
     flash(f"Licitação '{numero_pregao}' excluída.", "ok")
-    return redirect(url_for("main.painel"))
+    return redirect(_url_voltar())
 
 
 @lic_bp.route("/<int:id>/status", methods=["POST"])
@@ -285,7 +295,7 @@ def atualizar_status(id):
     novo = request.form.get("status")
     # Quando o status e alterado direto pela linha do painel, volta pro painel
     # (mantendo o filtro selecionado); senao volta pro detalhe da licitacao.
-    destino = url_for("main.painel") if request.form.get("voltar") == "painel" else url_for("lic.detalhe", id=lic.id)
+    destino = _url_voltar(somente_painel=True) if request.form.get("voltar") == "painel" else url_for("lic.detalhe", id=lic.id)
     if novo not in STATUS_CHOICES:
         return redirect(destino)
 

@@ -5,7 +5,8 @@
 
 <div class="page-header">
   <div>
-    <a href="{{ url_for('main.painel') }}" class="voltar">← Painel</a>
+    {% set voltar_url = session.get('voltar_url') if (session.get('voltar_url') or '').startswith('/') and not (session.get('voltar_url') or '').startswith('//') else url_for('main.painel') %}
+    <a href="{{ voltar_url }}" class="voltar">← Voltar para {{ session.get('voltar_rotulo') or 'Painel' }}</a>
     <h2>{{ lic.orgao_licitante }}</h2>
     <p class="muted">Pregão {{ lic.numero_pregao }}{% if lic.uasg %} · UASG {{ lic.uasg }}{% endif %}{% if lic.portal %} · {{ lic.portal }}{% endif %}</p>
   </div>
