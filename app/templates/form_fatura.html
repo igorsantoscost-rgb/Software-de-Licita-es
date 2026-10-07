@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block titulo %}Editar fatura {{ fatura.nome_mes }}{% endblock %}
+{% macro num(v) %}{{ "{:,.2f}".format(v or 0).replace(",", "X").replace(".", ",").replace("X", ".") }}{% endmacro %}
+{% block conteudo %}
+
+<div class="page-header">
+  <h2>Editar fatura — {{ fatura.nome_mes }}</h2>
+  <a href="{{ url_for('fin.detalhe_fatura', id=fatura.id) }}" class="btn">← Voltar</a>
+</div>
+
+<div class="card card-form">
+  <form method="POST">
+    <h3>{{ fatura.cliente.nome }}</h3>
+    <div class="grid-form-2">
+      <div class="campo">
+        <label>Mês de referência *</label>
+        <input type="month" name="mes_referencia" value="{{ fatura.mes_referencia.strftime('%Y-%m') }}" required>
+      </div>
+      <div class="campo">
+        <label>Vencimento *</label>
+        <input type="date" name="vencimento" value="{{ fatura.vencimento.strftime('%Y-%m-%d') }}" required>
+      </div>
+    </div>
+    <div class="grid-form-2">
+      <div class="campo">
+        <label>Taxa mensal de consultoria (R$)</label>
+        <input type="text" name="taxa_consultoria" inputmode="decimal" value="{{ num(fatura.taxa_consultoria) }}">
+      </div>
+      <div class="campo">
+        <label>Taxa de implantação (R$)</label>
+        <input type="text" name="taxa_implantacao" inputmode="decimal" value="{{ num(fatura.taxa_implantacao) }}">
+      </div>
+    </div>
+    <div class="campo" style="max-width:240px;">
+      <label>Status</label>
+      <select name="status">
+        {% for s in status_choices %}
+        <option value="{{ s }}" {% if fatura.status == s %}selected{% endif %}>{{ s|rotulo_status }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <h3 style="margin-top:20px;">Itens da fatura</h3>
+    {% if fatura.itens %}
+    <div class="fatura-itens-edicao">
+      {% for item in fatura.itens %}
+      <div class="fatura-item-linha">
+        <input type="text" name="item_desc_{{ item.id }}" value="{{ item.descricao }}" aria-label="Descrição do item">
+        <input type="text" name="item_valor_{{ item.id }}" value="{{ num(item.valor) }}" inputmode="decimal" aria-label="Valor do item" class="fatura-item-valor">
+        <label class="fatura-item-remover" title="Remover este item da fatura">
+          <input type="checkbox" name="remover_item" value="{{ item.id }}"> Remover
+        </label>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted">Nenhum item além das taxas.</p>
+    {% endif %}
+
+    <p class="muted-sm" style="margin:14px 0 6px;">Adicionar item avulso (opcional)</p>
+    <div class="fatura-item-linha">
+      <input type="text" name="novo_desc" placeholder="Ex: Ajuste de comissão do empenho 2026NE001234">
+      <input type="text" name="novo_valor" placeholder="0,00" inputmode="decimal" class="fatura-item-valor">
+      <span></span>
+    </div>
+
+    <div class="form-btns" style="margin-top:20px;">
+      <a href="{{ url_for('fin.detalhe_fatura', id=fatura.id) }}" class="btn">Cancelar</a>
+      <button type="submit" class="btn btn-primary">Salvar alterações</button>
+    </div>
+  </form>
+</div>
+
+<script>
+document.querySelectorAll('input[name="remover_item"]').forEach(function (c) {
+  c.addEventListener('change', function () { c.closest('.fatura-item-linha').classList.toggle('fatura-item-off', c.checked); });
+});
+</script>
+{% endblock %}

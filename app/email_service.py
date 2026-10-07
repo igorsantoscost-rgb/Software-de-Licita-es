@@ -20,8 +20,9 @@ REMETENTE = "Bidfy <contato@licitabidfy.com.br>"
 BASE_URL = os.environ.get("BASE_URL", "https://licitabidfy.com.br")
 
 
-def _enviar(destinatarios, assunto, html):
-    """Envia um e-mail via Resend API. Retorna True se deu certo."""
+def _enviar(destinatarios, assunto, html, anexos=None):
+    """Envia um e-mail via Resend API. Retorna True se deu certo.
+    anexos: lista de (nome_do_arquivo, caminho_no_disco)."""
     if not RESEND_API_KEY:
         logger.warning("RESEND_API_KEY nao configurada — e-mail nao enviado.")
         return False
@@ -31,16 +32,26 @@ def _enviar(destinatarios, assunto, html):
     if isinstance(destinatarios, str):
         destinatarios = [destinatarios]
     try:
+        corpo = {
+            "from": REMETENTE,
+            "to": destinatarios,
+            "subject": assunto,
+            "html": html,
+        }
+        if anexos:
+            import base64
+            corpo["attachments"] = []
+            for nome, caminho in anexos:
+                with open(caminho, "rb") as f:
+                    corpo["attachments"].append({
+                        "filename": nome,
+                        "content": base64.b64encode(f.read()).decode("ascii"),
+                    })
         resp = requests.post(
             "https://api.resend.com/emails",
             headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
-            json={
-                "from": REMETENTE,
-                "to": destinatarios,
-                "subject": assunto,
-                "html": html,
-            },
-            timeout=15,
+            json=corpo,
+            timeout=60 if anexos else 15,
         )
         if resp.status_code in (200, 201):
             logger.info(f"E-mail enviado para {destinatarios}: {assunto}")
@@ -499,3 +510,63 @@ def enviar_lembretes_prazo_empenho():
         if _enviar(destinatarios, assunto, _template_base(conteudo)):
             enviados += 1
     return {"total": len(empenhos), "enviados": enviados}
+
+
+# ─── Financeiro: fatura completa por e-mail ──────────────────────────────────
+
+def _brl(v):
+    return "R$ " + f"{float(v or 0):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def emails_financeiro(cliente):
+    """E-mail financeiro do cadastro; sem ele, os e-mails de aviso do cliente."""
+    if cliente and cliente.email_financeiro:
+        return [e.strip() for e in cliente.email_financeiro.replace(";", ",").split(",") if e.strip()]
+    return _emails_do_cliente(cliente)
+
+
+def enviar_fatura_completa(fatura):
+    """Envia a fatura (discriminacao + boleto + relatorio anexados).
+    Retorna (ok, destinatarios, anexos_enviados)."""
+    destinatarios = emails_financeiro(fatura.cliente)
+    if not destinatarios:
+        return False, [], []
+
+    anexos = []
+    if fatura.boleto_caminho and os.path.exists(fatura.boleto_caminho):
+        anexos.append((fatura.boleto_nome or "boleto.pdf", fatura.boleto_caminho))
+    if fatura.relatorio_caminho and os.path.exists(fatura.relatorio_caminho):
+        anexos.append((fatura.relatorio_nome or "relatorio.pdf", fatura.relatorio_caminho))
+
+    linhas = [("Taxa mensal de consultoria", fatura.taxa_consultoria)]
+    if fatura.taxa_implantacao and fatura.taxa_implantacao > 0:
+        linhas.append(("Taxa de implantação (única)", fatura.taxa_implantacao))
+    for item in fatura.itens:
+        linhas.append((item.descricao, item.valor))
+    from html import escape
+    tabela = "".join(
+        f'<tr><td style="padding:8px;border-bottom:1px solid #eef2ee;">{escape(str(d))}</td>'
+        f'<td style="padding:8px;border-bottom:1px solid #eef2ee;text-align:right;white-space:nowrap;">{_brl(v)}</td></tr>'
+        for d, v in linhas)
+    lista_anexos = "".join(f"<li>{escape(nome)}</li>" for nome, _ in anexos) or "<li>Nenhum arquivo anexado.</li>"
+
+    conteudo = f"""
+      <h2 style="color:#14532d;margin-top:0;">Fatura {fatura.nome_mes}</h2>
+      <p>Olá, <strong>{escape(fatura.cliente.nome)}</strong>.</p>
+      <p>Segue a fatura da consultoria referente a <strong>{fatura.nome_mes}</strong>,
+         com vencimento em <strong>{fatura.vencimento.strftime('%d/%m/%Y')}</strong>.</p>
+      <table style="width:100%;border-collapse:collapse;font-size:14px;margin:16px 0;">
+        {tabela}
+        <tr><td style="padding:10px 8px;font-weight:700;">Total</td>
+            <td style="padding:10px 8px;font-weight:700;text-align:right;color:#14532d;">{_brl(fatura.total)}</td></tr>
+      </table>
+      <p style="margin-bottom:4px;"><strong>Anexos:</strong></p>
+      <ul style="margin-top:0;">{lista_anexos}</ul>
+      <a href="{BASE_URL}/financeiro/fatura/{fatura.id}"
+         style="display:inline-block;background:#14532d;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:8px;">
+        Ver fatura no Bidfy
+      </a>
+    """
+    ok = _enviar(destinatarios, f"Fatura {fatura.nome_mes} — {fatura.cliente.nome}",
+                 _template_base(conteudo), anexos=anexos)
+    return ok, destinatarios, [n for n, _ in anexos]

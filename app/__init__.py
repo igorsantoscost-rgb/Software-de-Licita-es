@@ -54,6 +54,17 @@ def create_app():
     from app.routes.importacao import imp_bp
     app.register_blueprint(imp_bp)
 
+    from app.routes.gestao import gestao_bp, pode_ver_gestao
+    app.register_blueprint(gestao_bp)
+
+    @app.context_processor
+    def _contexto_gestao():
+        from flask_login import current_user
+        try:
+            return {"ver_gestao": pode_ver_gestao(current_user)}
+        except Exception:
+            return {"ver_gestao": False}
+
     @app.template_filter("markdown_seguro")
     def markdown_seguro(texto):
         """Converte markdown (texto gerado por IA) em HTML seguro para exibicao.
@@ -103,6 +114,7 @@ def create_app():
             # Corrida entre workers do gunicorn — ignora se outro worker ja criou
             db.session.rollback()
         _migrar_coluna_tipo_documento()
+        _migrar_faturas()
         _seed_admin(app)
         _seed_capag_estados()
         _padronizar_textos_importados()
@@ -119,6 +131,19 @@ def create_app_for_cli():
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     db.init_app(app)
     return app
+
+
+def _migrar_faturas():
+    """Colunas novas da fatura: relatorio juntado e registro do envio por e-mail."""
+    from sqlalchemy import text
+    try:
+        with db.engine.connect() as conn:
+            for coluna, tipo in [("relatorio_caminho", "VARCHAR(500)"), ("relatorio_nome", "VARCHAR(300)"),
+                                 ("enviada_em", "TIMESTAMP"), ("enviada_para", "VARCHAR(500)")]:
+                conn.execute(text(f"ALTER TABLE faturas ADD COLUMN IF NOT EXISTS {coluna} {tipo}"))
+            conn.commit()
+    except Exception:
+        db.session.rollback()
 
 
 def _migrar_coluna_tipo_documento():

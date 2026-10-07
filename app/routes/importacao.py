@@ -19,6 +19,7 @@ from app.models import (Licitacao, Documento, ItemLicitacao, Cliente,
                         CapagMunicipio)
 from app.capag import consultar as consultar_capag, normalizar
 from app.importador_pacote import extrair_zip, analisar_pacote, BaseMunicipios
+from app.classificador_cliente import Classificador
 
 imp_bp = Blueprint("imp", __name__, url_prefix="/licitacoes/importar")
 
@@ -72,6 +73,10 @@ def _base_municipios():
     return BaseMunicipios(registros) if registros else None
 
 
+def _classificador(clientes):
+    return Classificador([(c.id, c.nome, [p.palavra for p in c.palavras_chave]) for c in clientes])
+
+
 def _ja_cadastrada(cliente_id, proposta):
     """Procura a mesma licitacao ja cadastrada para o cliente."""
     if proposta.get("codigo_busca"):
@@ -98,11 +103,11 @@ def enviar():
     clientes = _clientes_do_usuario()
 
     if request.method == "POST":
-        cliente_id = request.form.get("cliente_id", type=int)
+        # Sem cliente escolhido = o Bidfy identifica pelos itens de cada edital
+        cliente_forcado = request.form.get("cliente_id", type=int)
         arquivo = request.files.get("pacote")
-        if not cliente_id or not current_user.pode_ver_cliente(cliente_id):
-            flash("Escolha o cliente dono do pacote.", "erro")
-            return redirect(url_for("imp.enviar"))
+        if cliente_forcado and not current_user.pode_ver_cliente(cliente_forcado):
+            abort(403)
         if not arquivo or not arquivo.filename.lower().endswith(".zip"):
             flash("Envie o arquivo .zip gerado pelo sistema de busca de editais.", "erro")
             return redirect(url_for("imp.enviar"))
@@ -132,14 +137,31 @@ def enviar():
             flash("O ZIP não tem nenhuma pasta de processo dentro.", "erro")
             return redirect(url_for("imp.enviar"))
 
+        classificador = _classificador(clientes)
         for p in analise["propostas"]:
-            existente = _ja_cadastrada(cliente_id, p)
-            p["ja_cadastrada"] = existente.id if existente else None
-            if existente:
-                p["selecionada"] = False
-                p["avisos"].insert(0, "Já cadastrada para este cliente.")
+            resultado = classificador.classificar(p.get("itens"))
+            p["classificacao"] = resultado
+            if cliente_forcado:
+                p["cliente_sugerido"] = cliente_forcado
+                p["origem_cliente"] = "escolhido"
+            else:
+                p["cliente_sugerido"] = resultado["cliente_id"]
+                p["origem_cliente"] = "itens" if resultado["cliente_id"] else None
+                if not resultado["itens_total"]:
+                    p["avisos"].insert(0, "Sem itens na planilha: escolha o cliente.")
+                elif not resultado["cliente_id"]:
+                    p["avisos"].insert(0, "Nenhuma palavra-chave de cliente nos itens: escolha o cliente.")
+                elif resultado["empate"]:
+                    p["avisos"].insert(0, "Empate entre clientes: confira o cliente sugerido.")
+            p["ja_cadastrada"] = None
+            if p["cliente_sugerido"]:
+                existente = _ja_cadastrada(p["cliente_sugerido"], p)
+                if existente:
+                    p["ja_cadastrada"] = existente.id
+                    p["selecionada"] = False
+                    p["avisos"].insert(0, "Já cadastrada para este cliente.")
 
-        analise["cliente_id"] = cliente_id
+        analise["cliente_id"] = cliente_forcado
         analise["nome_pacote"] = arquivo.filename
         analise["criado_por"] = current_user.id
         analise["criado_em"] = datetime.now().isoformat()
@@ -147,7 +169,8 @@ def enviar():
             json.dump(analise, f, ensure_ascii=False)
         return redirect(url_for("imp.conferir", token=token))
 
-    return render_template("importar_pacote.html", clientes=clientes)
+    sem_palavras = [c for c in clientes if not c.palavras_chave]
+    return render_template("importar_pacote.html", clientes=clientes, sem_palavras=sem_palavras)
 
 
 # ─── Passo 2: conferir ───────────────────────────────────────────────────────
@@ -161,17 +184,21 @@ def conferir(token):
     if not analise:
         flash("Essa importação expirou ou já foi concluída. Envie o ZIP de novo.", "erro")
         return redirect(url_for("imp.enviar"))
-    cliente = Cliente.query.get_or_404(analise["cliente_id"])
-    if not current_user.pode_ver_cliente(cliente.id):
-        abort(403)
+    clientes = _clientes_do_usuario()
+    nomes = {c.id: c.nome for c in clientes}
     propostas = analise["propostas"]
     for p in propostas:
         p["data_fmt"] = (datetime.strptime(p["data_disputa"], "%Y-%m-%dT%H:%M").strftime("%d/%m/%Y %H:%M")
                          if p.get("data_disputa") else None)
         p["qtd_lotes"] = len({i["lote_grupo"] for i in p["itens"] if i.get("lote_grupo")})
         p["edital_nome"] = next((a["nome"] for a in p["arquivos"] if a["tipo"] == "edital"), None)
+        if p.get("cliente_sugerido") not in nomes:
+            p["cliente_sugerido"] = None
+    identificadas = sum(1 for p in propostas if p.get("origem_cliente") == "itens" and p.get("cliente_sugerido"))
     return render_template("importar_conferir.html", token=token, analise=analise,
-                           cliente=cliente, propostas=propostas,
+                           clientes=clientes, nomes=nomes, propostas=propostas,
+                           cliente_forcado=nomes.get(analise.get("cliente_id")),
+                           identificadas=identificadas,
                            total_selecionadas=sum(1 for p in propostas if p["selecionada"]))
 
 
@@ -264,20 +291,30 @@ def confirmar(token):
     if not analise:
         flash("Essa importação expirou ou já foi concluída.", "erro")
         return redirect(url_for("main.painel"))
-    cliente_id = analise["cliente_id"]
-    if not current_user.pode_ver_cliente(cliente_id):
-        abort(403)
-
     escolhidas = set(request.form.getlist("pastas"))
     if not escolhidas:
         flash("Marque pelo menos um processo para importar.", "erro")
         return redirect(url_for("imp.conferir", token=token))
     avisar = request.form.get("avisar_email") == "1"
 
-    criadas, puladas, erros = [], [], []
-    for p in analise["propostas"]:
-        if p["pasta"] not in escolhidas:
+    # Cliente confirmado (ou trocado) em cada linha
+    destino = {}
+    for i, p in enumerate(analise["propostas"]):
+        if str(i) not in escolhidas:
             continue
+        cid = request.form.get(f"cliente_{i}", type=int)
+        if not cid:
+            flash(f"Escolha o cliente de \"{p.get('orgao_licitante') or p['pasta']}\".", "erro")
+            return redirect(url_for("imp.conferir", token=token))
+        if not current_user.pode_ver_cliente(cid):
+            abort(403)
+        destino[i] = cid
+
+    criadas, puladas, erros = [], [], []
+    for i, p in enumerate(analise["propostas"]):
+        if i not in destino:
+            continue
+        cliente_id = destino[i]
         if _ja_cadastrada(cliente_id, p):
             puladas.append(p["pasta"])
             continue
@@ -301,10 +338,17 @@ def confirmar(token):
     shutil.rmtree(_pasta_token(token), ignore_errors=True)
 
     if criadas:
+        por_cliente = {}
+        for lic in criadas:
+            por_cliente[lic.cliente.nome] = por_cliente.get(lic.cliente.nome, 0) + 1
+        detalhe = ", ".join(f"{n} para {nome}" for nome, n in sorted(por_cliente.items()))
         flash(f"{len(criadas)} licitação(ões) criada(s) a partir do pacote "
-              f"\"{analise.get('nome_pacote', '')}\".", "ok")
+              f"\"{analise.get('nome_pacote', '')}\": {detalhe}.", "ok")
     if puladas:
         flash(f"{len(puladas)} já estava(m) cadastrada(s) e foi(ram) ignorada(s).", "ok")
     if erros:
         flash("Não consegui importar: " + " | ".join(erros), "erro")
-    return redirect(url_for("main.painel", cliente_id=cliente_id))
+    ids_clientes = {lic.cliente_id for lic in criadas}
+    if len(ids_clientes) == 1:
+        return redirect(url_for("main.painel", cliente_id=ids_clientes.pop()))
+    return redirect(url_for("main.painel"))

@@ -12,18 +12,28 @@
     Envie o <strong>.zip</strong> gerado pelo sistema de busca de editais. O Bidfy abre pasta por pasta,
     lê a planilha <em>resumo.xlsx</em> e os editais, e monta uma licitação para cada processo
     (órgão, número, UASG, data e hora da disputa, portal, valor estimado, objeto, itens e arquivos).
-    Antes de criar, você confere a lista e escolhe quais entram.
   </p>
+  <p class="muted-sm" style="margin-bottom:16px;">
+    O cliente de cada licitação é identificado pelas <strong>palavras-chave cadastradas de cada cliente</strong>,
+    comparadas com a descrição dos <strong>itens</strong> do edital. Antes de criar, você só confirma ou troca o cliente de cada processo.
+  </p>
+  {% if sem_palavras %}
+  <div class="alerta alerta-erro" style="margin-bottom:16px;">
+    {{ sem_palavras|length }} cliente(s) sem palavras-chave não serão identificados automaticamente:
+    {% for c in sem_palavras %}<a href="{{ url_for('main.editar_cliente', id=c.id) }}">{{ c.nome }}</a>{% if not loop.last %}, {% endif %}{% endfor %}.
+  </div>
+  {% endif %}
 
   <form method="POST" enctype="multipart/form-data" id="form-importar">
     <div class="campo">
-      <label>Cliente *</label>
-      <select name="cliente_id" required class="select">
-        <option value="">Selecione o cliente dono destas licitações...</option>
+      <label>Cliente</label>
+      <select name="cliente_id" class="select">
+        <option value="">Identificar pelos itens de cada edital (recomendado)</option>
         {% for c in clientes %}
         <option value="{{ c.id }}">{{ c.nome }}</option>
         {% endfor %}
       </select>
+      <small class="muted">Escolha um cliente só se o pacote inteiro for dele.</small>
     </div>
 
     <div class="campo">

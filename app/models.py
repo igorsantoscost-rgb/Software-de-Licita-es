@@ -380,6 +380,10 @@ class Fatura(db.Model):
     status = db.Column(db.String(20), nullable=False, default="aberta")
     boleto_caminho = db.Column(db.String(500), nullable=True)
     boleto_nome = db.Column(db.String(300), nullable=True)
+    relatorio_caminho = db.Column(db.String(500), nullable=True)  # relatorio mensal juntado a fatura
+    relatorio_nome = db.Column(db.String(300), nullable=True)
+    enviada_em = db.Column(db.DateTime, nullable=True)            # ultimo envio por e-mail
+    enviada_para = db.Column(db.String(500), nullable=True)
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
 
     cliente = db.relationship("Cliente", backref=db.backref("faturas", lazy=True))
@@ -395,6 +399,18 @@ class Fatura(db.Model):
     def total_valor_empenhado(self):
         """Soma do valor total dos empenhos (valor cheio, nao a comissao)."""
         return sum(i.empenho.valor_total for i in self.itens if i.empenho and i.empenho.valor_total)
+
+    @property
+    def comissao_padrao(self):
+        """True quando os itens sao so os 2% automaticos dos empenhos (sem ajuste manual)."""
+        from decimal import Decimal
+        for i in self.itens:
+            if not i.empenho or i.empenho.valor_total is None:
+                return False
+            esperado = (Decimal(str(i.empenho.valor_total)) * Decimal("0.02")).quantize(Decimal("0.01"))
+            if Decimal(str(i.valor)).quantize(Decimal("0.01")) != esperado:
+                return False
+        return True
 
     @property
     def total(self):

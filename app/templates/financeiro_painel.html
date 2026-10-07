@@ -47,7 +47,7 @@
         <th>Total Fatura</th>
         <th>Vencimento</th>
         <th>Status</th>
-        <th>Boleto</th>
+        <th>Anexos</th>
         <th></th>
       </tr>
     </thead>
@@ -62,8 +62,17 @@
         <td><strong>R$ {{ "{:,.2f}".format(f.total).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong></td>
         <td>{{ f.vencimento.strftime('%d/%m/%Y') }}</td>
         <td><span class="filtro-pill {% if f.status == 'paga' %}status-pago{% else %}status-aberta{% endif %}" style="font-size:.75rem;">{{ f.status|rotulo_status }}</span></td>
-        <td>{% if f.boleto_caminho %}📎{% else %}—{% endif %}</td>
-        <td><a href="{{ url_for('fin.detalhe_fatura', id=f.id) }}" class="btn btn-sm">Ver</a></td>
+        <td>{% if f.boleto_caminho %}<span title="Boleto anexado">📎</span>{% endif %}{% if f.relatorio_caminho %}<span title="Relatório juntado">📄</span>{% endif %}{% if f.enviada_em %}<span title="Enviada por e-mail em {{ f.enviada_em.strftime('%d/%m/%Y') }}">✉</span>{% endif %}{% if not f.boleto_caminho and not f.relatorio_caminho and not f.enviada_em %}—{% endif %}</td>
+        <td style="white-space:nowrap;">
+          <a href="{{ url_for('fin.detalhe_fatura', id=f.id) }}" class="btn btn-sm">Ver</a>
+          {% if current_user.is_master() %}
+          <a href="{{ url_for('fin.editar_fatura', id=f.id) }}" class="btn btn-sm">Editar</a>
+          <form method="POST" action="{{ url_for('fin.excluir_fatura', id=f.id) }}" class="form-inline">
+            <button type="submit" class="btn-excluir-mini" title="Excluir fatura" aria-label="Excluir fatura"
+                    data-confirm="Excluir a fatura de {{ f.nome_mes }} de {{ f.cliente.nome }}? Os empenhos continuam cadastrados." onclick="return confirm(this.dataset.confirm)">✕</button>
+          </form>
+          {% endif %}
+        </td>
       </tr>
       {% endfor %}
     </tbody>

@@ -11,10 +11,12 @@
 
 <div class="card import-resumo">
   <p style="margin:0;">
-    Pacote <strong>{{ analise.nome_pacote }}</strong> · cliente <strong>{{ cliente.nome }}</strong> ·
-    {{ propostas|length }} processo(s) encontrado(s).
+    Pacote <strong>{{ analise.nome_pacote }}</strong> ·
+    {{ propostas|length }} processo(s) encontrado(s) ·
+    {% if cliente_forcado %}todos para <strong>{{ cliente_forcado }}</strong>{% else %}<strong>{{ identificadas }}</strong> com cliente identificado pelos itens{% endif %}.
   </p>
   <p class="muted-sm" style="margin:6px 0 0;">
+    Confirme ou troque o cliente de cada processo na coluna <strong>Cliente</strong>.
     Já deixei desmarcados os processos com disputa vencida, os repetidos dentro do pacote e os que já estão cadastrados.
     Depois de importar, qualquer campo pode ser corrigido no botão Editar da licitação.
   </p>
@@ -37,6 +39,7 @@
       <thead>
         <tr>
           <th></th>
+          <th>Cliente</th>
           <th>Órgão</th>
           <th>Nº / UASG</th>
           <th>Disputa</th>
@@ -49,7 +52,30 @@
       <tbody>
         {% for p in propostas %}
         <tr class="{% if not p.selecionada %}import-linha-off{% endif %}">
-          <td><input type="checkbox" name="pastas" value="{{ p.pasta }}" class="chk-pasta" {% if p.selecionada %}checked{% endif %}></td>
+          {% set i = loop.index0 %}
+          <td><input type="checkbox" name="pastas" value="{{ i }}" class="chk-pasta" {% if p.selecionada %}checked{% endif %}></td>
+          <td class="import-cliente">
+            <select name="cliente_{{ i }}" class="select select-cliente-import {% if not p.cliente_sugerido %}sem-cliente{% endif %}">
+              <option value="">Escolha o cliente…</option>
+              {% for c in clientes %}
+              <option value="{{ c.id }}" {% if p.cliente_sugerido == c.id %}selected{% endif %}>{{ c.nome }}</option>
+              {% endfor %}
+            </select>
+            {% set cl = p.classificacao or {} %}
+            {% if p.origem_cliente == 'itens' and cl.ranking %}
+            <span class="import-match">
+              {{ cl.ranking[0].itens }} de {{ cl.itens_total }} itens ·
+              {% for w in cl.ranking[0].palavras %}<em>{{ w }}</em>{% if not loop.last %}, {% endif %}{% endfor %}
+            </span>
+            {% if cl.ranking|length > 1 %}
+            <span class="muted-sm import-sub">Também combina:
+              {% for r in cl.ranking[1:] %}{{ r.nome }} ({{ r.itens }}){% if not loop.last %}, {% endif %}{% endfor %}
+            </span>
+            {% endif %}
+            {% elif p.origem_cliente == 'escolhido' %}
+            <span class="muted-sm import-sub">Cliente escolhido no envio{% if cl.ranking and cl.ranking[0].cliente_id != p.cliente_sugerido %} · os itens combinam mais com {{ cl.ranking[0].nome }}{% endif %}</span>
+            {% endif %}
+          </td>
           <td class="import-orgao">
             <strong>{{ p.orgao_licitante }}</strong>
             {% if p.municipio or p.esfera %}
@@ -92,6 +118,8 @@
   var chks = Array.prototype.slice.call(document.querySelectorAll('.chk-pasta'));
   var contador = document.getElementById('contador');
   var todos = document.getElementById('marcar-todos');
+  var selects = Array.prototype.slice.call(document.querySelectorAll('.select-cliente-import'));
+  selects.forEach(function (s) { s.addEventListener('change', function () { s.classList.toggle('sem-cliente', !s.value); }); });
   function atualizar() {
     var n = chks.filter(function (c) { return c.checked; }).length;
     contador.innerText = n + ' selecionado(s)';
@@ -102,6 +130,14 @@
   todos.addEventListener('change', function () { chks.forEach(function (c) { c.checked = todos.checked; }); atualizar(); });
   document.getElementById('form-confirmar').addEventListener('submit', function (e) {
     if (!chks.some(function (c) { return c.checked; })) { e.preventDefault(); alert('Marque pelo menos um processo.'); return; }
+    var faltando = chks.filter(function (c) { return c.checked && !c.closest('tr').querySelector('.select-cliente-import').value; });
+    if (faltando.length) {
+      e.preventDefault();
+      faltando.forEach(function (c) { c.closest('tr').querySelector('.select-cliente-import').classList.add('sem-cliente'); });
+      faltando[0].closest('tr').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      alert(faltando.length + ' processo(s) marcado(s) sem cliente. Escolha o cliente na coluna Cliente.');
+      return;
+    }
     var b = document.getElementById('btn-confirmar'); b.disabled = true; b.innerText = 'Importando...';
   });
   atualizar();

@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=costa4">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=costa5">
   <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
 </head>
@@ -46,6 +46,9 @@
     {{ item('main.clientes', 'Clientes', '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6.5 6.5 0 0 1 3.5 5.5"/>', ep.endswith('cliente') or ep.endswith('clientes') or ep.startswith('docs.')) }}
     {{ item('emp.painel', 'Empenhos', '<path d="M7 3h8l4 4v14H7z"/><path d="M15 3v4h4M10 12h6M10 16h6"/>', ep.startswith('emp.')) }}
     {{ item('fin.painel', 'Financeiro', '<rect x="2.5" y="6" width="19" height="13" rx="2"/><path d="M2.5 10.5h19M6.5 15h4"/>', ep.startswith('fin.')) }}
+    {% if ver_gestao %}
+    {{ item('gestao.painel', 'Gestão (teste)', '<path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/>', ep.startswith('gestao.')) }}
+    {% endif %}
     {% endif %}
     {% if current_user.is_master() %}
     <p class="menu-grupo-titulo">Administração</p>
