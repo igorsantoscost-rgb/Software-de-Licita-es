@@ -1268,13 +1268,21 @@ html:active-view-transition-type(visao)::view-transition-new(conteudo) { animati
 .container.tela-entrando-visao { animation: visao-entra .3s cubic-bezier(.2,.8,.2,1) both; }
 body.com-menu .menu-lateral .menu-item.ativo, body.com-menu .menu-lateral .menu-item:hover { color: #fff; }
 
-/* AJUSTE-AZUL-CARDS: cards com degrade azul suave (topo) ate branco; fundo das paginas branco */
+/* AJUSTE-CARDS-V2: fundo branco, cards verde bem claro, Parametros da disputa em azul acinzentado */
 body.com-menu {
   --nevoa: #ffffff;
-  --degrade-card: linear-gradient(180deg, #e3eefb 0%, #f3f8fe 45%, #ffffff 100%);
+  --degrade-card: linear-gradient(180deg, #eef7f0 0%, #ffffff 140px);
   background: #ffffff;
 }
 body.com-menu .card {
   background: var(--degrade-card);
-  border-color: #dbe5f3;
+}
+body.com-menu .col-detalhe-principal .card:not(.card-info-compacto),
+body.com-menu .detalhe-principal .card {
+  background: linear-gradient(180deg, #c9d6e3 0%, #e6edf4 55%, #ffffff 100%);
+  border-color: #c3d0dd;
+}
+body.com-menu .col-detalhe-principal .card:not(.card-info-compacto) h3,
+body.com-menu .detalhe-principal .card h3 {
+  color: #1e3348;
 }
