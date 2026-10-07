@@ -67,12 +67,23 @@
               {{ cl.ranking[0].itens }} de {{ cl.itens_total }} itens ·
               {% for w in cl.ranking[0].palavras %}<em>{{ w }}</em>{% if not loop.last %}, {% endif %}{% endfor %}
             </span>
-            {% if cl.ranking|length > 1 %}
-            <span class="muted-sm import-sub">Também combina:
-              {% for r in cl.ranking[1:] %}{{ r.nome }} ({{ r.itens }}){% if not loop.last %}, {% endif %}{% endfor %}
-            </span>
             {% endif %}
-            {% elif p.origem_cliente == 'escolhido' %}
+            {% set outros = [] %}
+            {% for r in (cl.ranking or []) %}{% if r.cliente_id != p.cliente_sugerido %}{% set _ = outros.append(r) %}{% endif %}{% endfor %}
+            <div class="import-extras" data-linha="{{ i }}">
+              {% for r in outros %}
+              <label class="import-extra">
+                <input type="checkbox" name="extra_{{ i }}" value="{{ r.cliente_id }}">
+                Também para <strong>{{ r.nome }}</strong>
+                <span class="muted-sm">({{ r.itens }} {{ 'item' if r.itens == 1 else 'itens' }}: {{ r.palavras|join(', ') }})</span>
+              </label>
+              {% endfor %}
+              <select class="select import-add-cliente" aria-label="Adicionar outro cliente">
+                <option value="">+ Adicionar outro cliente…</option>
+                {% for c in clientes %}<option value="{{ c.id }}">{{ c.nome }}</option>{% endfor %}
+              </select>
+            </div>
+            {% if p.origem_cliente == 'escolhido' %}
             <span class="muted-sm import-sub">Cliente escolhido no envio{% if cl.ranking and cl.ranking[0].cliente_id != p.cliente_sugerido %} · os itens combinam mais com {{ cl.ranking[0].nome }}{% endif %}</span>
             {% endif %}
           </td>
@@ -120,17 +131,46 @@
   var todos = document.getElementById('marcar-todos');
   var selects = Array.prototype.slice.call(document.querySelectorAll('.select-cliente-import'));
   selects.forEach(function (s) { s.addEventListener('change', function () { s.classList.toggle('sem-cliente', !s.value); }); });
+  // "+ Adicionar outro cliente": cria a caixa marcada do cliente escolhido
+  document.querySelectorAll('.import-add-cliente').forEach(function (sel) {
+    sel.addEventListener('change', function () {
+      var id = sel.value, nome = sel.options[sel.selectedIndex].text;
+      sel.value = '';
+      if (!id) return;
+      var box = sel.closest('.import-extras'), i = box.dataset.linha;
+      var existente = box.querySelector('input[value="' + id + '"]');
+      if (existente) { existente.checked = true; return; }
+      var principal = box.closest('td').querySelector('.select-cliente-import');
+      if (principal.value === id) return;
+      var lab = document.createElement('label');
+      lab.className = 'import-extra';
+      var chk = document.createElement('input');
+      chk.type = 'checkbox'; chk.name = 'extra_' + i; chk.value = id; chk.checked = true;
+      var forte = document.createElement('strong'); forte.textContent = nome;
+      lab.appendChild(chk); lab.appendChild(document.createTextNode(' Também para ')); lab.appendChild(forte);
+      box.insertBefore(lab, sel);
+      atualizar();
+    });
+  });
+  document.addEventListener('change', function (e) { if (e.target.name && e.target.name.indexOf('extra_') === 0) atualizar(); });
+
   function atualizar() {
-    var n = chks.filter(function (c) { return c.checked; }).length;
-    contador.innerText = n + ' selecionado(s)';
-    document.getElementById('btn-confirmar').innerText = n ? 'Importar ' + n + ' selecionado(s)' : 'Importar selecionados';
+    var marcados = chks.filter(function (c) { return c.checked; });
+    var n = marcados.length;
+    var total = n;
+    marcados.forEach(function (c) { total += c.closest('tr').querySelectorAll('.import-extra input:checked').length; });
+    contador.innerText = n + ' selecionado(s)' + (total > n ? ' · ' + total + ' licitações a criar' : '');
+    document.getElementById('btn-confirmar').innerText = n ? (total > n ? 'Importar ' + n + ' processo(s) → ' + total + ' licitações' : 'Importar ' + n + ' selecionado(s)') : 'Importar selecionados';
     chks.forEach(function (c) { c.closest('tr').classList.toggle('import-linha-off', !c.checked); });
   }
   chks.forEach(function (c) { c.addEventListener('change', atualizar); });
   todos.addEventListener('change', function () { chks.forEach(function (c) { c.checked = todos.checked; }); atualizar(); });
   document.getElementById('form-confirmar').addEventListener('submit', function (e) {
     if (!chks.some(function (c) { return c.checked; })) { e.preventDefault(); alert('Marque pelo menos um processo.'); return; }
-    var faltando = chks.filter(function (c) { return c.checked && !c.closest('tr').querySelector('.select-cliente-import').value; });
+    var faltando = chks.filter(function (c) {
+      var tr = c.closest('tr');
+      return c.checked && !tr.querySelector('.select-cliente-import').value && !tr.querySelector('.import-extra input:checked');
+    });
     if (faltando.length) {
       e.preventDefault();
       faltando.forEach(function (c) { c.closest('tr').querySelector('.select-cliente-import').classList.add('sem-cliente'); });

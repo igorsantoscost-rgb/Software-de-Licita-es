@@ -1351,3 +1351,16 @@ body.com-menu .detalhe-principal .card h3 {
 .fatura-item-remover { display: flex; gap: 6px; align-items: center; font-size: .82rem; color: #a3352b; cursor: pointer; }
 .fatura-item-off input[type=text] { text-decoration: line-through; opacity: .5; }
 @media (max-width: 600px) { .fatura-item-linha { grid-template-columns: 1fr 110px; } .fatura-item-remover { grid-column: 1 / -1; } }
+
+/* Arrastar e soltar em todos os campos de arquivo */
+.dropzone-geral { position: relative; display: flex; align-items: center; justify-content: center; min-height: 52px; padding: 12px 14px; box-sizing: border-box; width: 100%; border: 2px dashed #d0dad3; border-radius: 10px; background: #f6f9f6; color: var(--texto); font-size: .88rem; font-weight: 600; text-align: center; cursor: pointer; transition: background-color .15s ease, border-color .15s ease; }
+.dropzone-geral:hover { background: #eef4ef; }
+.dropzone-geral-texto { pointer-events: none; overflow-wrap: anywhere; }
+.dropzone-geral-input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.dropzone-geral-ativa, .dropzone-doc-ativa .dropzone-doc-label { background: var(--salvia-claro); border-color: var(--musgo); color: var(--floresta-700); }
+.dropzone-geral-cheia { border-style: solid; border-color: #b9d6c2; background: #f1f7f2; color: #1f4d36; }
+body.arrastando-arquivo .dropzone-geral, body.arrastando-arquivo .dropzone-doc-label { border-color: var(--musgo-claro); }
+.import-extras { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
+.import-extra { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; font-size: .78rem; line-height: 1.35; color: var(--texto); cursor: pointer; }
+.import-extra input { flex: none; position: relative; top: 2px; }
+.import-add-cliente { font-size: .78rem; padding: 4px 8px; color: var(--texto-suave); background: #fff; }

@@ -275,3 +275,81 @@ document.querySelectorAll('.btn-cancelar-edicao-comentario').forEach(btn => {
     });
   }
 })();
+
+// Arrastar e soltar em TODOS os campos de arquivo do sistema.
+// Cada <input type="file"> que ainda nao esta numa area de arrastar ganha uma:
+// clicar abre a escolha de arquivo; soltar o arquivo em cima preenche o campo.
+(function () {
+  function aceita(input, arquivo) {
+    const accept = (input.getAttribute('accept') || '').trim();
+    if (!accept) return true;
+    const nome = arquivo.name.toLowerCase();
+    return accept.split(',').some((a) => {
+      a = a.trim().toLowerCase();
+      if (!a) return false;
+      if (a.startsWith('.')) return nome.endsWith(a);
+      if (a.endsWith('/*')) return (arquivo.type || '').startsWith(a.slice(0, -1));
+      return arquivo.type === a;
+    });
+  }
+
+  function preencher(input, lista) {
+    const validos = Array.from(lista).filter((f) => aceita(input, f));
+    if (!validos.length) {
+      alert('Este campo só aceita: ' + input.getAttribute('accept'));
+      return false;
+    }
+    const dt = new DataTransfer();
+    (input.multiple ? validos : validos.slice(0, 1)).forEach((f) => dt.items.add(f));
+    input.files = dt.files;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  }
+
+  document.querySelectorAll('input[type="file"]').forEach((input) => {
+    if (input.closest('.dropzone-doc') || input.closest('.dropzone-geral')) return;
+    const zona = document.createElement('div');
+    zona.className = 'dropzone-geral';
+    const texto = document.createElement('span');
+    texto.className = 'dropzone-geral-texto';
+    const padrao = input.multiple ? '📎 Selecionar ou arrastar arquivos' : '📎 Selecionar ou arrastar arquivo';
+    texto.textContent = padrao;
+    input.parentNode.insertBefore(zona, input);
+    zona.appendChild(texto);
+    zona.appendChild(input);
+    input.classList.add('dropzone-geral-input');
+
+    input.addEventListener('change', () => {
+      const n = input.files.length;
+      texto.textContent = n === 0 ? padrao : (n === 1 ? `📎 ${input.files[0].name}` : `📎 ${n} arquivos selecionados`);
+      zona.classList.toggle('dropzone-geral-cheia', n > 0);
+    });
+
+    ['dragenter', 'dragover'].forEach((evt) => zona.addEventListener(evt, (e) => {
+      e.preventDefault(); e.stopPropagation(); zona.classList.add('dropzone-geral-ativa');
+    }));
+    ['dragleave', 'drop'].forEach((evt) => zona.addEventListener(evt, (e) => {
+      e.preventDefault(); e.stopPropagation(); zona.classList.remove('dropzone-geral-ativa');
+    }));
+    zona.addEventListener('drop', (e) => {
+      if (e.dataTransfer && e.dataTransfer.files.length) preencher(input, e.dataTransfer.files);
+    });
+  });
+
+  // Soltar o arquivo fora de um campo nao pode abrir o arquivo no navegador
+  // (isso tiraria a pessoa da pagina e perderia o que ja foi preenchido).
+  let contador = 0;
+  window.addEventListener('dragenter', (e) => {
+    if (e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files')) {
+      contador++; document.body.classList.add('arrastando-arquivo');
+    }
+  });
+  window.addEventListener('dragleave', () => {
+    contador = Math.max(0, contador - 1);
+    if (!contador) document.body.classList.remove('arrastando-arquivo');
+  });
+  window.addEventListener('dragover', (e) => e.preventDefault());
+  window.addEventListener('drop', (e) => {
+    e.preventDefault(); contador = 0; document.body.classList.remove('arrastando-arquivo');
+  });
+})();

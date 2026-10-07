@@ -258,7 +258,8 @@ def _criar_licitacao(cliente_id, p):
             continue
         ext = os.path.splitext(a["nome"])[1]
         destino = os.path.join(pasta_destino, f"{uuid.uuid4().hex}{ext}")
-        shutil.move(a["caminho"], destino)
+        # copia (e nao move): o mesmo edital pode ir para mais de um cliente
+        shutil.copy2(a["caminho"], destino)
         db.session.add(Documento(
             licitacao_id=lic.id,
             categoria="processo",
@@ -297,35 +298,41 @@ def confirmar(token):
         return redirect(url_for("imp.conferir", token=token))
     avisar = request.form.get("avisar_email") == "1"
 
-    # Cliente confirmado (ou trocado) em cada linha
+    # Cliente confirmado (ou trocado) em cada linha + clientes extras marcados
     destino = {}
     for i, p in enumerate(analise["propostas"]):
         if str(i) not in escolhidas:
             continue
-        cid = request.form.get(f"cliente_{i}", type=int)
-        if not cid:
+        principal = request.form.get(f"cliente_{i}", type=int)
+        extras = [int(x) for x in request.form.getlist(f"extra_{i}") if x.isdigit()]
+        if not principal and extras:
+            principal = extras[0]
+        if not principal:
             flash(f"Escolha o cliente de \"{p.get('orgao_licitante') or p['pasta']}\".", "erro")
             return redirect(url_for("imp.conferir", token=token))
-        if not current_user.pode_ver_cliente(cid):
-            abort(403)
-        destino[i] = cid
+        ids = [principal]
+        for extra in extras:
+            if extra not in ids:
+                ids.append(extra)
+        for cid in ids:
+            if not current_user.pode_ver_cliente(cid):
+                abort(403)
+        destino[i] = ids
 
     criadas, puladas, erros = [], [], []
     for i, p in enumerate(analise["propostas"]):
-        if i not in destino:
-            continue
-        cliente_id = destino[i]
-        if _ja_cadastrada(cliente_id, p):
-            puladas.append(p["pasta"])
-            continue
-        try:
-            lic = _criar_licitacao(cliente_id, p)
-            db.session.commit()
-            criadas.append(lic)
-        except Exception as e:
-            db.session.rollback()
-            current_app.logger.exception("Falha ao importar %s", p["pasta"])
-            erros.append(f"{p['pasta']}: {e}")
+        for cliente_id in destino.get(i, []):
+            if _ja_cadastrada(cliente_id, p):
+                puladas.append(p["pasta"])
+                continue
+            try:
+                lic = _criar_licitacao(cliente_id, p)
+                db.session.commit()
+                criadas.append(lic)
+            except Exception as e:
+                db.session.rollback()
+                current_app.logger.exception("Falha ao importar %s", p["pasta"])
+                erros.append(f"{p['pasta']}: {e}")
 
     if avisar and criadas:
         from app.email_service import notificar_nova_licitacao
