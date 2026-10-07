@@ -7,8 +7,8 @@
   <h2>Calendário de disputas</h2>
   <div class="nav-mes">
     <div class="toggle-visao">
-      <a href="{{ url_for('main.calendario', mes=inicio.month, ano=inicio.year, busca=busca or None) }}" class="toggle-btn">Mensal</a>
-      <a href="{{ url_for('main.calendario_semana', inicio=inicio.isoformat(), busca=busca or None) }}" class="toggle-btn ativo">Semanal</a>
+      <a href="{{ url_for('main.calendario', mes=inicio.month, ano=inicio.year, busca=busca or None) }}" data-transicao="visao" class="toggle-btn">Mensal</a>
+      <a href="{{ url_for('main.calendario_semana', inicio=inicio.isoformat(), busca=busca or None) }}" data-transicao="visao" class="toggle-btn ativo">Semanal</a>
     </div>
     <a href="{{ url_for('main.calendario_semana', inicio=semana_anterior.isoformat(), busca=busca or None) }}" data-transicao="voltar" class="btn btn-sm">← Anterior</a>
     <strong class="mes-label">

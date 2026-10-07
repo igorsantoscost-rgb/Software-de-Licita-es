@@ -222,12 +222,13 @@ document.querySelectorAll('.btn-cancelar-edicao-comentario').forEach(btn => {
 })();
 
 // ─── Transições entre telas ────────────────────────────────────────────────
-// Chrome/Edge (e Safari recente) animam a troca de página sozinhos pelo CSS
-// (@view-transition). Aqui só dizemos a direção (calendário: avançar/voltar).
-// Nos navegadores sem esse recurso, o próprio script faz a saída e a entrada.
+// O script faz a saída (rápida) e a entrada de cada tela, com direção no
+// calendário (avançar/voltar) e troca suave entre mensal e semanal.
 (function () {
   var CHAVE = 'bidfy-transicao';
-  var nativo = 'onpagereveal' in window;
+  // A transicao nativa (@view-transition) ignorava cliques durante a animacao,
+  // entao usamos sempre a versao feita aqui, que nunca bloqueia o clique.
+  var nativo = false;
   var reduzir = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   function guardar(dir) { try { sessionStorage.setItem(CHAVE, dir || 'normal'); } catch (e) {} }
@@ -248,7 +249,7 @@ document.querySelectorAll('.btn-cancelar-edicao-comentario').forEach(btn => {
       if (c) {
         e.preventDefault();
         c.classList.add('tela-saindo');
-        setTimeout(function () { location.href = a.href; }, 150);
+        setTimeout(function () { location.href = a.href; }, 100);
       }
     }
   }, false);
@@ -258,7 +259,7 @@ document.querySelectorAll('.btn-cancelar-edicao-comentario').forEach(btn => {
   if (nativo) {
     window.addEventListener('pagereveal', function (e) {
       var dir = ler();
-      if (e.viewTransition && (dir === 'avancar' || dir === 'voltar')) {
+      if (e.viewTransition && (dir === 'avancar' || dir === 'voltar' || dir === 'visao')) {
         try { e.viewTransition.types.add(dir); } catch (err) {}
       }
     });
@@ -266,7 +267,7 @@ document.querySelectorAll('.btn-cancelar-edicao-comentario').forEach(btn => {
     var dir = ler();
     var c = document.querySelector('main.container');
     if (c && dir) {
-      c.classList.add(dir === 'avancar' ? 'tela-entrando-direita' : dir === 'voltar' ? 'tela-entrando-esquerda' : 'tela-entrando');
+      c.classList.add(dir === 'avancar' ? 'tela-entrando-direita' : dir === 'voltar' ? 'tela-entrando-esquerda' : dir === 'visao' ? 'tela-entrando-visao' : 'tela-entrando');
     }
     // voltar pelo botão do navegador sem recarregar: limpa a animação de saída
     window.addEventListener('pageshow', function (ev) {

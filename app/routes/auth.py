@@ -35,6 +35,14 @@ def login():
 @auth_bp.route("/logout")
 @login_required
 def logout():
-    logout_user()
+    # Ordem importa: limpar a sessao ANTES do logout_user, porque o
+    # logout_user deixa marcado na sessao que o cookie "manter-me conectado"
+    # deve ser apagado. Por garantia, o cookie tambem e apagado na resposta.
     session.clear()
-    return redirect(url_for("auth.login"))
+    logout_user()
+    resposta = redirect(url_for("auth.login"))
+    from flask import current_app
+    resposta.delete_cookie(current_app.config.get("REMEMBER_COOKIE_NAME", "remember_token"),
+                           path=current_app.config.get("REMEMBER_COOKIE_PATH", "/"),
+                           domain=current_app.config.get("REMEMBER_COOKIE_DOMAIN"))
+    return resposta
