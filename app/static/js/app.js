@@ -11,6 +11,7 @@ document.querySelectorAll('.btn-editar-item').forEach(btn => {
     document.getElementById('edit-un').value = btn.dataset.un;
     document.getElementById('edit-valor').value = btn.dataset.valor;
     document.getElementById('form-editar-item').action = `/licitacoes/item/${id}/editar`;
+    atualizarTotalEdicao();
     document.getElementById('modal-item').style.display = 'flex';
   });
 });
@@ -383,4 +384,23 @@ document.querySelectorAll('.form-favorito').forEach((form) => {
       })
       .catch(() => form.submit());
   });
+});
+
+// Total do item (valor minimo x quantidade) ao vivo no modal de edicao
+function atualizarTotalEdicao() {
+  const campoValor = document.getElementById('edit-valor');
+  const campoQtd = document.getElementById('edit-qtd');
+  const saida = document.getElementById('edit-total');
+  if (!campoValor || !saida) return;
+  let t = (campoValor.value || '').replace(/R\$|\s/g, '');
+  if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.');
+  const v = parseFloat(t);
+  const q = parseFloat(campoQtd && campoQtd.value) || 0;
+  saida.textContent = (v > 0 && q > 0)
+    ? 'Total: R$ ' + (v * q).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' (' + q.toLocaleString('pt-BR') + ' × unitário)'
+    : '';
+}
+['edit-valor', 'edit-qtd'].forEach((id) => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', atualizarTotalEdicao);
 });

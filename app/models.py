@@ -331,6 +331,12 @@ class ItemLicitacao(db.Model):
     resultado_por = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
 
     @property
+    def total_minimo(self):
+        if self.valor_minimo is None:
+            return 0
+        return float(self.valor_minimo) * (self.quantidade or 1)
+
+    @property
     def resultado_rotulo(self):
         from app.resultados import RESULTADOS
         return RESULTADOS.get(self.resultado, "")

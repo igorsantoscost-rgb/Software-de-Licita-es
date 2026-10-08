@@ -193,7 +193,8 @@
             </td>
             <td class="nowrap col-num col-valor-min">
               {% if item.valor_minimo %}
-                R$ {{ "%.2f"|format(item.valor_minimo)|replace('.', ',') }}
+                <span class="nowrap">R$ {{ "%.2f"|format(item.valor_minimo)|replace('.', ',') }}</span>
+                {% if item.quantidade %}<small class="total-item" title="Valor mínimo × quantidade">Total <span class="nowrap">{{ (item.valor_minimo * item.quantidade)|brl }}</span></small>{% endif %}
                 {% if current_user.is_assessor() and item.valor_registrado_em %}<br><small class="{{ 'texto-atrasado' if item.fora_do_prazo else 'muted' }}"
                   title="Registrado{% if item.registrado_por %} por {{ item.registrado_por.nome }}{% endif %}">{{ item.valor_registrado_em.strftime('%d/%m %H:%M') }}</small>{% endif %}
               {% else %}—{% endif %}
@@ -239,6 +240,13 @@
         </tbody>
       </table>
       </div>
+      {% set com_preco = lic.itens_com_preco %}
+      {% if com_preco %}
+      <div class="total-interesse">
+        Total do interesse do cliente: <strong>{{ com_preco|sum(attribute='total_minimo')|brl }}</strong>
+        <span class="muted-sm">· {{ com_preco|length }} item(ns) com valor mínimo</span>
+      </div>
+      {% endif %}
       {% set mr = lic.metricas_resultado %}
       {% if mr.com_resultado %}
       <div class="resumo-resultado">
@@ -517,6 +525,7 @@
       <div class="campo">
         <label>Valor Mínimo (R$)</label>
         <input type="text" name="valor_minimo" id="edit-valor">
+        <small class="muted" id="edit-total"></small>
       </div>
       <div class="modal-btns">
         <button type="button" id="fechar-modal" class="btn">Cancelar</button>
@@ -558,6 +567,11 @@
       <div class="campo">
         <label>Valor vencedor provisório (unitário, R$) *</label>
         <input type="text" name="valor_vencedor" id="res-venc" placeholder="0,00" inputmode="decimal" autocomplete="off" required>
+      </div>
+      <div class="campo">
+        <label>ou Valor total vencedor (R$) <small class="muted" id="res-qtd-txt"></small></label>
+        <input type="text" id="res-total" placeholder="0,00" inputmode="decimal" autocomplete="off">
+        <small class="muted">Preenchendo o total, o unitário é calculado sozinho.</small>
       </div>
 
       <div id="res-bloco-ganhou" class="res-bloco" hidden>
@@ -609,7 +623,8 @@
   if (!modal) return;
   var form = document.getElementById('form-resultado');
   var $ = function (id) { return document.getElementById(id); };
-  var minimo = null;
+  var minimo = null, qtd = 1;
+  function fmt(v, casas) { return v.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: casas || 2}); }
 
   function num(t) {
     t = (t || '').replace(/R\$|\s/g, '');
@@ -634,7 +649,7 @@
     } else {
       perdeu.hidden = false; venc.hidden = false;
       var d = (minimo - v) / v * 100;
-      $('res-diferenca').innerHTML = 'Cliente ficou <strong>' + d.toFixed(2).replace('.', ',') + '% acima</strong> do vencedor (' + brl(minimo) + ' × ' + brl(v) + ').';
+      $('res-diferenca').innerHTML = 'Cliente ficou <strong>' + d.toFixed(2).replace('.', ',') + '% acima</strong> do vencedor (unitário ' + brl(minimo) + ' × ' + brl(v) + '; total ' + brl(minimo * qtd) + ' × ' + brl(v * qtd) + ').';
     }
   }
 
@@ -643,6 +658,8 @@
       var d = b.dataset;
       form.action = '/licitacoes/item/' + d.id + '/resultado';
       minimo = d.min ? parseFloat(d.min) : null;
+      qtd = parseFloat(d.qtd) || 1;
+      $('res-qtd-txt').textContent = '(quantidade: ' + qtd.toLocaleString('pt-BR') + ')';
       $('res-desc').textContent = d.desc || '';
       $('res-min-txt').textContent = minimo === null ? 'não preenchido' : brl(minimo);
       $('res-venc').value = d.venc ? parseFloat(d.venc).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4}) : '';
@@ -650,6 +667,8 @@
         r.checked = (r.value === 'vitoria' && d.resultado === 'vitoria') || (r.value === 'justificar' && d.resultado === 'derrota_justificada');
       });
       $('res-just').value = d.just || '';
+      var vu = num($('res-venc').value);
+      $('res-total').value = vu === null ? '' : fmt(vu * qtd);
       var vitoria = d.resultado === 'vitoria';
       $('res-cnpj').value = vitoria ? '' : (d.cnpj || '');
       $('res-nome').value = vitoria ? '' : (d.nome || '');
@@ -662,7 +681,16 @@
       $('res-venc').focus();
     });
   });
-  $('res-venc').addEventListener('input', atualizar);
+  $('res-venc').addEventListener('input', function () {
+    var vu = num(this.value);
+    $('res-total').value = vu === null ? '' : fmt(vu * qtd);
+    atualizar();
+  });
+  $('res-total').addEventListener('input', function () {
+    var t = num(this.value);
+    $('res-venc').value = t === null ? '' : fmt(Math.round(t / qtd * 10000) / 10000, 4);
+    atualizar();
+  });
   form.querySelectorAll('input[name=escolha]').forEach(function (r) { r.addEventListener('change', atualizar); });
   $('res-fechar').addEventListener('click', function () { modal.style.display = 'none'; });
   modal.addEventListener('click', function (e) { if (e.target === modal) modal.style.display = 'none'; });
