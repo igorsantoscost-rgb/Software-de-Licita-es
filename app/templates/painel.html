@@ -99,6 +99,8 @@
         <th>{{ th_sort('portal', 'Portal') }}</th>
         <th>{{ th_sort('data', 'Data da disputa') }}</th>
         <th class="col-status">{{ th_sort('status', 'Status') }}</th>
+        {% set tem_homologada = licitacoes|selectattr('status', 'equalto', 'homologada')|selectattr('valor_homologado')|list|length > 0 %}
+        {% if tem_homologada %}<th class="col-homologado">Valor homologado</th>{% endif %}
         {% if current_user.is_assessor() %}<th>{{ th_sort('cliente', 'Cliente') }}</th>{% endif %}
         <th></th>
       </tr>
@@ -147,15 +149,16 @@
           {% else %}
           <span class="badge status-{{ l.status|replace(' ', '-') }}">{{ l.status|rotulo_status }}</span>
           {% endif %}
-          {% if l.status == 'homologada' and l.valor_homologado %}
-          <br><span class="valor-destaque-homologado">R$ {{ "%.2f"|format(l.valor_homologado)|replace('.', ',') }}</span>
-          {% elif l.status in ('encerrada', 'sem participacao') and l.motivo_encerramento %}
+          {% if l.status in ('encerrada', 'sem participacao') and l.motivo_encerramento %}
           <br><span class="motivo-encerramento-info">{{ l.motivo_encerramento }}</span>
           {% endif %}
           {% if metricas_painel %}{% set ml = l.metricas_resultado %}{% if ml.disputados %}
           <br><span class="exito-linha" title="{{ ml.vitorias }} vitória(s), {{ ml.derrotas }} derrota(s) por preço, {{ ml.justificadas }} justificada(s)">Êxito {{ ml.vitorias }}/{{ ml.disputados }} · {{ ml.pct_exito|pct(0) }}</span>
           {% endif %}{% endif %}
         </td>
+        {% if tem_homologada %}
+        <td class="col-homologado">{% if l.status == 'homologada' and l.valor_homologado %}<span class="valor-destaque-homologado">{{ l.valor_homologado|brl }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+        {% endif %}
         {% if current_user.is_assessor() %}
         <td>
           {% if l.cliente.cor %}
