@@ -124,6 +124,8 @@ def _licitacoes_do_usuario(status_filtro=None, cliente_filtro=None, sort_coluna=
     if status_filtro == "favoritas":
         q = q.filter(Licitacao.id.in_(
             db.session.query(FavoritoLicitacao.licitacao_id).filter_by(user_id=current_user.id)))
+    elif status_filtro == "finalizadas":
+        q = q.filter(Licitacao.status.in_(("homologada", "encerrada")))
     elif status_filtro and status_filtro != "todos":
         q = q.filter_by(status=status_filtro)
     # "Todos": nao filtra por status — toda licitacao continua aparecendo no
@@ -180,7 +182,20 @@ def painel():
         sort_dir=sort_dir,
         busca=busca,
         fav_ids=ids_favoritos(),
+        metricas_painel=_metricas_painel(licitacoes, status_filtro),
     )
+
+
+def _metricas_painel(licitacoes, status_filtro):
+    """Indicadores consolidados quando o painel mostra licitacoes finalizadas."""
+    if status_filtro not in ("finalizadas", "homologada", "encerrada"):
+        return None
+    from app.resultados import metricas
+    itens = [i for l in licitacoes for i in l.itens]
+    m = metricas(itens)
+    m["licitacoes"] = len(licitacoes)
+    m["valor_homologado"] = sum(float(l.valor_homologado or 0) for l in licitacoes if l.status == "homologada")
+    return m
 
 
 def _resultados_busca_calendario(busca):

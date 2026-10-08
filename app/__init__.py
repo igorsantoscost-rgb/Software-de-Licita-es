@@ -114,6 +114,23 @@ def create_app():
         v = str(valor).strip()
         return _ROTULOS_STATUS.get(v.lower(), v[:1].upper() + v[1:].lower())
 
+    @app.template_filter("brl")
+    def brl(valor, casas=2):
+        """1234.5 -> 'R$ 1.234,50'"""
+        if valor is None or valor == "":
+            return "—"
+        try:
+            v = float(valor)
+        except (TypeError, ValueError):
+            return "—"
+        return "R$ " + f"{v:,.{casas}f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+    @app.template_filter("pct")
+    def pct(valor, casas=1):
+        if valor is None:
+            return "—"
+        return f"{float(valor):.{casas}f}%".replace(".", ",")
+
     @app.context_processor
     def _ctx_agora_brasilia():
         from app.models import agora_brasilia
@@ -284,6 +301,18 @@ def _migrar_coluna_tipo_documento():
                 ("itens_licitacao", "valor_registrado_por", "INTEGER"),
                 ("licitacoes", "aviso_preco_enviado_em", "TIMESTAMP"),
                 ("licitacoes", "comentario_cliente_pendente_em", "TIMESTAMP"),
+                # Resultado da disputa por item
+                ("itens_licitacao", "resultado", "VARCHAR(30)"),
+                ("itens_licitacao", "valor_vencedor", "NUMERIC(14,4)"),
+                ("itens_licitacao", "diferenca_pct", "NUMERIC(9,2)"),
+                ("itens_licitacao", "vencedor_cnpj", "VARCHAR(14)"),
+                ("itens_licitacao", "vencedor_nome", "VARCHAR(255)"),
+                ("itens_licitacao", "vencedor_uf", "VARCHAR(2)"),
+                ("itens_licitacao", "vencedor_municipio", "VARCHAR(150)"),
+                ("itens_licitacao", "resultado_justificativa", "TEXT"),
+                ("itens_licitacao", "resultado_definitivo", "BOOLEAN DEFAULT FALSE"),
+                ("itens_licitacao", "resultado_em", "TIMESTAMP"),
+                ("itens_licitacao", "resultado_por", "INTEGER"),
             ]
             for tabela, coluna, tipo in colunas_importacao:
                 existe = conn.execute(text("""

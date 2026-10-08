@@ -52,6 +52,8 @@
      class="filtro-pill {% if status_filtro == 'todos' %}ativo{% endif %}">Todos</a>
   <a href="{{ url_for('main.painel', status='favoritas', cliente_id=cliente_filtro, busca=busca or None) }}"
      class="filtro-pill filtro-favoritas {% if status_filtro == 'favoritas' %}ativo{% endif %}">★ Favoritas</a>
+  <a href="{{ url_for('main.painel', status='finalizadas', cliente_id=cliente_filtro, busca=busca or None) }}"
+     class="filtro-pill filtro-finalizadas {% if status_filtro == 'finalizadas' %}ativo{% endif %}">Finalizadas</a>
   {% for s in status_choices %}
   <a href="{{ url_for('main.painel', status=s, cliente_id=cliente_filtro, busca=busca or None) }}"
      class="filtro-pill status-{{ s|replace(' ', '-') }} {% if status_filtro == s %}ativo{% endif %}">
@@ -59,6 +61,27 @@
   </a>
   {% endfor %}
 </div>
+
+{% if metricas_painel %}
+{% set m = metricas_painel %}
+<div class="painel-resultados">
+  <div class="painel-resultados-titulo">Resultados {{ 'das finalizadas' if status_filtro == 'finalizadas' else ('das ' ~ (status_filtro|rotulo_status|lower) ~ 's') }} · {{ m.licitacoes }} licitação(ões){% if m.provisorios %} <span class="tag-provisorio">{{ m.provisorios }} item(ns) provisório(s)</span>{% endif %}</div>
+  <div class="kpis">
+    <div class="kpi"><span>Êxito em itens</span><strong>{{ m.pct_exito|pct(0) if m.pct_exito is not none else '—' }}</strong><small>{{ m.vitorias }} de {{ m.disputados }} itens disputados</small></div>
+    <div class="kpi"><span>Valor total vencido</span><strong>{{ m.valor_vencido|brl }}</strong><small>itens vencidos × quantidade</small></div>
+    <div class="kpi"><span>Acima do vencedor nas derrotas</span><strong>{{ ('+' ~ (m.media_acima|pct)) if m.media_acima is not none else '—' }}</strong><small>{% if m.maior_acima is not none %}de +{{ m.menor_acima|pct }} a +{{ m.maior_acima|pct }}{% else %}média por item{% endif %}</small></div>
+    <div class="kpi"><span>Derrotas</span><strong>{{ m.derrotas + m.justificadas }}</strong><small>{{ m.derrotas }} por preço · {{ m.justificadas }} justificada(s)</small></div>
+    <div class="kpi"><span>Valor perdido p/ concorrentes</span><strong>{{ m.valor_perdido|brl }}</strong><small>itens perdidos × quantidade</small></div>
+    {% if m.valor_homologado %}<div class="kpi"><span>Valor homologado</span><strong>{{ m.valor_homologado|brl }}</strong><small>soma das homologadas</small></div>{% endif %}
+  </div>
+  {% if m.concorrentes %}
+  <div class="painel-concorrentes">
+    <span class="painel-concorrentes-titulo">Quem mais venceu o cliente:</span>
+    {% for c in m.concorrentes %}<span class="concorrente-chip" title="{{ c.cnpj }} · {{ c.valor|brl }}">{{ c.nome }}{% if c.uf %} ({{ c.uf }}){% endif %} · {{ c.itens }} item(ns)</span>{% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
 
 <!-- Tabela de licitações -->
 {% if licitacoes %}
@@ -124,6 +147,9 @@
           {% elif l.status in ('encerrada', 'sem participacao') and l.motivo_encerramento %}
           <br><span class="motivo-encerramento-info">{{ l.motivo_encerramento }}</span>
           {% endif %}
+          {% if metricas_painel %}{% set ml = l.metricas_resultado %}{% if ml.disputados %}
+          <br><span class="exito-linha" title="{{ ml.vitorias }} vitória(s), {{ ml.derrotas }} derrota(s) por preço, {{ ml.justificadas }} justificada(s)">Êxito {{ ml.vitorias }}/{{ ml.disputados }} · {{ ml.pct_exito|pct(0) }}</span>
+          {% endif %}{% endif %}
         </td>
         {% if current_user.is_assessor() %}
         <td>

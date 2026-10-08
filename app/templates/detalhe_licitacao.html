@@ -172,6 +172,7 @@
             <th>Un.</th>
             <th class="col-num" title="Valor estimado unitário">Valor est. un.</th>
             <th class="col-num">Valor mín.</th>
+            <th>Resultado</th>
             <th></th>
           </tr>
         </thead>
@@ -197,6 +198,29 @@
                   title="Registrado{% if item.registrado_por %} por {{ item.registrado_por.nome }}{% endif %}">{{ item.valor_registrado_em.strftime('%d/%m %H:%M') }}</small>{% endif %}
               {% else %}—{% endif %}
             </td>
+            <td class="col-resultado">
+              {% set dados_res %}data-id="{{ item.id }}" data-min="{{ item.valor_minimo or '' }}" data-qtd="{{ item.quantidade or 1 }}"
+                data-resultado="{{ item.resultado or '' }}" data-venc="{{ item.valor_vencedor or '' }}"
+                data-cnpj="{{ item.vencedor_cnpj_formatado }}" data-nome="{{ item.vencedor_nome or '' }}"
+                data-uf="{{ item.vencedor_uf or '' }}" data-municipio="{{ item.vencedor_municipio or '' }}"
+                data-just="{{ item.resultado_justificativa or '' }}" data-desc="{{ item.descricao[:120] }}"{% endset %}
+              {% if item.resultado %}
+                {% set cls = {'vitoria':'res-vitoria','derrota':'res-derrota','derrota_justificada':'res-justificada','sem_lance':'res-neutro'}[item.resultado] %}
+                {% if current_user.is_assessor() %}<button type="button" class="res-badge {{ cls }} btn-resultado" {{ dados_res }} title="Editar resultado">{% else %}<span class="res-badge {{ cls }}">{% endif %}
+                  {% if item.resultado == 'vitoria' %}🏆 Vitória
+                  {% elif item.resultado == 'derrota' %}Derrota · +{{ item.diferenca_pct|pct }}
+                  {% elif item.resultado == 'derrota_justificada' %}Justificada
+                  {% else %}Vencedor{% endif %}
+                {% if current_user.is_assessor() %}</button>{% else %}</span>{% endif %}
+                <small class="res-linha">{{ item.valor_vencedor|brl }}{% if not item.resultado_definitivo %} · <em>provisório</em>{% endif %}</small>
+                {% if item.vencedor_nome and item.resultado != 'vitoria' %}
+                <small class="res-linha res-vencedor" title="{{ item.vencedor_nome }}{% if item.vencedor_cnpj %} · {{ item.vencedor_cnpj_formatado }}{% endif %}{% if item.vencedor_municipio %} · {{ item.vencedor_municipio }}{% endif %}">{{ item.vencedor_nome }}{% if item.vencedor_uf %} ({{ item.vencedor_uf }}){% endif %}</small>
+                {% endif %}
+                {% if item.resultado_justificativa %}<small class="res-linha res-just" title="{{ item.resultado_justificativa }}">{{ item.resultado_justificativa }}</small>{% endif %}
+              {% elif current_user.is_assessor() %}
+                <button type="button" class="btn-preencher-resultado btn-resultado" {{ dados_res }}>Preencher resultado</button>
+              {% else %}—{% endif %}
+            </td>
             <td class="nowrap">
               <button class="btn-editar-item btn btn-sm" data-id="{{ item.id }}"
                 data-descricao="{{ item.descricao }}"
@@ -215,6 +239,18 @@
         </tbody>
       </table>
       </div>
+      {% set mr = lic.metricas_resultado %}
+      {% if mr.com_resultado %}
+      <div class="resumo-resultado">
+        <div class="resumo-resultado-titulo">Resultado da disputa{% if mr.provisorios %} <span class="tag-provisorio">{{ mr.provisorios }} provisório(s)</span>{% endif %}</div>
+        <div class="kpis">
+          <div class="kpi"><span>Êxito em itens</span><strong>{{ mr.pct_exito|pct(0) if mr.pct_exito is not none else '—' }}</strong><small>{{ mr.vitorias }} de {{ mr.disputados }} disputados</small></div>
+          <div class="kpi"><span>Valor vencido</span><strong>{{ mr.valor_vencido|brl }}</strong><small>valor × quantidade</small></div>
+          <div class="kpi"><span>Acima do vencedor (média)</span><strong>{{ ('+' ~ (mr.media_acima|pct)) if mr.media_acima is not none else '—' }}</strong><small>{{ mr.derrotas }} derrota(s) por preço</small></div>
+          <div class="kpi"><span>Derrotas justificadas</span><strong>{{ mr.justificadas }}</strong><small>cliente tinha valor melhor</small></div>
+        </div>
+      </div>
+      {% endif %}
       {% endif %}
 
       <!-- Adicionar item -->
@@ -510,4 +546,157 @@
   caixas().forEach(function (c) { c.addEventListener('change', atualizar); });
 })();
 </script>
+
+{% if current_user.is_assessor() %}
+<!-- Modal resultado do item -->
+<div id="modal-resultado" class="modal" style="display:none">
+  <div class="modal-box modal-resultado-box">
+    <h3>Resultado do item</h3>
+    <p class="muted-sm" id="res-desc"></p>
+    <form method="POST" id="form-resultado">
+      <div class="res-info">Mínimo do cliente: <strong id="res-min-txt">—</strong></div>
+      <div class="campo">
+        <label>Valor vencedor provisório (unitário, R$) *</label>
+        <input type="text" name="valor_vencedor" id="res-venc" placeholder="0,00" inputmode="decimal" autocomplete="off" required>
+      </div>
+
+      <div id="res-bloco-ganhou" class="res-bloco" hidden>
+        <p class="res-dica">Valor vencedor igual ou acima do mínimo do cliente.</p>
+        <div class="res-escolhas">
+          <label class="res-escolha"><input type="radio" name="escolha" value="vitoria"> 🏆 Vitória</label>
+          <label class="res-escolha"><input type="radio" name="escolha" value="justificar"> Justificar</label>
+        </div>
+        <div class="campo" id="res-campo-just" hidden>
+          <label>Por que o cliente não venceu com valor melhor? *</label>
+          <textarea name="justificativa" id="res-just" rows="2" placeholder="Ex: desclassificado por marca, inabilitado, empate ficto ME/EPP..."></textarea>
+        </div>
+      </div>
+
+      <div id="res-bloco-perdeu" class="res-bloco" hidden>
+        <p class="res-dica" id="res-diferenca"></p>
+      </div>
+
+      <div id="res-bloco-vencedor" class="res-bloco" hidden>
+        <div class="campo">
+          <label>CNPJ do vencedor</label>
+          <div class="res-cnpj-linha">
+            <input type="text" name="vencedor_cnpj" id="res-cnpj" placeholder="00.000.000/0000-00" inputmode="numeric" autocomplete="off">
+            <button type="button" class="btn btn-sm" id="res-buscar">Buscar</button>
+          </div>
+          <small class="muted" id="res-cnpj-status"></small>
+        </div>
+        <div class="campo-row">
+          <div class="campo campo-largo"><label>Empresa</label><input type="text" name="vencedor_nome" id="res-nome"></div>
+          <div class="campo campo-uf"><label>UF</label><input type="text" name="vencedor_uf" id="res-uf" maxlength="2"></div>
+        </div>
+        <input type="hidden" name="vencedor_municipio" id="res-municipio">
+      </div>
+
+      <div class="modal-btns">
+        <button type="submit" name="acao" value="limpar" class="btn btn-sm btn-excluir-licitacao" id="res-limpar" formnovalidate
+                onclick="return confirm('Apagar o resultado deste item?')" hidden>Apagar resultado</button>
+        <span style="flex:1"></span>
+        <button type="button" class="btn" id="res-fechar">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  var modal = document.getElementById('modal-resultado');
+  if (!modal) return;
+  var form = document.getElementById('form-resultado');
+  var $ = function (id) { return document.getElementById(id); };
+  var minimo = null;
+
+  function num(t) {
+    t = (t || '').replace(/R\$|\s/g, '');
+    if (!t) return null;
+    if (t.indexOf(',') >= 0) t = t.replace(/\./g, '').replace(',', '.');
+    var v = parseFloat(t);
+    return isNaN(v) || v <= 0 ? null : v;
+  }
+  function brl(v) { return 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4}); }
+
+  function atualizar() {
+    var v = num($('res-venc').value);
+    var ganhou = $('res-bloco-ganhou'), perdeu = $('res-bloco-perdeu'), venc = $('res-bloco-vencedor');
+    ganhou.hidden = true; perdeu.hidden = true; venc.hidden = true;
+    if (v === null) return;
+    if (minimo === null) { venc.hidden = false; return; }
+    if (v >= minimo) {
+      ganhou.hidden = false;
+      var just = form.querySelector('input[name=escolha][value=justificar]').checked;
+      $('res-campo-just').hidden = !just;
+      venc.hidden = !just;
+    } else {
+      perdeu.hidden = false; venc.hidden = false;
+      var d = (minimo - v) / v * 100;
+      $('res-diferenca').innerHTML = 'Cliente ficou <strong>' + d.toFixed(2).replace('.', ',') + '% acima</strong> do vencedor (' + brl(minimo) + ' × ' + brl(v) + ').';
+    }
+  }
+
+  document.querySelectorAll('.btn-resultado').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var d = b.dataset;
+      form.action = '/licitacoes/item/' + d.id + '/resultado';
+      minimo = d.min ? parseFloat(d.min) : null;
+      $('res-desc').textContent = d.desc || '';
+      $('res-min-txt').textContent = minimo === null ? 'não preenchido' : brl(minimo);
+      $('res-venc').value = d.venc ? parseFloat(d.venc).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4}) : '';
+      form.querySelectorAll('input[name=escolha]').forEach(function (r) {
+        r.checked = (r.value === 'vitoria' && d.resultado === 'vitoria') || (r.value === 'justificar' && d.resultado === 'derrota_justificada');
+      });
+      $('res-just').value = d.just || '';
+      var vitoria = d.resultado === 'vitoria';
+      $('res-cnpj').value = vitoria ? '' : (d.cnpj || '');
+      $('res-nome').value = vitoria ? '' : (d.nome || '');
+      $('res-uf').value = vitoria ? '' : (d.uf || '');
+      $('res-municipio').value = vitoria ? '' : (d.municipio || '');
+      $('res-cnpj-status').textContent = '';
+      $('res-limpar').hidden = !d.resultado;
+      atualizar();
+      modal.style.display = 'flex';
+      $('res-venc').focus();
+    });
+  });
+  $('res-venc').addEventListener('input', atualizar);
+  form.querySelectorAll('input[name=escolha]').forEach(function (r) { r.addEventListener('change', atualizar); });
+  $('res-fechar').addEventListener('click', function () { modal.style.display = 'none'; });
+  modal.addEventListener('click', function (e) { if (e.target === modal) modal.style.display = 'none'; });
+
+  $('res-cnpj').addEventListener('input', function () {
+    var d = this.value.replace(/\D/g, '').slice(0, 14), f = d;
+    if (d.length > 12) f = d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2})/, '$1.$2.$3/$4-$5');
+    else if (d.length > 8) f = d.replace(/^(\d{2})(\d{3})(\d{3})(\d{0,4})/, '$1.$2.$3/$4');
+    else if (d.length > 5) f = d.replace(/^(\d{2})(\d{3})(\d{0,3})/, '$1.$2.$3');
+    else if (d.length > 2) f = d.replace(/^(\d{2})(\d{0,3})/, '$1.$2');
+    this.value = f;
+    if (d.length === 14) buscar();
+  });
+  function buscar() {
+    var d = $('res-cnpj').value.replace(/\D/g, '');
+    if (d.length !== 14) { $('res-cnpj-status').textContent = 'Digite os 14 números do CNPJ.'; return; }
+    $('res-cnpj-status').textContent = 'Buscando...';
+    fetch('/licitacoes/cnpj/' + d, {credentials: 'same-origin'})
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j.ok) { $('res-cnpj-status').textContent = j.erro; return; }
+        $('res-nome').value = j.nome; $('res-uf').value = j.uf; $('res-municipio').value = j.municipio || '';
+        $('res-cnpj-status').textContent = 'Encontrado (' + j.fonte + ')' + (j.municipio ? ': ' + j.municipio + '/' + j.uf : '');
+      })
+      .catch(function () { $('res-cnpj-status').textContent = 'Não consegui consultar agora. Preencha o nome e a UF à mão.'; });
+  }
+  $('res-buscar').addEventListener('click', buscar);
+  form.addEventListener('submit', function (e) {
+    if (e.submitter && e.submitter.value === 'limpar') return;
+    if (minimo !== null && num($('res-venc').value) >= minimo && !form.querySelector('input[name=escolha]:checked')) {
+      e.preventDefault(); alert('Escolha Vitória ou Justificar.');
+    }
+  });
+})();
+</script>
+{% endif %}
 {% endblock %}

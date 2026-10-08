@@ -192,6 +192,11 @@ class Licitacao(db.Model):
         return datetime(dia_anterior.year, dia_anterior.month, dia_anterior.day, 12, 0)
 
     @property
+    def metricas_resultado(self):
+        from app.resultados import metricas
+        return metricas(self.itens)
+
+    @property
     def preco_fora_do_prazo(self):
         ultimo, prazo = self.ultimo_preco_em, self.prazo_precos
         return bool(ultimo and prazo and ultimo > prazo)
@@ -311,6 +316,29 @@ class ItemLicitacao(db.Model):
     valor_registrado_em = db.Column(db.DateTime, nullable=True)
     valor_registrado_por = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     registrado_por = db.relationship("User", foreign_keys=[valor_registrado_por])
+
+    # Resultado da disputa (preenchido pelo assessor)
+    resultado = db.Column(db.String(30), nullable=True)  # vitoria | derrota | derrota_justificada | sem_lance
+    valor_vencedor = db.Column(db.Numeric(14, 4), nullable=True)
+    diferenca_pct = db.Column(db.Numeric(9, 2), nullable=True)  # (min. cliente - vencedor) / vencedor; >0 = cliente acima
+    vencedor_cnpj = db.Column(db.String(14), nullable=True, index=True)
+    vencedor_nome = db.Column(db.String(255), nullable=True)
+    vencedor_uf = db.Column(db.String(2), nullable=True)
+    vencedor_municipio = db.Column(db.String(150), nullable=True)
+    resultado_justificativa = db.Column(db.Text, nullable=True)
+    resultado_definitivo = db.Column(db.Boolean, default=False)
+    resultado_em = db.Column(db.DateTime, nullable=True)
+    resultado_por = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+
+    @property
+    def resultado_rotulo(self):
+        from app.resultados import RESULTADOS
+        return RESULTADOS.get(self.resultado, "")
+
+    @property
+    def vencedor_cnpj_formatado(self):
+        from app.resultados import formatar_cnpj
+        return formatar_cnpj(self.vencedor_cnpj) if self.vencedor_cnpj else ""
 
     @property
     def fora_do_prazo(self):

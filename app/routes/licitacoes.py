@@ -333,6 +333,11 @@ def atualizar_status(id):
         lic.motivo_encerramento = motivo[:300]
 
     lic.status = novo
+    if novo in ("homologada", "encerrada"):
+        # Disputa encerrada: resultados provisorios dos itens viram definitivos
+        for item in lic.itens:
+            if item.resultado:
+                item.resultado_definitivo = True
     db.session.commit()
     rotulos = {"em habilitacao": "Em habilitação", "sem participacao": "Sem participação"}
     flash(f"Status atualizado para '{rotulos.get(novo, novo.capitalize())}'.", "ok")
@@ -524,6 +529,103 @@ def excluir_item(item_id):
     db.session.commit()
     flash("Item removido.", "ok")
     return redirect(url_for("lic.detalhe", id=lic_id))
+
+
+@lic_bp.route("/cnpj/<cnpj>")
+@login_required
+def buscar_cnpj(cnpj):
+    """Consulta CNPJ do vencedor em bases publicas (usado pela tela de resultado)."""
+    from flask import jsonify
+    from app.resultados import consultar_cnpj, cnpj_valido
+    if not current_user.is_assessor():
+        abort(403)
+    if not cnpj_valido(cnpj):
+        return jsonify({"ok": False, "erro": "CNPJ inválido. Confira os números."})
+    dados = consultar_cnpj(cnpj)
+    if not dados:
+        return jsonify({"ok": False, "erro": "Não encontrei esse CNPJ nas bases públicas. Preencha o nome e a UF à mão."})
+    return jsonify({"ok": True, **dados})
+
+
+@lic_bp.route("/item/<int:item_id>/resultado", methods=["POST"])
+@login_required
+def salvar_resultado(item_id):
+    """Assessor registra o resultado do item: valor vencedor e, conforme o caso,
+    vitoria / justificativa / CNPJ do vencedor."""
+    from app.resultados import parse_valor, so_digitos, cnpj_valido, consultar_cnpj
+    from app.models import agora_brasilia
+    if not current_user.is_assessor():
+        abort(403)
+    item = ItemLicitacao.query.get_or_404(item_id)
+    lic = Licitacao.query.get_or_404(item.licitacao_id)
+    voltar = request.referrer or url_for("lic.detalhe", id=lic.id)
+
+    if request.form.get("acao") == "limpar":
+        for campo in ("resultado", "valor_vencedor", "diferenca_pct", "vencedor_cnpj", "vencedor_nome",
+                      "vencedor_uf", "vencedor_municipio", "resultado_justificativa", "resultado_em", "resultado_por"):
+            setattr(item, campo, None)
+        item.resultado_definitivo = False
+        db.session.commit()
+        flash("Resultado do item apagado.", "ok")
+        return redirect(voltar)
+
+    venc = parse_valor(request.form.get("valor_vencedor"))
+    if venc is None:
+        flash("Informe o valor vencedor do item.", "erro")
+        return redirect(voltar)
+
+    minimo = float(item.valor_minimo) if item.valor_minimo is not None else None
+    escolha = request.form.get("escolha", "")
+    cnpj = so_digitos(request.form.get("vencedor_cnpj"))
+    nome = (request.form.get("vencedor_nome") or "").strip()
+    uf = (request.form.get("vencedor_uf") or "").strip().upper()[:2]
+    municipio = (request.form.get("vencedor_municipio") or "").strip()
+    justificativa = (request.form.get("justificativa") or "").strip()
+
+    if cnpj and not cnpj_valido(cnpj):
+        flash("CNPJ do vencedor inválido. Confira os números.", "erro")
+        return redirect(voltar)
+
+    item.resultado_justificativa = None
+    if minimo is None:
+        item.resultado = "sem_lance"
+        item.diferenca_pct = None
+    else:
+        item.diferenca_pct = round((minimo - venc) / venc * 100, 2)
+        if venc >= minimo:
+            if escolha == "vitoria":
+                item.resultado = "vitoria"
+                cli = lic.cliente
+                cnpj = so_digitos(cli.cnpj) if cli and cli.cnpj else ""
+                nome, uf, municipio = (cli.nome if cli else ""), (cli.estado or "" if cli else ""), (cli.cidade or "" if cli else "")
+            elif escolha == "justificar":
+                if not justificativa:
+                    flash("Escreva a justificativa: por que o cliente não venceu com valor melhor?", "erro")
+                    return redirect(voltar)
+                item.resultado = "derrota_justificada"
+                item.resultado_justificativa = justificativa
+            else:
+                flash("Escolha Vitória ou Justificar.", "erro")
+                return redirect(voltar)
+        else:
+            item.resultado = "derrota"
+
+    if cnpj and not nome and item.resultado != "vitoria":
+        dados = consultar_cnpj(cnpj)
+        if dados:
+            nome, uf, municipio = dados["nome"], dados["uf"], dados["municipio"]
+
+    item.valor_vencedor = venc
+    item.vencedor_cnpj = cnpj or None
+    item.vencedor_nome = nome or None
+    item.vencedor_uf = uf or None
+    item.vencedor_municipio = municipio or None
+    item.resultado_definitivo = lic.status in ("homologada", "encerrada")
+    item.resultado_em = agora_brasilia()
+    item.resultado_por = current_user.id
+    db.session.commit()
+    flash("Resultado do item salvo.", "ok")
+    return redirect(voltar)
 
 
 @lic_bp.route("/<int:id>/itens/excluir-selecionados", methods=["POST"])
