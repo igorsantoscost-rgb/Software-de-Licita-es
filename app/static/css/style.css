@@ -1493,3 +1493,26 @@ tr.linha-interesse td:first-child { box-shadow: inset 4px 0 0 #22c55e; }
 .col-detalhe-principal .tabela-itens td:first-child { width: 22px; padding: 8px 4px 8px 0; }
 .col-detalhe-principal .tabela-itens td:last-child { padding-left: 10px; }
 .col-detalhe-principal .tabela-itens .col-valor-min { font-weight: 700; color: #14532d; }
+
+/* Ajustes esteticos: justificativa, cabecalhos, documentos, lixeira, orgao */
+.campo-condicional.campo-condicional-header { margin-bottom: 22px; }
+.col-detalhe-principal .tabela-itens th,
+.col-detalhe-principal .tabela-itens td.col-num,
+.col-detalhe-principal .tabela-itens th.col-num { text-align: left; }
+.col-detalhe-principal .tabela-itens th { vertical-align: bottom; }
+.doc-item { flex-wrap: nowrap; gap: 6px; min-width: 0; }
+.doc-item .doc-nome { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.doc-item .filtro-pill { flex-shrink: 0; padding: 1px 8px; font-size: .7rem; line-height: 1.4; }
+.doc-item .doc-tamanho { flex-shrink: 0; }
+.doc-item .form-inline { flex-shrink: 0; margin: 0; }
+.doc-atual { display: block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dropzone-doc, .dropzone-doc-label { max-width: 100%; min-width: 0; }
+.btn-excluir { display: inline-flex; align-items: center; justify-content: center; color: #c2410c; opacity: .75; padding: 2px; line-height: 1; }
+.btn-excluir:hover { opacity: 1; color: #b91c1c; }
+.icone-lixo { display: block; }
+.titulo-com-favorito { color: #2c4a6e; }
+.dropzone-doc-label.dropzone-doc-com-arquivo { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body .page-header h2.titulo-com-favorito, body.com-menu .page-header h2.titulo-com-favorito { color: #2c4a6e; }
+.col-detalhe-principal .tabela-itens td:last-child .form-inline,
+.col-detalhe-principal .tabela-itens td:last-child .btn { vertical-align: middle; }
+.col-detalhe-principal .tabela-itens td:last-child .btn-excluir { display: inline-flex; vertical-align: middle; }

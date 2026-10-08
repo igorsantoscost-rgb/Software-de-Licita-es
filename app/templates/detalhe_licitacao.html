@@ -200,7 +200,7 @@
                 data-un="{{ item.unidade or '' }}"
                 data-valor="{{ item.valor_minimo or '' }}">✏️</button>
               <form method="POST" action="{{ url_for('lic.excluir_item', item_id=item.id) }}" class="form-inline">
-                <button type="submit" class="btn-excluir" onclick="return confirm('Excluir item?')">✕</button>
+                <button type="submit" class="btn-excluir" onclick="return confirm('Excluir item?')" title="Excluir item" aria-label="Excluir item"><svg class="icone-lixo" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12H7L6 9zm4 2v8h2v-8h-2zm4 0v8h2v-8h-2z"/></svg></button>
               </form>
             </td>
           </tr>
@@ -265,16 +265,15 @@
         {% for doc in docs_processo %}
         <li class="doc-item">
           <span class="doc-icon">📄</span>
-          <a href="{{ url_for('lic.download_doc', doc_id=doc.id) }}" class="doc-nome" title="{{ doc.nome_original }}">{{ doc.nome_original }}</a>
+          <a href="{{ url_for('lic.download_doc', doc_id=doc.id) }}" class="doc-nome" title="{{ doc.nome_original }} ({{ (doc.tamanho / 1024)|round(1) }} KB)">{{ doc.nome_original }}</a>
           {% if doc.tipo == 'edital' %}
           <span class="filtro-pill">Edital</span>
           {% elif doc.tipo == 'termo_referencia' %}
-          <span class="filtro-pill">Termo de Referência</span>
+          <span class="filtro-pill" title="Termo de Referência">TR</span>
           {% endif %}
-          <span class="doc-tamanho muted">{{ (doc.tamanho / 1024)|round(1) }} KB</span>
           {% if current_user.is_assessor() %}
           <form method="POST" action="{{ url_for('lic.excluir_doc', doc_id=doc.id) }}" class="form-inline">
-            <button type="submit" class="btn-excluir" onclick="return confirm('Excluir documento?')">✕</button>
+            <button type="submit" class="btn-excluir" onclick="return confirm('Excluir documento?')" title="Excluir documento" aria-label="Excluir documento"><svg class="icone-lixo" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12H7L6 9zm4 2v8h2v-8h-2zm4 0v8h2v-8h-2z"/></svg></button>
           </form>
           {% endif %}
         </li>
@@ -292,7 +291,8 @@
             <label for="input-edital-detalhe" class="btn btn-upload dropzone-doc-label">📎 Selecionar ou arrastar arquivo</label>
           </div>
           {% if docs_existentes.get('edital') %}
-          <small class="muted">Atual: {{ docs_existentes['edital'].nome_original }} — escolher outro substitui este.</small>
+          <small class="muted doc-atual" title="{{ docs_existentes['edital'].nome_original }}">Atual: {{ docs_existentes['edital'].nome_original }}</small>
+          <small class="muted">Escolher outro substitui este.</small>
           {% endif %}
         </div>
         <div class="campo">
@@ -302,7 +302,8 @@
             <label for="input-tr-detalhe" class="btn btn-upload dropzone-doc-label">📎 Selecionar ou arrastar arquivo</label>
           </div>
           {% if docs_existentes.get('termo_referencia') %}
-          <small class="muted">Atual: {{ docs_existentes['termo_referencia'].nome_original }} — escolher outro substitui este.</small>
+          <small class="muted doc-atual" title="{{ docs_existentes['termo_referencia'].nome_original }}">Atual: {{ docs_existentes['termo_referencia'].nome_original }}</small>
+          <small class="muted">Escolher outro substitui este.</small>
           {% endif %}
         </div>
         <div class="campo">
@@ -397,7 +398,7 @@
           <span class="doc-tamanho muted">{{ (doc.tamanho / 1024)|round(1) }} KB</span>
           {% if not current_user.is_assessor() %}
           <form method="POST" action="{{ url_for('lic.excluir_doc_apoio', doc_id=doc.id) }}" class="form-inline">
-            <button type="submit" class="btn-excluir" onclick="return confirm('Excluir documento?')">✕</button>
+            <button type="submit" class="btn-excluir" onclick="return confirm('Excluir documento?')" title="Excluir documento" aria-label="Excluir documento"><svg class="icone-lixo" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12H7L6 9zm4 2v8h2v-8h-2zm4 0v8h2v-8h-2z"/></svg></button>
           </form>
           {% endif %}
         </li>

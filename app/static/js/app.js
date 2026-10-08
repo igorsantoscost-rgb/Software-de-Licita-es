@@ -51,8 +51,10 @@ document.querySelectorAll('.dropzone-doc').forEach((zona) => {
 
   function atualizarLabel() {
     const n = input.files.length;
-    if (n === 0) { label.textContent = textoOriginal; return; }
+    label.classList.toggle('dropzone-doc-com-arquivo', n > 0);
+    if (n === 0) { label.textContent = textoOriginal; label.removeAttribute('title'); return; }
     label.textContent = n === 1 ? `📎 ${input.files[0].name}` : `📎 ${n} arquivos selecionados`;
+    label.title = Array.from(input.files).map((f) => f.name).join('\n');
   }
   input.addEventListener('change', atualizarLabel);
 
