@@ -204,15 +204,18 @@
                 data-resultado="{{ item.resultado or '' }}" data-venc="{{ item.valor_vencedor or '' }}"
                 data-cnpj="{{ item.vencedor_cnpj_formatado }}" data-nome="{{ item.vencedor_nome or '' }}"
                 data-uf="{{ item.vencedor_uf or '' }}" data-municipio="{{ item.vencedor_municipio or '' }}"
-                data-just="{{ item.resultado_justificativa or '' }}" data-marca-venc="{{ item.vencedor_marca or '' }}" data-desc="{{ item.descricao[:120] }}"{% endset %}
+                data-just="{{ item.resultado_justificativa or '' }}" data-marca-venc="{{ item.vencedor_marca or '' }}" data-desc="{{ item.descricao[:120] }}"
+                data-num="{{ item.numero_item or '' }}" data-marca-cli="{{ item.marca or '' }}" data-rotulo="{{ item.resultado_rotulo }}"
+                data-dif="{{ item.diferenca_pct if item.diferenca_pct is not none else '' }}" data-def="{{ '1' if item.resultado_definitivo else '' }}"
+                data-em="{{ item.resultado_em.strftime('%d/%m/%Y %H:%M') if item.resultado_em else '' }}"{% endset %}
               {% if item.resultado %}
                 {% set cls = {'vitoria':'res-vitoria','derrota':'res-derrota','derrota_justificada':'res-justificada','sem_lance':'res-neutro'}[item.resultado] %}
-                {% if current_user.is_assessor() %}<button type="button" class="res-badge {{ cls }} btn-resultado" {{ dados_res }} title="Editar resultado">{% else %}<span class="res-badge {{ cls }}">{% endif %}
+                {% if current_user.is_assessor() %}<button type="button" class="res-badge {{ cls }} btn-resultado" {{ dados_res }} title="Editar resultado">{% else %}<button type="button" class="res-badge {{ cls }} btn-ver-resultado" {{ dados_res }} title="Ver detalhes do resultado">{% endif %}
                   {% if item.resultado == 'vitoria' %}🏆 Vitória
                   {% elif item.resultado == 'derrota' %}Derrota · +{{ item.diferenca_pct|pct }}
                   {% elif item.resultado == 'derrota_justificada' %}Justificada
                   {% else %}Vencedor{% endif %}
-                {% if current_user.is_assessor() %}</button>{% else %}</span>{% endif %}
+                </button>
                 <small class="res-linha">{{ item.valor_vencedor|brl }}{% if not item.resultado_definitivo %} · <em>provisório</em>{% endif %}</small>
                 {% if item.vencedor_nome and item.resultado != 'vitoria' %}
                 <small class="res-linha res-vencedor" title="{{ item.vencedor_nome }}{% if item.vencedor_cnpj %} · {{ item.vencedor_cnpj_formatado }}{% endif %}{% if item.vencedor_municipio %} · {{ item.vencedor_municipio }}{% endif %}">{{ item.vencedor_nome }}{% if item.vencedor_uf %} ({{ item.vencedor_uf }}){% endif %}</small>
@@ -830,6 +833,78 @@ document.querySelectorAll('form').forEach(function (f) {
     }
   });
 });
+</script>
+{% endif %}
+{% if not current_user.is_assessor() %}
+<!-- Modal: detalhes do resultado (cliente, so leitura) -->
+<div id="modal-ver-resultado" class="modal" style="display:none">
+  <div class="modal-box modal-resultado-box">
+    <h3>Resultado do item <span id="vr-num"></span></h3>
+    <p class="muted-sm" id="vr-desc"></p>
+    <div class="vr-topo"><span id="vr-badge" class="res-badge"></span> <span id="vr-situacao" class="tag-provisorio"></span></div>
+    <table class="vr-tabela">
+      <thead><tr><th></th><th>Unitário</th><th>Total</th></tr></thead>
+      <tbody>
+        <tr><td>Valor vencedor</td><td id="vr-venc-u"></td><td id="vr-venc-t"></td></tr>
+        <tr><td>Seu valor mínimo</td><td id="vr-min-u"></td><td id="vr-min-t"></td></tr>
+      </tbody>
+    </table>
+    <p class="vr-dif" id="vr-dif"></p>
+    <div class="vr-bloco" id="vr-vencedor">
+      <div class="vr-rotulo">Vencedor</div>
+      <div><strong id="vr-nome"></strong></div>
+      <div class="muted-sm" id="vr-cnpj"></div>
+      <div class="muted-sm" id="vr-local"></div>
+      <div class="muted-sm" id="vr-marca"></div>
+    </div>
+    <div class="vr-bloco" id="vr-just-bloco">
+      <div class="vr-rotulo">Justificativa</div>
+      <div id="vr-just"></div>
+    </div>
+    <p class="muted-sm" id="vr-em"></p>
+    <div class="modal-btns"><button type="button" class="btn" id="vr-fechar">Fechar</button></div>
+  </div>
+</div>
+<script>
+(function () {
+  var modal = document.getElementById('modal-ver-resultado');
+  if (!modal) return;
+  var $ = function (id) { return document.getElementById(id); };
+  function brl(v) { return 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4}); }
+  function mostrar(id, sim) { $(id).style.display = sim ? '' : 'none'; }
+  document.querySelectorAll('.btn-ver-resultado').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var d = b.dataset;
+      var qtd = parseFloat(d.qtd) || 1, venc = d.venc ? parseFloat(d.venc) : null, min = d.min ? parseFloat(d.min) : null;
+      $('vr-num').textContent = d.num ? 'nº ' + d.num : '';
+      $('vr-desc').textContent = d.desc || '';
+      $('vr-badge').className = b.className.replace('btn-ver-resultado', '');
+      $('vr-badge').textContent = d.rotulo;
+      $('vr-situacao').textContent = d.def ? 'definitivo' : 'provisório';
+      $('vr-venc-u').textContent = venc !== null ? brl(venc) : '—';
+      $('vr-venc-t').textContent = venc !== null ? brl(venc * qtd) : '—';
+      $('vr-min-u').textContent = min !== null ? brl(min) : '—';
+      $('vr-min-t').textContent = min !== null ? brl(min * qtd) : '—';
+      var dif = d.dif !== '' ? parseFloat(d.dif) : null, txt = '';
+      if (dif !== null && d.resultado === 'derrota') txt = 'Seu valor ficou ' + dif.toFixed(2).replace('.', ',') + '% acima do vencedor.';
+      else if (dif !== null && d.resultado === 'derrota_justificada') txt = 'Seu valor era ' + Math.abs(dif).toFixed(2).replace('.', ',') + '% ' + (dif < 0 ? 'abaixo' : 'acima') + ' do vencedor.';
+      else if (d.resultado === 'vitoria') txt = 'Item vencido por você.';
+      $('vr-dif').textContent = txt; mostrar('vr-dif', !!txt);
+      var temVenc = d.resultado !== 'vitoria' && (d.nome || d.cnpj);
+      mostrar('vr-vencedor', temVenc);
+      $('vr-nome').textContent = d.nome || '';
+      $('vr-cnpj').textContent = d.cnpj ? 'CNPJ ' + d.cnpj : '';
+      $('vr-local').textContent = [d.municipio, d.uf].filter(Boolean).join('/');
+      $('vr-marca').textContent = d.marcaVenc ? 'Marca ofertada: ' + d.marcaVenc : '';
+      mostrar('vr-just-bloco', !!d.just);
+      $('vr-just').textContent = d.just || '';
+      $('vr-em').textContent = d.em ? 'Registrado em ' + d.em : '';
+      modal.style.display = 'flex';
+    });
+  });
+  $('vr-fechar').addEventListener('click', function () { modal.style.display = 'none'; });
+  modal.addEventListener('click', function (e) { if (e.target === modal) modal.style.display = 'none'; });
+})();
 </script>
 {% endif %}
 {% endblock %}

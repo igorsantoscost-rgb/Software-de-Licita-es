@@ -1674,3 +1674,17 @@ body select.select-status-compacto[class*="status-"], body.com-menu select.selec
 .tabela th.col-status a { justify-content: center; }
 .tabela td.col-status .form-status-painel { display: flex; justify-content: center; }
 body .tabela td.col-status select.select-status-mini { width: 168px; text-align: center; text-align-last: center; padding-left: 26px; padding-right: 26px; }
+
+/* Detalhes do resultado (cliente) */
+button.btn-ver-resultado { cursor: pointer; }
+button.btn-ver-resultado:hover { filter: brightness(.96); text-decoration: underline; }
+.vr-topo { margin: 4px 0 12px; }
+.vr-tabela { width: 100%; border-collapse: collapse; font-size: .88rem; margin-bottom: 8px; }
+.vr-tabela th { text-align: left; font-size: .72rem; color: #6b7280; padding: 4px 6px; border-bottom: 1px solid #e5e7eb; }
+.vr-tabela td { padding: 6px; border-bottom: 1px solid #f1f3f5; }
+.vr-tabela td:first-child { color: #374151; }
+.vr-tabela td:not(:first-child) { font-weight: 600; }
+.vr-dif { font-size: .88rem; font-weight: 600; color: #1e3348; margin: 6px 0 10px; }
+.vr-bloco { background: #f7f9fb; border: 1px solid #e5eaf0; border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; font-size: .88rem; }
+.vr-rotulo { font-size: .7rem; text-transform: uppercase; letter-spacing: .04em; color: #6b7280; margin-bottom: 3px; }
+.vr-bloco .muted-sm, .vr-bloco div { margin: 1px 0; }
