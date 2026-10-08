@@ -114,6 +114,11 @@ def create_app():
         v = str(valor).strip()
         return _ROTULOS_STATUS.get(v.lower(), v[:1].upper() + v[1:].lower())
 
+    @app.context_processor
+    def _ctx_agora_brasilia():
+        from app.models import agora_brasilia
+        return {"agora_brasilia": agora_brasilia}
+
     @app.template_filter("tem_comentario_assessor")
     def tem_comentario_assessor(licitacao):
         """True se a licitacao tem ao menos um comentario escrito por um assessor.

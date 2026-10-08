@@ -121,6 +121,18 @@
     <!-- Parametros da Disputa (ex Itens / Lotes) -->
     <div class="card">
       <h3>Parâmetros da disputa</h3>
+      {% if not current_user.is_assessor() and lic.prazo_precos %}
+      {% set dias_semana = ['segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado','domingo'] %}
+      {% set prazo = lic.prazo_precos %}
+      {% set encerrado = agora_brasilia() > prazo %}
+      <div class="aviso-prazo-cliente {% if encerrado %}aviso-prazo-encerrado{% endif %}">
+        {% if encerrado %}
+          ⏰ O prazo para preencher seus interesses encerrou em <strong>{{ dias_semana[prazo.weekday()] }}, {{ prazo.strftime('%d/%m/%Y') }}, às 12h</strong>.
+        {% else %}
+          ⏰ Preencher interesses até <strong>{{ dias_semana[prazo.weekday()] }}, {{ prazo.strftime('%d/%m/%Y') }}, às 12h</strong>.
+        {% endif %}
+      </div>
+      {% endif %}
       {% if current_user.is_assessor() and lic.tem_interesse_cliente %}
       {% set up = lic.ultimo_preco_em %}
       <div class="aviso-interesse {% if lic.preco_fora_do_prazo %}aviso-interesse-atrasado{% endif %}">
