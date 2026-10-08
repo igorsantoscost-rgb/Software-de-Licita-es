@@ -121,7 +121,7 @@
     <!-- Parametros da Disputa (ex Itens / Lotes) -->
     <div class="card">
       <h3>Parâmetros da disputa</h3>
-      {% if lic.tem_interesse_cliente %}
+      {% if current_user.is_assessor() and lic.tem_interesse_cliente %}
       {% set up = lic.ultimo_preco_em %}
       <div class="aviso-interesse {% if lic.preco_fora_do_prazo %}aviso-interesse-atrasado{% endif %}">
         💰 <strong>Interesse do cliente manifestado</strong>: {{ lic.itens_com_preco|length }} item(ns) com preço registrado{% if up %}, último em {{ up.strftime('%d/%m/%Y às %H:%M') }}{% endif %}.
@@ -144,10 +144,17 @@
       {% endif %}
 
       {% if lic.itens %}
+      <form method="POST" action="{{ url_for('lic.excluir_itens_selecionados', id=lic.id) }}" id="form-excluir-itens"
+            class="barra-excluir-itens" onsubmit="return confirm('Excluir os itens selecionados? Esta ação não pode ser desfeita.')">
+        <button type="submit" class="btn btn-sm btn-excluir-licitacao" id="btn-excluir-itens" disabled>
+          Excluir selecionados (<span id="qtd-itens-sel">0</span>)
+        </button>
+      </form>
       <div class="tabela-wrap tabela-wrap-card">
       <table class="tabela tabela-sm">
         <thead>
           <tr>
+            <th class="col-sel"><input type="checkbox" id="sel-todos-itens" title="Selecionar todos"></th>
             <th>Descrição</th>
             <th>Marca</th>
             <th>Nº item</th>
@@ -162,6 +169,7 @@
         <tbody>
           {% for item in itens_lista %}
           <tr>
+            <td class="col-sel"><input type="checkbox" name="item_ids" value="{{ item.id }}" form="form-excluir-itens" class="sel-item"></td>
             <td><div class="item-desc" title="Clique para ver a descrição inteira" onclick="this.classList.toggle('item-desc-aberta')">{{ item.descricao }}</div></td>
             <td>{{ item.marca or '—' }}</td>
             <td>{{ item.numero_item or '—' }}</td>
@@ -176,7 +184,7 @@
             <td>
               {% if item.valor_minimo %}
                 R$ {{ "%.2f"|format(item.valor_minimo)|replace('.', ',') }}
-                {% if item.valor_registrado_em %}<br><small class="{{ 'texto-atrasado' if item.fora_do_prazo else 'muted' }}"
+                {% if current_user.is_assessor() and item.valor_registrado_em %}<br><small class="{{ 'texto-atrasado' if item.fora_do_prazo else 'muted' }}"
                   title="Registrado{% if item.registrado_por %} por {{ item.registrado_por.nome }}{% endif %}">{{ item.valor_registrado_em.strftime('%d/%m %H:%M') }}</small>{% endif %}
               {% else %}—{% endif %}
             </td>
@@ -472,4 +480,24 @@
   </div>
 </div>
 
+<script>
+(function () {
+  var todos = document.getElementById('sel-todos-itens');
+  var btn = document.getElementById('btn-excluir-itens');
+  var qtd = document.getElementById('qtd-itens-sel');
+  if (!todos || !btn) return;
+  var caixas = function () { return document.querySelectorAll('.sel-item'); };
+  function atualizar() {
+    var n = document.querySelectorAll('.sel-item:checked').length;
+    qtd.textContent = n;
+    btn.disabled = n === 0;
+    todos.checked = n > 0 && n === caixas().length;
+  }
+  todos.addEventListener('change', function () {
+    caixas().forEach(function (c) { c.checked = todos.checked; });
+    atualizar();
+  });
+  caixas().forEach(function (c) { c.addEventListener('change', atualizar); });
+})();
+</script>
 {% endblock %}

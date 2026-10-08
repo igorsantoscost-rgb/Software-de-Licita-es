@@ -515,10 +515,30 @@ def editar_item(item_id):
 def excluir_item(item_id):
     item = ItemLicitacao.query.get_or_404(item_id)
     lic_id = item.licitacao_id
+    if not _pode_ver(Licitacao.query.get_or_404(lic_id)):
+        abort(403)
     db.session.delete(item)
     db.session.commit()
     flash("Item removido.", "ok")
     return redirect(url_for("lic.detalhe", id=lic_id))
+
+
+@lic_bp.route("/<int:id>/itens/excluir-selecionados", methods=["POST"])
+@login_required
+def excluir_itens_selecionados(id):
+    lic = Licitacao.query.get_or_404(id)
+    if not _pode_ver(lic):
+        abort(403)
+    ids = [int(x) for x in request.form.getlist("item_ids") if x.isdigit()]
+    if not ids:
+        flash("Nenhum item selecionado.", "erro")
+        return redirect(url_for("lic.detalhe", id=id))
+    itens = ItemLicitacao.query.filter(ItemLicitacao.licitacao_id == id, ItemLicitacao.id.in_(ids)).all()
+    for item in itens:
+        db.session.delete(item)
+    db.session.commit()
+    flash(f"{len(itens)} item(ns) removido(s).", "ok")
+    return redirect(request.referrer or url_for("lic.detalhe", id=id))
 
 
 # ─── Documentos de Apoio (cliente) ────────────────────────────────────────────

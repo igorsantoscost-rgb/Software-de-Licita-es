@@ -1461,3 +1461,6 @@ tr.linha-interesse td:first-child { box-shadow: inset 4px 0 0 #22c55e; }
 .aviso-interesse { background: #dcfce7; border-left: 4px solid #22c55e; color: #14532d; padding: 10px 14px; border-radius: 6px; margin: 8px 0 12px; font-size: .9rem; }
 .aviso-interesse-atrasado { background: #fee2e2; border-left-color: #dc2626; color: #7f1d1d; }
 .texto-atrasado { color: #dc2626; font-weight: 600; }
+.barra-excluir-itens { margin: 6px 0 8px; }
+.barra-excluir-itens button:disabled { opacity: .45; cursor: not-allowed; }
+.col-sel { width: 28px; text-align: center; }
