@@ -146,16 +146,16 @@
       {% if lic.itens %}
       <form method="POST" action="{{ url_for('lic.excluir_itens_selecionados', id=lic.id) }}" id="form-excluir-itens"
             class="barra-excluir-itens" onsubmit="return confirm('Excluir os itens selecionados? Esta ação não pode ser desfeita.')">
-        <button type="submit" class="btn btn-sm btn-excluir-licitacao" id="btn-excluir-itens" disabled>
-          Excluir selecionados (<span id="qtd-itens-sel">0</span>)
+        <button type="submit" class="btn-excluir-mini" id="btn-excluir-itens" hidden>
+          🗑 Excluir (<span id="qtd-itens-sel">0</span>)
         </button>
       </form>
-      <div class="tabela-wrap tabela-wrap-card">
-      <table class="tabela tabela-sm">
+      <div class="tabela-wrap tabela-wrap-card tabela-itens-wrap">
+      <table class="tabela tabela-sm tabela-itens">
         <thead>
           <tr>
             <th class="col-sel"><input type="checkbox" id="sel-todos-itens" title="Selecionar todos"></th>
-            <th>Descrição</th>
+            <th class="col-desc">Descrição</th>
             <th>Marca</th>
             <th>Nº item</th>
             <th>Lote/Grupo</th>
@@ -170,7 +170,7 @@
           {% for item in itens_lista %}
           <tr>
             <td class="col-sel"><input type="checkbox" name="item_ids" value="{{ item.id }}" form="form-excluir-itens" class="sel-item"></td>
-            <td><div class="item-desc" title="Clique para ver a descrição inteira" onclick="this.classList.toggle('item-desc-aberta')">{{ item.descricao }}</div></td>
+            <td class="col-desc"><div class="item-desc" title="Clique para ver a descrição inteira" onclick="this.classList.toggle('item-desc-aberta')">{{ item.descricao }}</div></td>
             <td>{{ item.marca or '—' }}</td>
             <td>{{ item.numero_item or '—' }}</td>
             <td>{{ item.lote_grupo or '—' }}</td>
@@ -181,14 +181,14 @@
                 R$ {{ "{:,.2f}".format(item.valor_estimado).replace(",", "X").replace(".", ",").replace("X", ".") }}
               {% else %}—{% endif %}
             </td>
-            <td>
+            <td class="nowrap">
               {% if item.valor_minimo %}
                 R$ {{ "%.2f"|format(item.valor_minimo)|replace('.', ',') }}
                 {% if current_user.is_assessor() and item.valor_registrado_em %}<br><small class="{{ 'texto-atrasado' if item.fora_do_prazo else 'muted' }}"
                   title="Registrado{% if item.registrado_por %} por {{ item.registrado_por.nome }}{% endif %}">{{ item.valor_registrado_em.strftime('%d/%m %H:%M') }}</small>{% endif %}
               {% else %}—{% endif %}
             </td>
-            <td>
+            <td class="nowrap">
               <button class="btn-editar-item btn btn-sm" data-id="{{ item.id }}"
                 data-descricao="{{ item.descricao }}"
                 data-marca="{{ item.marca or '' }}"
@@ -257,8 +257,32 @@
     <!-- Documentos -->
     <div class="card">
       <h3>Documentos</h3>
+      {% set docs_processo = lic.documentos|selectattr('categoria', 'equalto', 'processo')|list %}
+      {% if docs_processo %}
+      <ul class="doc-lista">
+        {% for doc in docs_processo %}
+        <li class="doc-item">
+          <span class="doc-icon">📄</span>
+          <a href="{{ url_for('lic.download_doc', doc_id=doc.id) }}" class="doc-nome" title="{{ doc.nome_original }}">{{ doc.nome_original }}</a>
+          {% if doc.tipo == 'edital' %}
+          <span class="filtro-pill">Edital</span>
+          {% elif doc.tipo == 'termo_referencia' %}
+          <span class="filtro-pill">Termo de Referência</span>
+          {% endif %}
+          <span class="doc-tamanho muted">{{ (doc.tamanho / 1024)|round(1) }} KB</span>
+          {% if current_user.is_assessor() %}
+          <form method="POST" action="{{ url_for('lic.excluir_doc', doc_id=doc.id) }}" class="form-inline">
+            <button type="submit" class="btn-excluir" onclick="return confirm('Excluir documento?')">✕</button>
+          </form>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">Nenhum documento enviado.</p>
+      {% endif %}
       {% if current_user.is_assessor() %}
-      <form method="POST" action="{{ url_for('lic.upload', id=lic.id) }}" enctype="multipart/form-data" class="upload-form-doc">
+      <form method="POST" action="{{ url_for('lic.upload', id=lic.id) }}" enctype="multipart/form-data" class="upload-form-doc upload-form-doc-abaixo">
         <div class="campo">
           <label>Edital</label>
           <div class="dropzone-doc">
@@ -291,30 +315,6 @@
       </form>
       {% endif %}
 
-      {% set docs_processo = lic.documentos|selectattr('categoria', 'equalto', 'processo')|list %}
-      {% if docs_processo %}
-      <ul class="doc-lista">
-        {% for doc in docs_processo %}
-        <li class="doc-item">
-          <span class="doc-icon">📄</span>
-          <a href="{{ url_for('lic.download_doc', doc_id=doc.id) }}" class="doc-nome" title="{{ doc.nome_original }}">{{ doc.nome_original }}</a>
-          {% if doc.tipo == 'edital' %}
-          <span class="filtro-pill">Edital</span>
-          {% elif doc.tipo == 'termo_referencia' %}
-          <span class="filtro-pill">Termo de Referência</span>
-          {% endif %}
-          <span class="doc-tamanho muted">{{ (doc.tamanho / 1024)|round(1) }} KB</span>
-          {% if current_user.is_assessor() %}
-          <form method="POST" action="{{ url_for('lic.excluir_doc', doc_id=doc.id) }}" class="form-inline">
-            <button type="submit" class="btn-excluir" onclick="return confirm('Excluir documento?')">✕</button>
-          </form>
-          {% endif %}
-        </li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <p class="muted">Nenhum documento enviado.</p>
-      {% endif %}
     </div>
 
   </div>
@@ -490,7 +490,7 @@
   function atualizar() {
     var n = document.querySelectorAll('.sel-item:checked').length;
     qtd.textContent = n;
-    btn.disabled = n === 0;
+    btn.hidden = n === 0;
     todos.checked = n > 0 && n === caixas().length;
   }
   todos.addEventListener('change', function () {
