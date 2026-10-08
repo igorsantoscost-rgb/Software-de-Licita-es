@@ -95,7 +95,7 @@
             💰 Cliente com interesse{% if l.preco_fora_do_prazo %} · fora do prazo{% endif %}</span>
           {% endif %}
         </td>
-        <td>{{ l.orgao_licitante }}</td>
+        <td>{{ l.orgao_licitante }} {% if current_user.is_assessor() and l.comentario_cliente_pendente_em %}<span class="tag-comentario-cliente" title="Comentário novo do cliente ({{ l.comentario_cliente_pendente_em.strftime('%d/%m %H:%M') }})">C</span>{% endif %}</td>
         <td>{{ l.portal or '—' }}</td>
         <td>
           {% if l.data_disputa %}

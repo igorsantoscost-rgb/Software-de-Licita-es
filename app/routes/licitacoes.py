@@ -183,6 +183,9 @@ def detalhe(id):
     lic = Licitacao.query.get_or_404(id)
     if not _pode_ver(lic):
         abort(403)
+    if current_user.is_assessor() and lic.comentario_cliente_pendente_em:
+        lic.comentario_cliente_pendente_em = None  # assessor abriu a licitacao: comentario visto
+        db.session.commit()
     docs_existentes = {d.tipo: d for d in lic.documentos if d.tipo in TIPOS_DOC_LICITACAO_UNICOS}
     # Parametros da disputa: so os itens com palavras-chave do cliente
     from app.classificador_cliente import itens_do_cliente
@@ -642,15 +645,21 @@ def comentar(id):
         autor_id=current_user.id,
         texto=texto,
     )
+    from app.models import agora_brasilia
+    if current_user.is_assessor():
+        lic.comentario_cliente_pendente_em = None  # assessor respondeu = ja viu
+    else:
+        lic.comentario_cliente_pendente_em = agora_brasilia()
     db.session.add(comentario)
     db.session.commit()
-    # Se o autor for assessor, notifica o cliente por e-mail
-    if current_user.is_assessor():
-        from app.email_service import notificar_novo_comentario
-        try:
-            notificar_novo_comentario(comentario, lic)
-        except Exception:
-            pass  # Nao trava o comentario se o e-mail falhar
+    from app.email_service import notificar_novo_comentario, notificar_comentario_cliente
+    try:
+        if current_user.is_assessor():
+            notificar_novo_comentario(comentario, lic)   # assessor -> cliente
+        else:
+            notificar_comentario_cliente(comentario, lic)  # cliente -> assessor
+    except Exception:
+        pass  # Nao trava o comentario se o e-mail falhar
     flash("Comentário enviado.", "ok")
     return redirect(url_for("lic.detalhe", id=id))
 

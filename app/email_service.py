@@ -676,3 +676,33 @@ def _enviar_aviso_preco(app, lic_id, desde, nome_usuario):
             border-radius:6px;text-decoration:none;display:inline-block;">Ver Licitacao</a></p>
         """
         _enviar(destinatarios, assunto, _template_base(conteudo))
+
+
+# ─── GATILHO: Cliente comentou -> avisa o assessor ──────────────────────────
+
+def notificar_comentario_cliente(comentario, licitacao):
+    """Envia e-mail para os assessores do cliente quando o CLIENTE escreve um comentario."""
+    from html import escape
+    destinatarios = _emails_assessores_do_cliente(licitacao.cliente)
+    if not destinatarios:
+        return
+    cliente_nome = licitacao.cliente.nome if licitacao.cliente else "Cliente"
+    assunto = f"{cliente_nome} comentou — {licitacao.orgao_licitante}"
+    conteudo = f"""
+    <h2 style="color: #14532d; margin-top: 0;">Novo comentario do cliente</h2>
+    <p><strong>{escape(comentario.autor.nome)}</strong> ({escape(cliente_nome)}) comentou na licitacao:</p>
+    <table style="width: 100%; border-collapse: collapse; margin: 12px 0;">
+      <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb; color: #6b7280;">Orgao</td>
+          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-weight: 600;">{licitacao.orgao_licitante}</td></tr>
+      <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb; color: #6b7280;">Pregao</td>
+          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-weight: 600;">{licitacao.numero_pregao}</td></tr>
+      <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb; color: #6b7280;">Disputa</td>
+          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-weight: 600;">{_formatar_data(licitacao.data_disputa)}</td></tr>
+    </table>
+    <div style="background: #fef9c3; padding: 14px 18px; border-radius: 6px; margin: 16px 0; border-left: 4px solid #eab308;">
+      <p style="margin: 0; white-space: pre-wrap;">{escape(comentario.texto)}</p>
+    </div>
+    <p><a href="{BASE_URL}/licitacoes/{licitacao.id}" style="background: #14532d; color: #fff; padding: 10px 20px;
+        border-radius: 6px; text-decoration: none; display: inline-block;">Ver Licitacao</a></p>
+    """
+    _enviar(destinatarios, assunto, _template_base(conteudo))

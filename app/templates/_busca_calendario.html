@@ -21,7 +21,7 @@
     <li>
       <a href="{{ url_for('main.calendario_semana', inicio=l.data_disputa.date().isoformat(), dia=l.data_disputa.date().isoformat(), busca=busca) }}"
          class="busca-data" title="Ver a semana desta disputa">{{ l.data_disputa.strftime('%d/%m/%Y %H:%M') }}</a>
-      <a href="{{ url_for('lic.detalhe', id=l.id) }}" class="busca-orgao">{{ l.numero_pregao }} · {{ l.orgao_licitante }}</a>
+      <a href="{{ url_for('lic.detalhe', id=l.id) }}" class="busca-orgao">{{ l.numero_pregao }} · {{ l.orgao_licitante }}</a> {% if current_user.is_assessor() and l.comentario_cliente_pendente_em %}<span class="tag-comentario-cliente" title="Comentário novo do cliente ({{ l.comentario_cliente_pendente_em.strftime('%d/%m %H:%M') }})">C</span>{% endif %}
       <span class="badge status-{{ l.status|replace(' ', '-') }}">{{ l.status|rotulo_status }}</span>
       {% if l.data_disputa_original %}<span class="tag-reagendada">Reagendada</span>{% endif %}
     </li>

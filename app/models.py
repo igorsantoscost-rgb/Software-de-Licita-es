@@ -165,6 +165,8 @@ class Licitacao(db.Model):
                             order_by="ItemLicitacao.id")
     favoritos = db.relationship("FavoritoLicitacao", backref="licitacao", lazy=True, cascade="all, delete-orphan")
     aviso_preco_enviado_em = db.Column(db.DateTime, nullable=True)  # ultimo e-mail de "preco registrado"
+    # Comentario do cliente ainda nao visto pelo assessor (some quando o assessor abre a licitacao)
+    comentario_cliente_pendente_em = db.Column(db.DateTime, nullable=True)
 
     # ─── Interesse do cliente (precos registrados) ───────────────────────────
     @property
