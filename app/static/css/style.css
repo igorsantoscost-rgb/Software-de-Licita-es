@@ -1519,3 +1519,4 @@ body .page-header h2.titulo-com-favorito, body.com-menu .page-header h2.titulo-c
 
 .aviso-prazo-cliente { background: #eef4fb; border-left: 4px solid #2c4a6e; color: #1e3348; padding: 9px 14px; border-radius: 6px; margin: 4px 0 12px; font-size: .9rem; }
 .aviso-prazo-cliente.aviso-prazo-encerrado { background: #fee2e2; border-left-color: #dc2626; color: #7f1d1d; }
+.col-detalhe-principal .tabela-itens th, .col-detalhe-principal .tabela-itens th.col-num { white-space: nowrap; }

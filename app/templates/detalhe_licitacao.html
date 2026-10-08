@@ -124,13 +124,8 @@
       {% if not current_user.is_assessor() and lic.prazo_precos %}
       {% set dias_semana = ['segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado','domingo'] %}
       {% set prazo = lic.prazo_precos %}
-      {% set encerrado = agora_brasilia() > prazo %}
-      <div class="aviso-prazo-cliente {% if encerrado %}aviso-prazo-encerrado{% endif %}">
-        {% if encerrado %}
-          ⏰ O prazo para preencher seus interesses encerrou em <strong>{{ dias_semana[prazo.weekday()] }}, {{ prazo.strftime('%d/%m/%Y') }}, às 12h</strong>.
-        {% else %}
-          ⏰ Preencher interesses até <strong>{{ dias_semana[prazo.weekday()] }}, {{ prazo.strftime('%d/%m/%Y') }}, às 12h</strong>.
-        {% endif %}
+      <div class="aviso-prazo-cliente">
+        ⏰ Prazo para manifestação de interesse: <strong>{{ dias_semana[prazo.weekday()] }}, {{ prazo.strftime('%d/%m/%Y') }}, às 12h</strong>.
       </div>
       {% endif %}
       {% if current_user.is_assessor() and lic.tem_interesse_cliente %}
@@ -171,11 +166,11 @@
             <th class="col-sel"><input type="checkbox" id="sel-todos-itens" title="Selecionar todos"></th>
             <th class="col-desc">Descrição</th>
             {% if tem_marca %}<th>Marca</th>{% endif %}
-            <th>Nº item</th>
+            <th>Item</th>
             {% if tem_lote %}<th>Lote/Grupo</th>{% endif %}
             <th class="col-num">Qtd</th>
             <th>Un.</th>
-            <th class="col-num">Valor est. (un.)</th>
+            <th class="col-num" title="Valor estimado unitário">Valor est. un.</th>
             <th class="col-num">Valor mín.</th>
             <th></th>
           </tr>
