@@ -1650,3 +1650,27 @@ body.com-menu .select-status-compacto.status-revogada, body.com-menu .select-sta
 .andamento-card-orgao { color: #374151; line-height: 1.3; }
 .andamento-card-cliente { color: #6b7280; font-size: .7rem; }
 .andamento-vazio { font-size: .8rem; }
+
+/* ─── Status em degrade (cada etiqueta com seu proprio degrade) + coluna centralizada ─── */
+.status-agendada { --st-a: #0f6b32; --st-b: #22a04f; --st-txt: #fff; }
+.status-em-disputa { --st-a: #2f6e25; --st-b: #4f9a3a; --st-txt: #fff; }
+.status-em-julgamento { --st-a: #55701b; --st-b: #7f9a2e; --st-txt: #fff; }
+.status-em-habilitacao { --st-a: #7a700f; --st-b: #a89a22; --st-txt: #fff; }
+.status-homologada { --st-a: #9a6f06; --st-b: #d4a017; --st-txt: #fff; }
+.status-revogada, .status-cancelada, .status-encerrada, .status-sem-participacao { --st-a: #d1d5db; --st-b: #eceef1; --st-txt: #4b5563; }
+body span.badge[class*="status-"], body.com-menu span.badge[class*="status-"] {
+  background: linear-gradient(135deg, var(--st-a), var(--st-b)); color: var(--st-txt); border-color: transparent;
+}
+body select.select-status-mini[class*="status-"], body.com-menu select.select-status-mini[class*="status-"],
+body select.select-status-compacto[class*="status-"], body.com-menu select.select-status-compacto[class*="status-"] {
+  background-color: var(--st-a);
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%), linear-gradient(135deg, var(--st-a), var(--st-b));
+  background-position: calc(100% - 14px) center, calc(100% - 9px) center, 0 0;
+  background-size: 5px 5px, 5px 5px, 100% 100%;
+  background-repeat: no-repeat;
+  color: var(--st-txt); border-color: transparent;
+}
+.tabela th.col-status, .tabela td.col-status { text-align: center; }
+.tabela th.col-status a { justify-content: center; }
+.tabela td.col-status .form-status-painel { display: flex; justify-content: center; }
+body .tabela td.col-status select.select-status-mini { width: 168px; text-align: center; text-align-last: center; padding-left: 26px; padding-right: 26px; }

@@ -98,7 +98,7 @@
         <th>{{ th_sort('orgao', 'Órgão licitante') }}</th>
         <th>{{ th_sort('portal', 'Portal') }}</th>
         <th>{{ th_sort('data', 'Data da disputa') }}</th>
-        <th>{{ th_sort('status', 'Status') }}</th>
+        <th class="col-status">{{ th_sort('status', 'Status') }}</th>
         {% if current_user.is_assessor() %}<th>{{ th_sort('cliente', 'Cliente') }}</th>{% endif %}
         <th></th>
       </tr>
@@ -132,7 +132,7 @@
             {% if l.data_disputa_original %}<br><span class="tag-reagendada" title="Data original: {{ l.data_disputa_original.strftime('%d/%m/%Y %H:%M') }}">↻ Reagendada</span>{% endif %}
           {% else %}—{% endif %}
         </td>
-        <td>
+        <td class="col-status">
           {% if current_user.is_assessor() %}
           <form method="POST" action="{{ url_for('lic.atualizar_status', id=l.id) }}" class="form-status-painel">
             <input type="hidden" name="voltar" value="painel">
