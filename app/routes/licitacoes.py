@@ -461,6 +461,9 @@ def adicionar_item(id):
         qtd = int(qtd_str) if qtd_str else None
     except ValueError:
         pass
+    if valor is not None and not current_user.is_assessor() and not request.form.get("marca", "").strip():
+        flash("Preencha a marca do produto para registrar o valor mínimo.", "erro")
+        return redirect(url_for("lic.detalhe", id=id))
     item = ItemLicitacao(
         licitacao_id=id,
         numero_item=request.form.get("numero_item", "").strip(),
@@ -500,6 +503,10 @@ def editar_item(item_id):
     except ValueError:
         pass
     valor_depois = float(item.valor_minimo) if item.valor_minimo is not None else None
+    if valor_depois is not None and not current_user.is_assessor() and not (item.marca or "").strip():
+        db.session.rollback()
+        flash("Preencha a marca do produto para registrar o valor mínimo.", "erro")
+        return redirect(url_for("lic.detalhe", id=lic.id))
     preco_novo = valor_depois is not None and valor_depois != valor_antes
     if preco_novo:
         _marcar_preco_registrado(item)

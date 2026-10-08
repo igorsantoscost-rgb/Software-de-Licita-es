@@ -1572,3 +1572,10 @@ button.res-badge { cursor: pointer; }
 .total-interesse strong { color: #14532d; }
 .col-detalhe-principal .tabela-itens td.col-valor-min { white-space: normal; }
 .col-detalhe-principal .tabela-itens td.col-valor-min > .nowrap, .total-item .nowrap { white-space: nowrap; }
+
+.btn-r { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 6px; border: 1px solid #2c4a6e; background: #fff; color: #2c4a6e; font-size: .75rem; font-weight: 800; cursor: pointer; padding: 0; }
+.btn-r:hover { background: #2c4a6e; color: #fff; }
+.col-detalhe-principal .tabela-itens td.col-total-min { color: #14532d; font-weight: 600; }
+.col-qtd .unidade { display: block; font-size: .68rem; color: #6b7280; max-width: 64px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.col-detalhe-principal .tabela-itens .col-desc { min-width: 120px; }
+@media (min-width: 1600px) { .col-detalhe-principal .tabela-itens .col-num { padding-left: 14px; } .col-detalhe-principal .tabela-itens td.col-resultado { padding-left: 14px; } }

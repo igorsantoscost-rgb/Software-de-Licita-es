@@ -169,9 +169,9 @@
             <th>Item</th>
             {% if tem_lote %}<th>Lote/Grupo</th>{% endif %}
             <th class="col-num">Qtd</th>
-            <th>Un.</th>
             <th class="col-num" title="Valor estimado unitário">Valor est. un.</th>
             <th class="col-num">Valor mín.</th>
+            <th class="col-num" title="Valor mínimo × quantidade">Total mín.</th>
             <th>Resultado</th>
             <th></th>
           </tr>
@@ -184,8 +184,7 @@
             {% if tem_marca %}<td>{{ item.marca or '—' }}</td>{% endif %}
             <td>{{ item.numero_item or '—' }}</td>
             {% if tem_lote %}<td>{{ item.lote_grupo or '—' }}</td>{% endif %}
-            <td class="col-num">{{ item.quantidade or '—' }}</td>
-            <td>{{ item.unidade or '—' }}</td>
+            <td class="col-num col-qtd">{{ item.quantidade or '—' }}{% if item.unidade %}<small class="unidade" title="{{ item.unidade }}">{{ item.unidade }}</small>{% endif %}</td>
             <td class="nowrap col-num">
               {% if item.valor_estimado %}
                 R$ {{ "{:,.2f}".format(item.valor_estimado).replace(",", "X").replace(".", ",").replace("X", ".") }}
@@ -194,11 +193,11 @@
             <td class="nowrap col-num col-valor-min">
               {% if item.valor_minimo %}
                 <span class="nowrap">R$ {{ "%.2f"|format(item.valor_minimo)|replace('.', ',') }}</span>
-                {% if item.quantidade %}<small class="total-item" title="Valor mínimo × quantidade">Total <span class="nowrap">{{ (item.valor_minimo * item.quantidade)|brl }}</span></small>{% endif %}
                 {% if current_user.is_assessor() and item.valor_registrado_em %}<br><small class="{{ 'texto-atrasado' if item.fora_do_prazo else 'muted' }}"
                   title="Registrado{% if item.registrado_por %} por {{ item.registrado_por.nome }}{% endif %}">{{ item.valor_registrado_em.strftime('%d/%m %H:%M') }}</small>{% endif %}
               {% else %}—{% endif %}
             </td>
+            <td class="nowrap col-num col-total-min">{% if item.valor_minimo %}{{ item.total_minimo|brl }}{% else %}—{% endif %}</td>
             <td class="col-resultado">
               {% set dados_res %}data-id="{{ item.id }}" data-min="{{ item.valor_minimo or '' }}" data-qtd="{{ item.quantidade or 1 }}"
                 data-resultado="{{ item.resultado or '' }}" data-venc="{{ item.valor_vencedor or '' }}"
@@ -219,7 +218,7 @@
                 {% endif %}
                 {% if item.resultado_justificativa %}<small class="res-linha res-just" title="{{ item.resultado_justificativa }}">{{ item.resultado_justificativa }}</small>{% endif %}
               {% elif current_user.is_assessor() %}
-                <button type="button" class="btn-preencher-resultado btn-resultado" {{ dados_res }}>Preencher resultado</button>
+                <button type="button" class="btn-r btn-resultado" {{ dados_res }} title="Preencher resultado" aria-label="Preencher resultado">R</button>
               {% else %}—{% endif %}
             </td>
             <td class="nowrap">
@@ -271,7 +270,7 @@
           </div>
           <div class="campo-row">
             <div class="campo">
-              <label>Marca</label>
+              <label>Marca{% if not current_user.is_assessor() %} <small class="muted">(obrigatória com valor mínimo)</small>{% endif %}</label>
               <input type="text" name="marca" placeholder="Ex: Chamex">
             </div>
             <div class="campo">
@@ -500,7 +499,7 @@
       </div>
       <div class="campo-row">
         <div class="campo">
-          <label>Marca</label>
+          <label>Marca{% if not current_user.is_assessor() %} <small class="muted">(obrigatória com valor mínimo)</small>{% endif %}</label>
           <input type="text" name="marca" id="edit-marca">
         </div>
         <div class="campo">
@@ -725,6 +724,23 @@
     }
   });
 })();
+</script>
+{% endif %}
+{% if not current_user.is_assessor() %}
+<script>
+// Cliente: valor minimo exige marca preenchida
+document.querySelectorAll('form').forEach(function (f) {
+  var valor = f.querySelector('input[name=valor_minimo]');
+  var marca = f.querySelector('input[name=marca]');
+  if (!valor || !marca) return;
+  f.addEventListener('submit', function (e) {
+    if (valor.value.trim() && !marca.value.trim()) {
+      e.preventDefault();
+      alert('Preencha a marca do produto para registrar o valor mínimo.');
+      marca.focus();
+    }
+  });
+});
 </script>
 {% endif %}
 {% endblock %}
