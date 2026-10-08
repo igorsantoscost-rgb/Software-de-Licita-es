@@ -412,6 +412,25 @@ def excluir_doc(doc_id):
 
 # ─── Itens / Lotes ────────────────────────────────────────────────────────────
 
+def _marcar_preco_registrado(item):
+    """Guarda quando e quem registrou o valor minimo do item."""
+    from app.models import agora_brasilia
+    item.valor_registrado_em = agora_brasilia()
+    item.valor_registrado_por = current_user.id
+
+
+def _avisar_preco_registrado(lic, itens):
+    """E-mail pro assessor quando o CLIENTE registra preco (assessor nao avisa a si mesmo)."""
+    if current_user.is_assessor():
+        return
+    try:
+        from app.email_service import notificar_preco_registrado
+        notificar_preco_registrado(lic, itens, current_user)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Falha no aviso de preco registrado: {e}")
+
+
 @lic_bp.route("/<int:id>/itens/adicionar", methods=["POST"])
 @login_required
 def adicionar_item(id):
@@ -444,8 +463,12 @@ def adicionar_item(id):
         unidade=request.form.get("unidade", "").strip(),
         quantidade=qtd,
     )
+    if valor is not None:
+        _marcar_preco_registrado(item)
     db.session.add(item)
     db.session.commit()
+    if valor is not None:
+        _avisar_preco_registrado(lic, [item])
     flash("Item adicionado.", "ok")
     return redirect(url_for("lic.detalhe", id=id))
 
@@ -463,16 +486,26 @@ def editar_item(item_id):
     item.lote_grupo = request.form.get("lote_grupo", "").strip()
     item.unidade = request.form.get("unidade", "").strip()
     valor_str = request.form.get("valor_minimo", "").replace(",", ".")
+    valor_antes = float(item.valor_minimo) if item.valor_minimo is not None else None
     try:
         item.valor_minimo = float(valor_str) if valor_str else None
     except ValueError:
         pass
+    valor_depois = float(item.valor_minimo) if item.valor_minimo is not None else None
+    preco_novo = valor_depois is not None and valor_depois != valor_antes
+    if preco_novo:
+        _marcar_preco_registrado(item)
+    elif valor_depois is None:
+        item.valor_registrado_em = None
+        item.valor_registrado_por = None
     qtd_str = request.form.get("quantidade", "")
     try:
         item.quantidade = int(qtd_str) if qtd_str else None
     except ValueError:
         pass
     db.session.commit()
+    if preco_novo:
+        _avisar_preco_registrado(lic, [item])
     flash("Item atualizado.", "ok")
     return redirect(url_for("lic.detalhe", id=lic.id))
 

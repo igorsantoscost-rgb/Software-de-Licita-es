@@ -11,7 +11,7 @@ Gatilhos:
 import os
 import logging
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -570,3 +570,109 @@ def enviar_fatura_completa(fatura):
     ok = _enviar(destinatarios, f"Fatura {fatura.nome_mes} — {fatura.cliente.nome}",
                  _template_base(conteudo), anexos=anexos)
     return ok, destinatarios, [n for n, _ in anexos]
+
+
+# ─── GATILHO: Cliente registrou preco (valor minimo) ────────────────────────
+
+ESPERA_AVISO_PRECO = 180  # segundos: junta varios itens preenchidos em sequencia num e-mail so
+
+
+def _emails_assessores_do_cliente(cliente):
+    """Assessores vinculados ao cliente + masters. Se ninguem tiver e-mail, cai pra todos os assessores."""
+    from app.models import User
+    emails = []
+    if cliente:
+        for u in cliente.assessores:
+            if u.email and u.email not in emails:
+                emails.append(u.email)
+    for u in User.query.filter_by(perfil="master").all():
+        if u.email and u.email not in emails:
+            emails.append(u.email)
+    return emails or _emails_assessores()
+
+
+def notificar_preco_registrado(lic, itens, usuario):
+    """Chamado quando o cliente registra preco. Agenda UM e-mail pra daqui a alguns
+    minutos com todos os precos registrados nesse intervalo (evita 1 e-mail por item)."""
+    import threading
+    from flask import current_app
+    from sqlalchemy import text
+    from app import db
+    from app.models import agora_brasilia
+
+    agora = agora_brasilia()
+    limite = agora - timedelta(seconds=ESPERA_AVISO_PRECO)
+    # Marca atomica: so o primeiro registro da janela agenda o e-mail (vale entre workers)
+    res = db.session.execute(text("""
+        UPDATE licitacoes SET aviso_preco_enviado_em = :agora
+        WHERE id = :id AND (aviso_preco_enviado_em IS NULL OR aviso_preco_enviado_em < :limite)
+    """), {"agora": agora, "id": lic.id, "limite": limite})
+    db.session.commit()
+    if res.rowcount != 1:
+        return  # ja tem e-mail agendado que vai incluir este preco
+
+    app = current_app._get_current_object()
+    nome_usuario = usuario.nome
+    t = threading.Timer(ESPERA_AVISO_PRECO, _enviar_aviso_preco, args=(app, lic.id, agora, nome_usuario))
+    t.daemon = True
+    t.start()
+
+
+def _enviar_aviso_preco(app, lic_id, desde, nome_usuario):
+    with app.app_context():
+        from app.models import Licitacao
+        lic = Licitacao.query.get(lic_id)
+        if not lic:
+            return
+        itens = [i for i in lic.itens
+                 if i.valor_minimo is not None and i.valor_registrado_em and i.valor_registrado_em >= desde]
+        if not itens:
+            return
+        destinatarios = _emails_assessores_do_cliente(lic.cliente)
+        if not destinatarios:
+            return
+
+        prazo = lic.prazo_precos
+        fora = any(i.fora_do_prazo for i in itens)
+        cliente_nome = lic.cliente.nome if lic.cliente else "Cliente"
+
+        aviso_prazo = ""
+        if fora:
+            aviso_prazo = f"""
+            <div style="background:#fee2e2;border-left:4px solid #dc2626;padding:12px 16px;margin:16px 0;border-radius:4px;">
+              <strong style="color:#991b1b;">Fora do prazo:</strong> o combinado era ate
+              <strong>{_formatar_data(prazo)}</strong> (12h do dia anterior ao certame).
+            </div>"""
+        elif prazo:
+            aviso_prazo = f"""<p style="color:#6b7280;font-size:13px;">Dentro do prazo (limite: {_formatar_data(prazo)}).</p>"""
+
+        linhas = ""
+        for i in sorted(itens, key=lambda x: x.valor_registrado_em):
+            valor = f"R$ {i.valor_minimo:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            cor = "#dc2626" if i.fora_do_prazo else "#111827"
+            linhas += f"""
+            <tr><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;">{i.numero_item or '—'}</td>
+                <td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;">{(i.descricao or '')[:90]}</td>
+                <td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;font-weight:600;white-space:nowrap;">{valor}</td>
+                <td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;color:{cor};white-space:nowrap;">{i.valor_registrado_em.strftime('%d/%m %H:%M')}</td></tr>"""
+
+        assunto = f"{'[FORA DO PRAZO] ' if fora else ''}{cliente_nome} registrou precos — {lic.orgao_licitante}"
+        conteudo = f"""
+        <h2 style="color:#14532d;margin-top:0;">Cliente registrou precos</h2>
+        <p><strong>{nome_usuario}</strong> ({cliente_nome}) registrou {len(itens)} preco(s) na licitacao abaixo.
+           Ha interesse do cliente nesta disputa.</p>
+        <table style="width:100%;border-collapse:collapse;margin:12px 0;">
+          <tr><td style="padding:6px 8px;color:#6b7280;">Orgao</td><td style="padding:6px 8px;font-weight:600;">{lic.orgao_licitante}</td></tr>
+          <tr><td style="padding:6px 8px;color:#6b7280;">Pregao</td><td style="padding:6px 8px;font-weight:600;">{lic.numero_pregao}</td></tr>
+          <tr><td style="padding:6px 8px;color:#6b7280;">Disputa</td><td style="padding:6px 8px;font-weight:600;">{_formatar_data(lic.data_disputa)}</td></tr>
+        </table>
+        {aviso_prazo}
+        <table style="width:100%;border-collapse:collapse;margin:12px 0;font-size:13px;">
+          <tr style="background:#f3f4f6;"><th style="padding:6px 8px;text-align:left;">Item</th><th style="padding:6px 8px;text-align:left;">Descricao</th>
+              <th style="padding:6px 8px;text-align:left;">Valor min.</th><th style="padding:6px 8px;text-align:left;">Registrado</th></tr>
+          {linhas}
+        </table>
+        <p><a href="{BASE_URL}/licitacoes/{lic.id}" style="background:#14532d;color:#fff;padding:10px 20px;
+            border-radius:6px;text-decoration:none;display:inline-block;">Ver Licitacao</a></p>
+        """
+        _enviar(destinatarios, assunto, _template_base(conteudo))

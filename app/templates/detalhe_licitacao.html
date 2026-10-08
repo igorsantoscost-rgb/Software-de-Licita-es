@@ -121,6 +121,13 @@
     <!-- Parametros da Disputa (ex Itens / Lotes) -->
     <div class="card">
       <h3>Parâmetros da disputa</h3>
+      {% if lic.tem_interesse_cliente %}
+      {% set up = lic.ultimo_preco_em %}
+      <div class="aviso-interesse {% if lic.preco_fora_do_prazo %}aviso-interesse-atrasado{% endif %}">
+        💰 <strong>Interesse do cliente manifestado</strong>: {{ lic.itens_com_preco|length }} item(ns) com preço registrado{% if up %}, último em {{ up.strftime('%d/%m/%Y às %H:%M') }}{% endif %}.
+        {% if lic.prazo_precos %}<br><small>Prazo combinado: {{ lic.prazo_precos.strftime('%d/%m/%Y às %H:%M') }}{% if lic.preco_fora_do_prazo %} · <strong>preço enviado fora do prazo</strong>{% endif %}</small>{% endif %}
+      </div>
+      {% endif %}
       <p class="muted-sm">Preencha os valores mínimos para orientar a disputa.</p>
       {% if lic.itens %}
       <p class="muted-sm itens-filtro-info">
@@ -169,6 +176,8 @@
             <td>
               {% if item.valor_minimo %}
                 R$ {{ "%.2f"|format(item.valor_minimo)|replace('.', ',') }}
+                {% if item.valor_registrado_em %}<br><small class="{{ 'texto-atrasado' if item.fora_do_prazo else 'muted' }}"
+                  title="Registrado{% if item.registrado_por %} por {{ item.registrado_por.nome }}{% endif %}">{{ item.valor_registrado_em.strftime('%d/%m %H:%M') }}</small>{% endif %}
               {% else %}—{% endif %}
             </td>
             <td>

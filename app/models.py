@@ -1,6 +1,14 @@
 from app import db
 from flask_login import UserMixin
-from datetime import datetime
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
+FUSO_BRASILIA = ZoneInfo("America/Sao_Paulo")
+
+
+def agora_brasilia():
+    """Data/hora atual no horario de Brasilia, sem fuso (mesmo padrao do data_disputa)."""
+    return datetime.now(FUSO_BRASILIA).replace(tzinfo=None)
 
 # Tabela de vinculo N:N entre assessores e clientes
 assessor_clientes = db.Table(
@@ -156,6 +164,35 @@ class Licitacao(db.Model):
     itens = db.relationship("ItemLicitacao", backref="licitacao", lazy=True, cascade="all, delete-orphan",
                             order_by="ItemLicitacao.id")
     favoritos = db.relationship("FavoritoLicitacao", backref="licitacao", lazy=True, cascade="all, delete-orphan")
+    aviso_preco_enviado_em = db.Column(db.DateTime, nullable=True)  # ultimo e-mail de "preco registrado"
+
+    # ─── Interesse do cliente (precos registrados) ───────────────────────────
+    @property
+    def itens_com_preco(self):
+        return [i for i in self.itens if i.valor_minimo is not None]
+
+    @property
+    def tem_interesse_cliente(self):
+        return any(i.valor_minimo is not None for i in self.itens)
+
+    @property
+    def ultimo_preco_em(self):
+        datas = [i.valor_registrado_em for i in self.itens
+                 if i.valor_minimo is not None and i.valor_registrado_em]
+        return max(datas) if datas else None
+
+    @property
+    def prazo_precos(self):
+        """Combinado: precos ate 12h do dia anterior ao certame."""
+        if not self.data_disputa:
+            return None
+        dia_anterior = self.data_disputa.date() - timedelta(days=1)
+        return datetime(dia_anterior.year, dia_anterior.month, dia_anterior.day, 12, 0)
+
+    @property
+    def preco_fora_do_prazo(self):
+        ultimo, prazo = self.ultimo_preco_em, self.prazo_precos
+        return bool(ultimo and prazo and ultimo > prazo)
 
 
 class FavoritoLicitacao(db.Model):
@@ -268,6 +305,15 @@ class ItemLicitacao(db.Model):
     unidade = db.Column(db.String(50), nullable=True)
     quantidade = db.Column(db.Integer, nullable=True)
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+    # Quando e por quem o valor minimo foi registrado (horario de Brasilia)
+    valor_registrado_em = db.Column(db.DateTime, nullable=True)
+    valor_registrado_por = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    registrado_por = db.relationship("User", foreign_keys=[valor_registrado_por])
+
+    @property
+    def fora_do_prazo(self):
+        prazo = self.licitacao.prazo_precos if self.licitacao else None
+        return bool(self.valor_registrado_em and prazo and self.valor_registrado_em > prazo)
 
 
 class ComentarioLicitacao(db.Model):

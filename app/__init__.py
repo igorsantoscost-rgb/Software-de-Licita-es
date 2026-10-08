@@ -274,6 +274,10 @@ def _migrar_coluna_tipo_documento():
                 ("itens_licitacao", "valor_estimado", "NUMERIC(14,4)"),
                 ("licitacoes", "data_disputa_original", "TIMESTAMP"),
                 ("licitacoes", "reagendada_em", "TIMESTAMP"),
+                # Aviso de preco registrado pelo cliente
+                ("itens_licitacao", "valor_registrado_em", "TIMESTAMP"),
+                ("itens_licitacao", "valor_registrado_por", "INTEGER"),
+                ("licitacoes", "aviso_preco_enviado_em", "TIMESTAMP"),
             ]
             for tabela, coluna, tipo in colunas_importacao:
                 existe = conn.execute(text("""

@@ -78,7 +78,7 @@
     </thead>
     <tbody>
       {% for l in licitacoes %}
-      <tr>
+      <tr{% if l.tem_interesse_cliente %} class="linha-interesse"{% endif %}>
         <td class="col-fav">
           <form method="POST" action="{{ url_for('lic.favoritar', id=l.id) }}" class="form-favorito">
             <button type="submit" class="btn-favorito {% if l.id in fav_ids %}favorita{% endif %}"
@@ -88,6 +88,12 @@
         <td>
           <strong>{{ l.numero_pregao }}</strong>
           {% if l.uasg %}<br><small class="muted">UASG {{ l.uasg }}</small>{% endif %}
+          {% if l.tem_interesse_cliente %}
+          {% set up = l.ultimo_preco_em %}
+          <br><span class="tag-interesse {% if l.preco_fora_do_prazo %}tag-interesse-atrasado{% endif %}"
+                title="{{ l.itens_com_preco|length }} item(ns) com preço{% if up %} · último em {{ up.strftime('%d/%m %H:%M') }}{% endif %}{% if l.preco_fora_do_prazo %} · fora do prazo (12h do dia anterior){% endif %}">
+            💰 Cliente com interesse{% if l.preco_fora_do_prazo %} · fora do prazo{% endif %}</span>
+          {% endif %}
         </td>
         <td>{{ l.orgao_licitante }}</td>
         <td>{{ l.portal or '—' }}</td>

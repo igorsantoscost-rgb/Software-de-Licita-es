@@ -14,3 +14,4 @@ markdown==3.7
 bleach==6.1.0
 pypdf==5.1.0
 SQLAlchemy>=2.0.30,<2.1
+tzdata==2025.2
