@@ -150,19 +150,21 @@
           🗑 Excluir (<span id="qtd-itens-sel">0</span>)
         </button>
       </form>
+      {% set tem_marca = itens_lista|selectattr('marca')|list|length > 0 %}
+      {% set tem_lote = itens_lista|selectattr('lote_grupo')|list|length > 0 %}
       <div class="tabela-wrap tabela-wrap-card tabela-itens-wrap">
       <table class="tabela tabela-sm tabela-itens">
         <thead>
           <tr>
             <th class="col-sel"><input type="checkbox" id="sel-todos-itens" title="Selecionar todos"></th>
             <th class="col-desc">Descrição</th>
-            <th>Marca</th>
+            {% if tem_marca %}<th>Marca</th>{% endif %}
             <th>Nº item</th>
-            <th>Lote/Grupo</th>
-            <th>Qtd</th>
+            {% if tem_lote %}<th>Lote/Grupo</th>{% endif %}
+            <th class="col-num">Qtd</th>
             <th>Un.</th>
-            <th>Valor est. (un.)</th>
-            <th>Valor mín.</th>
+            <th class="col-num">Valor est. (un.)</th>
+            <th class="col-num">Valor mín.</th>
             <th></th>
           </tr>
         </thead>
@@ -171,17 +173,17 @@
           <tr>
             <td class="col-sel"><input type="checkbox" name="item_ids" value="{{ item.id }}" form="form-excluir-itens" class="sel-item"></td>
             <td class="col-desc"><div class="item-desc" title="Clique para ver a descrição inteira" onclick="this.classList.toggle('item-desc-aberta')">{{ item.descricao }}</div></td>
-            <td>{{ item.marca or '—' }}</td>
+            {% if tem_marca %}<td>{{ item.marca or '—' }}</td>{% endif %}
             <td>{{ item.numero_item or '—' }}</td>
-            <td>{{ item.lote_grupo or '—' }}</td>
-            <td>{{ item.quantidade or '—' }}</td>
+            {% if tem_lote %}<td>{{ item.lote_grupo or '—' }}</td>{% endif %}
+            <td class="col-num">{{ item.quantidade or '—' }}</td>
             <td>{{ item.unidade or '—' }}</td>
-            <td style="white-space:nowrap;">
+            <td class="nowrap col-num">
               {% if item.valor_estimado %}
                 R$ {{ "{:,.2f}".format(item.valor_estimado).replace(",", "X").replace(".", ",").replace("X", ".") }}
               {% else %}—{% endif %}
             </td>
-            <td class="nowrap">
+            <td class="nowrap col-num col-valor-min">
               {% if item.valor_minimo %}
                 R$ {{ "%.2f"|format(item.valor_minimo)|replace('.', ',') }}
                 {% if current_user.is_assessor() and item.valor_registrado_em %}<br><small class="{{ 'texto-atrasado' if item.fora_do_prazo else 'muted' }}"
