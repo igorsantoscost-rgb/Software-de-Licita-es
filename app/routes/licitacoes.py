@@ -7,7 +7,7 @@ from app.models import (Licitacao, Documento, ItemLicitacao, Cliente,
 from app import db
 from app.capag import consultar as consultar_capag, municipios_por_uf, UFS, significado as capag_significado
 from datetime import datetime
-import os, uuid, requests
+import os, re, uuid, requests
 
 lic_bp = Blueprint("lic", __name__, url_prefix="/licitacoes")
 
@@ -554,13 +554,65 @@ def buscar_cnpj(cnpj):
     return jsonify({"ok": True, **dados})
 
 
+def _aplicar_resultado(item, lic, venc, escolha="", cnpj="", nome="", uf="", municipio="",
+                       justificativa="", marca=""):
+    """Grava o resultado de um item. Retorna mensagem de erro (str) ou None se gravou."""
+    from app.resultados import so_digitos, cnpj_valido, consultar_cnpj
+    from app.models import agora_brasilia
+    cnpj = so_digitos(cnpj)
+    if cnpj and not cnpj_valido(cnpj):
+        return "CNPJ do vencedor inválido. Confira os números."
+    cli = lic.cliente
+    cnpj_cliente = so_digitos(cli.cnpj) if cli and cli.cnpj else ""
+    minimo = float(item.valor_minimo) if item.valor_minimo is not None else None
+
+    resultado, just = None, None
+    if cnpj and cnpj_cliente and cnpj == cnpj_cliente:
+        resultado = "vitoria"  # a proposta vencedora e do proprio cliente
+    elif minimo is None:
+        resultado = "sem_lance"
+    elif venc >= minimo:
+        if escolha == "vitoria":
+            resultado = "vitoria"
+        elif escolha == "justificar":
+            if not justificativa:
+                return "Escreva a justificativa: por que o cliente não venceu com valor melhor?"
+            resultado, just = "derrota_justificada", justificativa
+        else:
+            return "Escolha Vitória ou Justificar."
+    else:
+        resultado = "derrota"
+
+    if resultado == "vitoria":
+        cnpj = cnpj_cliente
+        nome, uf, municipio = (cli.nome if cli else ""), (cli.estado or ""), (cli.cidade or "")
+        marca = marca or item.marca or ""
+    elif cnpj and not nome:
+        dados = consultar_cnpj(cnpj)
+        if dados:
+            nome, uf, municipio = dados["nome"], dados["uf"], dados["municipio"]
+
+    item.resultado = resultado
+    item.resultado_justificativa = just
+    item.diferenca_pct = round((minimo - venc) / venc * 100, 2) if minimo is not None else None
+    item.valor_vencedor = venc
+    item.vencedor_cnpj = cnpj or None
+    item.vencedor_nome = (nome or "").strip() or None
+    item.vencedor_uf = (uf or "").strip().upper()[:2] or None
+    item.vencedor_municipio = (municipio or "").strip() or None
+    item.vencedor_marca = (marca or "").strip()[:200] or None
+    item.resultado_definitivo = lic.status in ("homologada", "encerrada")
+    item.resultado_em = agora_brasilia()
+    item.resultado_por = current_user.id
+    return None
+
+
 @lic_bp.route("/item/<int:item_id>/resultado", methods=["POST"])
 @login_required
 def salvar_resultado(item_id):
     """Assessor registra o resultado do item: valor vencedor e, conforme o caso,
     vitoria / justificativa / CNPJ do vencedor."""
-    from app.resultados import parse_valor, so_digitos, cnpj_valido, consultar_cnpj
-    from app.models import agora_brasilia
+    from app.resultados import parse_valor
     if not current_user.is_assessor():
         abort(403)
     item = ItemLicitacao.query.get_or_404(item_id)
@@ -569,7 +621,8 @@ def salvar_resultado(item_id):
 
     if request.form.get("acao") == "limpar":
         for campo in ("resultado", "valor_vencedor", "diferenca_pct", "vencedor_cnpj", "vencedor_nome",
-                      "vencedor_uf", "vencedor_municipio", "resultado_justificativa", "resultado_em", "resultado_por"):
+                      "vencedor_uf", "vencedor_municipio", "vencedor_marca", "resultado_justificativa",
+                      "resultado_em", "resultado_por"):
             setattr(item, campo, None)
         item.resultado_definitivo = False
         db.session.commit()
@@ -580,58 +633,165 @@ def salvar_resultado(item_id):
     if venc is None:
         flash("Informe o valor vencedor do item.", "erro")
         return redirect(voltar)
-
-    minimo = float(item.valor_minimo) if item.valor_minimo is not None else None
-    escolha = request.form.get("escolha", "")
-    cnpj = so_digitos(request.form.get("vencedor_cnpj"))
-    nome = (request.form.get("vencedor_nome") or "").strip()
-    uf = (request.form.get("vencedor_uf") or "").strip().upper()[:2]
-    municipio = (request.form.get("vencedor_municipio") or "").strip()
-    justificativa = (request.form.get("justificativa") or "").strip()
-
-    if cnpj and not cnpj_valido(cnpj):
-        flash("CNPJ do vencedor inválido. Confira os números.", "erro")
+    erro = _aplicar_resultado(
+        item, lic, venc,
+        escolha=request.form.get("escolha", ""),
+        cnpj=request.form.get("vencedor_cnpj", ""),
+        nome=request.form.get("vencedor_nome", ""),
+        uf=request.form.get("vencedor_uf", ""),
+        municipio=request.form.get("vencedor_municipio", ""),
+        justificativa=(request.form.get("justificativa") or "").strip(),
+        marca=request.form.get("vencedor_marca", ""),
+    )
+    if erro:
+        db.session.rollback()
+        flash(erro, "erro")
         return redirect(voltar)
-
-    item.resultado_justificativa = None
-    if minimo is None:
-        item.resultado = "sem_lance"
-        item.diferenca_pct = None
-    else:
-        item.diferenca_pct = round((minimo - venc) / venc * 100, 2)
-        if venc >= minimo:
-            if escolha == "vitoria":
-                item.resultado = "vitoria"
-                cli = lic.cliente
-                cnpj = so_digitos(cli.cnpj) if cli and cli.cnpj else ""
-                nome, uf, municipio = (cli.nome if cli else ""), (cli.estado or "" if cli else ""), (cli.cidade or "" if cli else "")
-            elif escolha == "justificar":
-                if not justificativa:
-                    flash("Escreva a justificativa: por que o cliente não venceu com valor melhor?", "erro")
-                    return redirect(voltar)
-                item.resultado = "derrota_justificada"
-                item.resultado_justificativa = justificativa
-            else:
-                flash("Escolha Vitória ou Justificar.", "erro")
-                return redirect(voltar)
-        else:
-            item.resultado = "derrota"
-
-    if cnpj and not nome and item.resultado != "vitoria":
-        dados = consultar_cnpj(cnpj)
-        if dados:
-            nome, uf, municipio = dados["nome"], dados["uf"], dados["municipio"]
-
-    item.valor_vencedor = venc
-    item.vencedor_cnpj = cnpj or None
-    item.vencedor_nome = nome or None
-    item.vencedor_uf = uf or None
-    item.vencedor_municipio = municipio or None
-    item.resultado_definitivo = lic.status in ("homologada", "encerrada")
-    item.resultado_em = agora_brasilia()
-    item.resultado_por = current_user.id
     db.session.commit()
     flash("Resultado do item salvo.", "ok")
+    return redirect(voltar)
+
+
+# ─── Leitura de proposta em PDF ───────────────────────────────────────────────
+
+def _pasta_propostas_tmp(lic_id):
+    pasta = os.path.join(UPLOAD_FOLDER, str(lic_id), "propostas_tmp")
+    os.makedirs(pasta, exist_ok=True)
+    return pasta
+
+
+def _num_item(txt):
+    t = (txt or "").strip().lower().replace("item", "").strip()
+    return t.lstrip("0") or ("0" if t else "")
+
+
+@lic_bp.route("/<int:id>/proposta/ler", methods=["POST"])
+@login_required
+def ler_proposta_pdf(id):
+    """Le o PDF da proposta vencedora e devolve uma previa (itens, valores, marca, licitante)."""
+    from flask import jsonify
+    from app.proposta_pdf import ler_proposta
+    from app.resultados import consultar_cnpj, formatar_cnpj, so_digitos
+    if not current_user.is_assessor():
+        abort(403)
+    lic = Licitacao.query.get_or_404(id)
+    f = request.files.get("proposta")
+    if not f or not f.filename.lower().endswith(".pdf"):
+        return jsonify({"ok": False, "erro": "Envie a proposta em PDF."})
+    token = uuid.uuid4().hex
+    caminho = os.path.join(_pasta_propostas_tmp(id), token + ".pdf")
+    f.save(caminho)
+    with open(caminho + ".nome", "w", encoding="utf-8") as fn:
+        fn.write(f.filename)
+
+    lido = ler_proposta(caminho)
+    if not lido.get("ok"):
+        return jsonify({"ok": False, "erro": lido.get("erro")})
+
+    cnpj = lido.get("cnpj") or ""
+    dados = consultar_cnpj(cnpj) if cnpj else None
+    licitante = {
+        "cnpj": formatar_cnpj(cnpj) if cnpj else "",
+        "nome": (dados or {}).get("nome") or lido.get("nome_pdf") or "",
+        "uf": (dados or {}).get("uf") or "",
+        "municipio": (dados or {}).get("municipio") or "",
+        "fonte": (dados or {}).get("fonte") or ("PDF" if lido.get("nome_pdf") else ""),
+    }
+    cnpj_cliente = so_digitos(lic.cliente.cnpj) if lic.cliente and lic.cliente.cnpj else ""
+    e_cliente = bool(cnpj and cnpj_cliente and cnpj == cnpj_cliente)
+
+    por_numero = {}
+    for it in lic.itens:
+        por_numero.setdefault(_num_item(it.numero_item), it)
+    item_clicado = request.form.get("item_id", type=int)
+
+    itens = []
+    for p in lido["itens"]:
+        it = por_numero.get(_num_item(p["numero"]))
+        if not it or not p.get("unit"):
+            itens.append({"numero": p["numero"], "item_id": None, "unit": p.get("unit"), "marca": p.get("marca"),
+                          "previsto": "nao_encontrado"})
+            continue
+        minimo = float(it.valor_minimo) if it.valor_minimo is not None else None
+        if e_cliente:
+            previsto = "vitoria"
+        elif minimo is None:
+            previsto = "sem_lance"
+        elif p["unit"] < minimo:
+            previsto = "derrota"
+        else:
+            previsto = "justificar"
+        itens.append({
+            "numero": p["numero"], "item_id": it.id, "descricao": (it.descricao or "")[:90],
+            "minimo": minimo, "qtd": p.get("qtd") or it.quantidade, "unit": p["unit"], "total": p.get("total"),
+            "marca": p.get("marca") or "", "previsto": previsto,
+            "diferenca": round((minimo - p["unit"]) / p["unit"] * 100, 2) if minimo is not None else None,
+            "ja_tem": bool(it.resultado),
+            "marcar": (minimo is not None) or it.id == item_clicado,
+        })
+    return jsonify({"ok": True, "token": token, "licitante": licitante, "e_cliente": e_cliente, "itens": itens})
+
+
+@lic_bp.route("/<int:id>/proposta/aplicar", methods=["POST"])
+@login_required
+def aplicar_proposta_pdf(id):
+    """Grava os resultados escolhidos na previa e anexa o PDF da proposta a licitacao."""
+    from app.resultados import parse_valor
+    if not current_user.is_assessor():
+        abort(403)
+    lic = Licitacao.query.get_or_404(id)
+    voltar = request.referrer or url_for("lic.detalhe", id=id)
+    token = re.sub(r"[^0-9a-f]", "", request.form.get("token", ""))
+    caminho_tmp = os.path.join(_pasta_propostas_tmp(id), token + ".pdf")
+    if not token or not os.path.exists(caminho_tmp):
+        flash("A leitura da proposta expirou. Envie o PDF de novo.", "erro")
+        return redirect(voltar)
+
+    cnpj = request.form.get("cnpj", "")
+    nome = request.form.get("nome", "")
+    uf = request.form.get("uf", "")
+    municipio = request.form.get("municipio", "")
+    ids = [int(x) for x in request.form.getlist("item_ids") if x.isdigit()]
+    gravados, pulados = 0, []
+    for item in ItemLicitacao.query.filter(ItemLicitacao.licitacao_id == id, ItemLicitacao.id.in_(ids)).all():
+        venc = parse_valor(request.form.get(f"unit_{item.id}"))
+        if venc is None:
+            pulados.append(item.numero_item or str(item.id))
+            continue
+        just = (request.form.get(f"just_{item.id}") or "").strip()
+        erro = _aplicar_resultado(item, lic, venc,
+                                  escolha=request.form.get(f"escolha_{item.id}", "justificar" if just else ""),
+                                  cnpj=cnpj, nome=nome, uf=uf, municipio=municipio,
+                                  justificativa=just, marca=request.form.get(f"marca_{item.id}", ""))
+        if erro:
+            pulados.append(item.numero_item or str(item.id))
+            continue
+        gravados += 1
+
+    # anexa a proposta aos documentos da licitacao
+    try:
+        nome_original = "proposta.pdf"
+        if os.path.exists(caminho_tmp + ".nome"):
+            with open(caminho_tmp + ".nome", encoding="utf-8") as fn:
+                nome_original = fn.read().strip() or nome_original
+            os.remove(caminho_tmp + ".nome")
+        pasta = os.path.join(UPLOAD_FOLDER, str(id))
+        destino = os.path.join(pasta, f"{uuid.uuid4().hex}.pdf")
+        os.replace(caminho_tmp, destino)
+        if not nome_original.lower().startswith("proposta"):
+            nome_original = f"Proposta - {nome_original}"
+        db.session.add(Documento(licitacao_id=id, categoria="processo", tipo="outros",
+                                 nome_original=nome_original[:300], caminho=destino,
+                                 tamanho=os.path.getsize(destino), enviado_por=current_user.id))
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Falha ao anexar proposta: {e}")
+
+    db.session.commit()
+    msg = f"{gravados} item(ns) preenchido(s) pela proposta de {(nome or 'licitante').strip()}."
+    if pulados:
+        msg += f" Ficaram de fora (falta valor ou justificativa): item(ns) {', '.join(pulados)}."
+    flash(msg, "ok" if gravados else "erro")
     return redirect(voltar)
 
 

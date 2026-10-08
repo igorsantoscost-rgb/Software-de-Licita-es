@@ -1579,3 +1579,21 @@ button.res-badge { cursor: pointer; }
 .col-qtd .unidade { display: block; font-size: .68rem; color: #6b7280; max-width: 64px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .col-detalhe-principal .tabela-itens .col-desc { min-width: 120px; }
 @media (min-width: 1600px) { .col-detalhe-principal .tabela-itens .col-num { padding-left: 14px; } .col-detalhe-principal .tabela-itens td.col-resultado { padding-left: 14px; } }
+
+/* Leitura de proposta em PDF */
+.modal-resultado-box { max-width: 640px; max-height: 92vh; overflow-y: auto; }
+.res-pdf { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; margin-bottom: 12px; border: 1px dashed #2c4a6e; border-radius: 8px; background: #f5f8fc; }
+.res-pdf-label { align-self: flex-start; font-weight: 700; font-size: .85rem; color: #2c4a6e; cursor: pointer; }
+.res-pdf-label:hover { text-decoration: underline; }
+.prop-licitante { margin-bottom: 10px; }
+.prop-itens-wrap { max-height: 46vh; overflow-y: auto; border: 1px solid #e3e9ef; border-radius: 8px; margin-bottom: 10px; }
+.prop-itens { width: 100%; border-collapse: collapse; font-size: .78rem; }
+.prop-itens th { position: sticky; top: 0; background: #f3f6f9; text-align: left; padding: 6px; font-size: .72rem; }
+.prop-itens td { padding: 6px; border-top: 1px solid #eef1f4; vertical-align: top; }
+.prop-itens td small { display: block; color: #6b7280; font-size: .68rem; }
+.prop-itens input[type=text] { width: 100%; padding: 4px 6px; font-size: .78rem; border: 1px solid #d0dad3; border-radius: 5px; }
+.prop-unit { max-width: 90px; }
+.prop-just { margin-top: 4px; }
+.prop-aviso { color: #b45309 !important; }
+.prop-interesse td:first-child { box-shadow: inset 3px 0 0 #22c55e; }
+.prop-fora td { color: #9ca3af; }

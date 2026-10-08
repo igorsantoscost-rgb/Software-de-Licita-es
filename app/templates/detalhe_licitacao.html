@@ -203,7 +203,7 @@
                 data-resultado="{{ item.resultado or '' }}" data-venc="{{ item.valor_vencedor or '' }}"
                 data-cnpj="{{ item.vencedor_cnpj_formatado }}" data-nome="{{ item.vencedor_nome or '' }}"
                 data-uf="{{ item.vencedor_uf or '' }}" data-municipio="{{ item.vencedor_municipio or '' }}"
-                data-just="{{ item.resultado_justificativa or '' }}" data-desc="{{ item.descricao[:120] }}"{% endset %}
+                data-just="{{ item.resultado_justificativa or '' }}" data-marca-venc="{{ item.vencedor_marca or '' }}" data-desc="{{ item.descricao[:120] }}"{% endset %}
               {% if item.resultado %}
                 {% set cls = {'vitoria':'res-vitoria','derrota':'res-derrota','derrota_justificada':'res-justificada','sem_lance':'res-neutro'}[item.resultado] %}
                 {% if current_user.is_assessor() %}<button type="button" class="res-badge {{ cls }} btn-resultado" {{ dados_res }} title="Editar resultado">{% else %}<span class="res-badge {{ cls }}">{% endif %}
@@ -215,6 +215,9 @@
                 <small class="res-linha">{{ item.valor_vencedor|brl }}{% if not item.resultado_definitivo %} · <em>provisório</em>{% endif %}</small>
                 {% if item.vencedor_nome and item.resultado != 'vitoria' %}
                 <small class="res-linha res-vencedor" title="{{ item.vencedor_nome }}{% if item.vencedor_cnpj %} · {{ item.vencedor_cnpj_formatado }}{% endif %}{% if item.vencedor_municipio %} · {{ item.vencedor_municipio }}{% endif %}">{{ item.vencedor_nome }}{% if item.vencedor_uf %} ({{ item.vencedor_uf }}){% endif %}</small>
+                {% endif %}
+                {% if item.vencedor_marca and item.resultado != 'vitoria' %}
+                <small class="res-linha res-vencedor" title="Marca ofertada pelo vencedor">Marca: {{ item.vencedor_marca }}</small>
                 {% endif %}
                 {% if item.resultado_justificativa %}<small class="res-linha res-just" title="{{ item.resultado_justificativa }}">{{ item.resultado_justificativa }}</small>{% endif %}
               {% elif current_user.is_assessor() %}
@@ -557,10 +560,40 @@
 
 {% if current_user.is_assessor() %}
 <!-- Modal resultado do item -->
-<div id="modal-resultado" class="modal" style="display:none">
+<div id="modal-resultado" class="modal" style="display:none" data-lic="{{ lic.id }}">
   <div class="modal-box modal-resultado-box">
     <h3>Resultado do item</h3>
     <p class="muted-sm" id="res-desc"></p>
+    <div class="res-pdf">
+      <span class="res-pdf-label">📄 Ler proposta vencedora (PDF)</span>
+      <input type="file" id="res-pdf-input" accept="application/pdf,.pdf" hidden>
+      <small class="muted" id="res-pdf-status">O sistema lê valor, marca e licitante e preenche também os outros itens de interesse do cliente.</small>
+    </div>
+
+    <form method="POST" id="form-proposta" hidden>
+      <input type="hidden" name="token" id="prop-token">
+      <div class="prop-licitante">
+        <div class="campo-row">
+          <div class="campo"><label>CNPJ do licitante</label><input type="text" name="cnpj" id="prop-cnpj"></div>
+          <div class="campo campo-uf"><label>UF</label><input type="text" name="uf" id="prop-uf" maxlength="2"></div>
+        </div>
+        <div class="campo"><label>Empresa</label><input type="text" name="nome" id="prop-nome"></div>
+        <input type="hidden" name="municipio" id="prop-municipio">
+        <small class="muted" id="prop-fonte"></small>
+      </div>
+      <div class="prop-itens-wrap">
+        <table class="prop-itens">
+          <thead><tr><th></th><th>Item</th><th>Valor unit.</th><th>Marca</th><th>Resultado</th></tr></thead>
+          <tbody id="prop-itens"></tbody>
+        </table>
+      </div>
+      <div class="modal-btns">
+        <button type="button" class="btn" id="prop-voltar">Voltar</button>
+        <span style="flex:1"></span>
+        <button type="submit" class="btn btn-primary">Aplicar resultados</button>
+      </div>
+    </form>
+
     <form method="POST" id="form-resultado">
       <div class="res-info">Mínimo do cliente: <strong id="res-min-txt">—</strong></div>
       <div class="campo">
@@ -602,6 +635,7 @@
           <div class="campo campo-largo"><label>Empresa</label><input type="text" name="vencedor_nome" id="res-nome"></div>
           <div class="campo campo-uf"><label>UF</label><input type="text" name="vencedor_uf" id="res-uf" maxlength="2"></div>
         </div>
+        <div class="campo"><label>Marca ofertada pelo vencedor</label><input type="text" name="vencedor_marca" id="res-marca"></div>
         <input type="hidden" name="vencedor_municipio" id="res-municipio">
       </div>
 
@@ -622,7 +656,7 @@
   if (!modal) return;
   var form = document.getElementById('form-resultado');
   var $ = function (id) { return document.getElementById(id); };
-  var minimo = null, qtd = 1;
+  var minimo = null, qtd = 1, itemAtual = null;
   function fmt(v, casas) { return v.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: casas || 2}); }
 
   function num(t) {
@@ -673,6 +707,11 @@
       $('res-nome').value = vitoria ? '' : (d.nome || '');
       $('res-uf').value = vitoria ? '' : (d.uf || '');
       $('res-municipio').value = vitoria ? '' : (d.municipio || '');
+      $('res-marca').value = vitoria ? '' : (d.marcaVenc || '');
+      itemAtual = d.id;
+      $('form-proposta').hidden = true; form.hidden = false;
+      $('res-pdf-input').value = '';
+      $('res-pdf-status').textContent = 'O sistema lê valor, marca e licitante e preenche também os outros itens de interesse do cliente.';
       $('res-cnpj-status').textContent = '';
       $('res-limpar').hidden = !d.resultado;
       atualizar();
@@ -717,6 +756,55 @@
       .catch(function () { $('res-cnpj-status').textContent = 'Não consegui consultar agora. Preencha o nome e a UF à mão.'; });
   }
   $('res-buscar').addEventListener('click', buscar);
+
+  // ── Leitura da proposta em PDF ──
+  var formProp = $('form-proposta');
+  formProp.action = '/licitacoes/' + modal.dataset.lic + '/proposta/aplicar';
+  function esc(t) { var d = document.createElement('div'); d.textContent = t == null ? '' : t; return d.innerHTML; }
+  $('res-pdf-input').addEventListener('change', function () {
+    var arq = this.files[0];
+    if (!arq) return;
+    $('res-pdf-status').textContent = 'Lendo a proposta...';
+    var fd = new FormData(); fd.append('proposta', arq); fd.append('item_id', itemAtual);
+    fetch('/licitacoes/' + modal.dataset.lic + '/proposta/ler', {method: 'POST', body: fd, credentials: 'same-origin'})
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j.ok) { $('res-pdf-status').textContent = j.erro || 'Não consegui ler a proposta.'; return; }
+        $('prop-token').value = j.token;
+        $('prop-cnpj').value = j.licitante.cnpj; $('prop-nome').value = j.licitante.nome;
+        $('prop-uf').value = j.licitante.uf; $('prop-municipio').value = j.licitante.municipio;
+        $('prop-fonte').textContent = (j.e_cliente ? 'Proposta do próprio cliente: itens marcados como vitória. ' : '') +
+          (j.licitante.fonte ? 'Dados da empresa: ' + j.licitante.fonte + (j.licitante.municipio ? ' · ' + j.licitante.municipio + '/' + j.licitante.uf : '') : 'Confira o nome e a UF.');
+        var linhas = '';
+        j.itens.forEach(function (it) {
+          if (!it.item_id) {
+            linhas += '<tr class="prop-fora"><td></td><td>' + esc(it.numero) + '</td><td>' + (it.unit ? brl(it.unit) : '—') + '</td><td>' + esc(it.marca || '') + '</td><td><small>não está nesta licitação</small></td></tr>';
+            return;
+          }
+          var res;
+          if (it.previsto === 'vitoria') res = '<span class="res-badge res-vitoria">🏆 Vitória</span>';
+          else if (it.previsto === 'derrota') res = '<span class="res-badge res-derrota">Derrota · +' + it.diferenca.toFixed(2).replace('.', ',') + '%</span>';
+          else if (it.previsto === 'sem_lance') res = '<span class="res-badge res-neutro">Sem valor do cliente</span>';
+          else res = '<span class="res-badge res-justificada">Cliente tinha valor melhor</span><input type="text" name="just_' + it.item_id + '" class="prop-just" placeholder="Justificativa (obrigatória)">';
+          if (it.ja_tem) res += '<small class="prop-aviso">substitui o resultado atual</small>';
+          linhas += '<tr' + (it.minimo !== null ? ' class="prop-interesse"' : '') + '>' +
+            '<td><input type="checkbox" name="item_ids" value="' + it.item_id + '"' + (it.marcar ? ' checked' : '') + '></td>' +
+            '<td title="' + esc(it.descricao) + '"><strong>' + esc(it.numero) + '</strong>' + (it.minimo !== null ? '<small>mín. ' + brl(it.minimo) + '</small>' : '<small>sem interesse</small>') + '</td>' +
+            '<td><input type="text" name="unit_' + it.item_id + '" value="' + fmt(it.unit, 4) + '" class="prop-unit"></td>' +
+            '<td><input type="text" name="marca_' + it.item_id + '" value="' + esc(it.marca) + '" class="prop-marca"></td>' +
+            '<td>' + res + '</td></tr>';
+        });
+        $('prop-itens').innerHTML = linhas;
+        form.hidden = true; formProp.hidden = false;
+        var n = j.itens.filter(function (i) { return i.item_id; }).length;
+        $('res-pdf-status').textContent = 'Proposta lida: ' + j.itens.length + ' item(ns), ' + n + ' desta licitação. Confira e aplique.';
+      })
+      .catch(function () { $('res-pdf-status').textContent = 'Falha ao enviar o PDF. Tente de novo.'; });
+  });
+  $('prop-voltar').addEventListener('click', function () { formProp.hidden = true; form.hidden = false; });
+  formProp.addEventListener('submit', function (e) {
+    if (!formProp.querySelector('input[name=item_ids]:checked')) { e.preventDefault(); alert('Marque ao menos um item.'); }
+  });
   form.addEventListener('submit', function (e) {
     if (e.submitter && e.submitter.value === 'limpar') return;
     if (minimo !== null && num($('res-venc').value) >= minimo && !form.querySelector('input[name=escolha]:checked')) {

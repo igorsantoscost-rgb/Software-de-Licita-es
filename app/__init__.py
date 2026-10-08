@@ -313,6 +313,7 @@ def _migrar_coluna_tipo_documento():
                 ("itens_licitacao", "resultado_definitivo", "BOOLEAN DEFAULT FALSE"),
                 ("itens_licitacao", "resultado_em", "TIMESTAMP"),
                 ("itens_licitacao", "resultado_por", "INTEGER"),
+                ("itens_licitacao", "vencedor_marca", "VARCHAR(200)"),
             ]
             for tabela, coluna, tipo in colunas_importacao:
                 existe = conn.execute(text("""

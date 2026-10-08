@@ -325,6 +325,7 @@ class ItemLicitacao(db.Model):
     vencedor_nome = db.Column(db.String(255), nullable=True)
     vencedor_uf = db.Column(db.String(2), nullable=True)
     vencedor_municipio = db.Column(db.String(150), nullable=True)
+    vencedor_marca = db.Column(db.String(200), nullable=True)
     resultado_justificativa = db.Column(db.Text, nullable=True)
     resultado_definitivo = db.Column(db.Boolean, default=False)
     resultado_em = db.Column(db.DateTime, nullable=True)
