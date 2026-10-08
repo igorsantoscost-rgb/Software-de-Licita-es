@@ -13,6 +13,7 @@
                 title="{{ 'Tirar dos favoritos' if favorita else 'Favoritar' }}" aria-pressed="{{ 'true' if favorita else 'false' }}">★</button>
       </form>
       {{ lic.orgao_licitante }}
+      {% if current_user.is_assessor() and lic.favoritada_pelo_cliente %}<span class="tag-fav-cliente tag-fav-cliente-titulo" title="O cliente marcou esta licitação como favorita">★ Favorita do cliente</span>{% endif %}
     </h2>
     <p class="muted">Pregão {{ lic.numero_pregao }}{% if lic.uasg %} · UASG {{ lic.uasg }}{% endif %}{% if lic.portal %} · {{ lic.portal }}{% endif %}</p>
   </div>

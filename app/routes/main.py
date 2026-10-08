@@ -38,6 +38,16 @@ def ids_favoritos():
     return {f.licitacao_id for f in FavoritoLicitacao.query.filter_by(user_id=current_user.id)}
 
 
+def ids_favoritos_cliente():
+    """Ids das licitacoes que o PROPRIO cliente (algum usuario dele) marcou com estrela."""
+    from app.models import User
+    q = (db.session.query(FavoritoLicitacao.licitacao_id)
+         .join(User, User.id == FavoritoLicitacao.user_id)
+         .join(Licitacao, Licitacao.id == FavoritoLicitacao.licitacao_id)
+         .filter(User.perfil == "cliente", User.cliente_id == Licitacao.cliente_id))
+    return {r[0] for r in q.all()}
+
+
 def _lembrar_tela(url, rotulo):
     """Guarda a tela de lista (com filtros, busca e ordenacao) de onde o
     usuario abriu a licitacao, para o botao "Voltar" do detalhe trazer de
@@ -124,6 +134,8 @@ def _licitacoes_do_usuario(status_filtro=None, cliente_filtro=None, sort_coluna=
     if status_filtro == "favoritas":
         q = q.filter(Licitacao.id.in_(
             db.session.query(FavoritoLicitacao.licitacao_id).filter_by(user_id=current_user.id)))
+    elif status_filtro == "fav_cliente":
+        q = q.filter(Licitacao.id.in_(ids_favoritos_cliente() or {0}))
     elif status_filtro == "finalizadas":
         q = q.filter(Licitacao.status.in_(("homologada", "encerrada")))
     elif status_filtro and status_filtro != "todos":
@@ -136,7 +148,7 @@ def _licitacoes_do_usuario(status_filtro=None, cliente_filtro=None, sort_coluna=
     if sort_coluna in _ORDENADORES_COLUNA:
         # Usuario clicou num titulo de coluna: essa ordenacao manda
         lics.sort(key=_ORDENADORES_COLUNA[sort_coluna], reverse=(sort_dir == "desc"))
-    elif status_filtro in ("todos", "favoritas") or not status_filtro:
+    elif status_filtro in ("todos", "favoritas", "fav_cliente") or not status_filtro:
         # Padrao: ordena por prioridade de status, depois por data
         lics.sort(key=lambda l: (_ORDEM_STATUS.get(l.status, 99), l.data_disputa or datetime.max))
     return lics
@@ -182,6 +194,7 @@ def painel():
         sort_dir=sort_dir,
         busca=busca,
         fav_ids=ids_favoritos(),
+        fav_cliente_ids=ids_favoritos_cliente() if current_user.is_assessor() else set(),
         metricas_painel=_metricas_painel(licitacoes, status_filtro),
     )
 

@@ -1597,3 +1597,8 @@ button.res-badge { cursor: pointer; }
 .prop-aviso { color: #b45309 !important; }
 .prop-interesse td:first-child { box-shadow: inset 3px 0 0 #22c55e; }
 .prop-fora td { color: #9ca3af; }
+
+.tag-fav-cliente { display: inline-block; margin-top: 4px; font-size: .72rem; font-weight: 700; color: #92400e; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 10px; padding: 1px 8px; white-space: nowrap; }
+.tag-fav-cliente-titulo { margin: 0 0 0 8px; font-size: .78rem; vertical-align: middle; letter-spacing: 0; }
+.estrela-cliente { color: #d97706; margin-right: 3px; }
+.filtro-fav-cliente.ativo { background: #fef3c7; border-color: #f59e0b; color: #92400e; }

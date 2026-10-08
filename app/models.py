@@ -192,6 +192,12 @@ class Licitacao(db.Model):
         return datetime(dia_anterior.year, dia_anterior.month, dia_anterior.day, 12, 0)
 
     @property
+    def favoritada_pelo_cliente(self):
+        """True se algum usuario do proprio cliente marcou esta licitacao com estrela."""
+        return any(f.usuario and f.usuario.perfil == "cliente" and f.usuario.cliente_id == self.cliente_id
+                   for f in self.favoritos)
+
+    @property
     def metricas_resultado(self):
         from app.resultados import metricas
         return metricas(self.itens)
@@ -210,6 +216,7 @@ class FavoritoLicitacao(db.Model):
     licitacao_id = db.Column(db.Integer, db.ForeignKey("licitacoes.id"), nullable=False, index=True)
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
     __table_args__ = (db.UniqueConstraint("user_id", "licitacao_id", name="uq_favorito_user_licitacao"),)
+    usuario = db.relationship("User", foreign_keys=[user_id])
 
 
 class Documento(db.Model):

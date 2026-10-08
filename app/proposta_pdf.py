@@ -31,6 +31,83 @@ def texto_do_pdf(caminho):
             return ""
 
 
+def palavras_do_pdf(caminho):
+    """Palavras com coordenadas (pdftotext -bbox). y acumulado entre paginas."""
+    import html as _html
+    try:
+        out = subprocess.run(["pdftotext", "-bbox", caminho, "-"], capture_output=True, timeout=60, check=True)
+        txt = out.stdout.decode("utf-8", errors="ignore")
+    except Exception:
+        return []
+    palavras, desloc, altura = [], 0.0, 0.0
+    for bloco in re.finditer(r'<page width="([\d.]+)" height="([\d.]+)">(.*?)</page>', txt, re.S):
+        altura = float(bloco.group(2))
+        for w in re.finditer(r'<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)" yMax="([\d.]+)">(.*?)</word>', bloco.group(3)):
+            x0, y0, x1, y1 = (float(w.group(i)) for i in range(1, 5))
+            palavras.append({"x0": x0, "x1": x1, "y0": y0 + desloc, "y1": y1 + desloc,
+                             "xc": (x0 + x1) / 2, "yc": (y0 + y1) / 2 + desloc, "t": _html.unescape(w.group(5))})
+        desloc += altura
+    return palavras
+
+
+def _marcas_por_coluna(palavras, numeros):
+    """Usa a posicao real da coluna MARCA (cabecalho) para pegar a marca de cada item.
+    numeros: lista de numeros de item na ordem em que aparecem. Retorna {indice: marca}."""
+    if not palavras:
+        return {}
+    cab = None
+    for w in palavras:
+        if re.match(r"^MARCA\b", w["t"].upper()):
+            mesma = [o for o in palavras if abs(o["yc"] - w["yc"]) < 4 and o is not w]
+            txt = " ".join(o["t"].upper() for o in mesma)
+            if any(k in txt for k in ("ITEM", "VALOR", "QTD", "QUANT", "UNIT", "DESCRI")):
+                cab = (w, mesma)
+                break
+    if not cab:
+        return {}
+    marca, mesma = cab
+    direita = [o["x0"] for o in mesma if o["x0"] > marca["x1"]]
+    x_dir = min(direita) - 2 if direita else 10 ** 6
+    item_cab = next((o for o in mesma if o["t"].upper().startswith("ITEM")), None)
+
+    # linha (y) de cada item: numero do item na coluna ITEM, abaixo do cabecalho
+    ys, ultimo_y = [], marca["y1"]
+    for n in numeros:
+        cand = [w for w in palavras if w["y0"] > ultimo_y and (w["t"].lstrip("0") or "0") == n
+                and (item_cab is None or abs(w["xc"] - item_cab["xc"]) < 30 or w["x0"] < item_cab["x1"] + 15)]
+        if not cand:
+            ys.append(None)
+            continue
+        y = min(cand, key=lambda w: w["y0"])["yc"]
+        ys.append(y)
+        ultimo_y = y
+    fim_tabela = min([w["yc"] for w in palavras if w["yc"] > (max([y for y in ys if y] or [0])) and "TOTAL" in w["t"].upper()] or [10 ** 9])
+
+    # borda esquerda real da coluna: fim do texto que fica todo a esquerda do titulo MARCA
+    corpo = [w for w in palavras if marca["y1"] < w["yc"] < fim_tabela]
+    esquerda = [w["x1"] for w in corpo if w["x1"] <= marca["x0"] + 2]
+    x_esq = max(esquerda) if esquerda else marca["x0"] - 25
+
+    marcas = {}
+    for k, y in enumerate(ys):
+        if y is None:
+            continue
+        ant = next((ys[j] for j in range(k - 1, -1, -1) if ys[j]), None)
+        prox = next((ys[j] for j in range(k + 1, len(ys)) if ys[j]), None)
+        topo = (ant + y) / 2 if ant else marca["y1"] + 1
+        base = (y + prox) / 2 if prox else min(fim_tabela - 2, y + 40)
+        ws = [w for w in palavras if topo <= w["yc"] < base and w["x0"] > x_esq - 0.5 and w["xc"] <= x_dir
+              and not RE_DINHEIRO.fullmatch(w["t"]) and w["t"] not in ("R$",)]
+        ws.sort(key=lambda w: (round(w["yc"] / 3), w["x0"]))
+        texto = " ".join(w["t"] for w in ws).strip()
+        if texto:
+            marcas[k] = texto
+    return marcas
+
+
+RE_MARCA_INLINE = re.compile(r"\bMA?R?CA(?:\s*(?:OFERTADA|/\s*MODELO|E\s+MODELO|/\s*FABRICANTE))?\s*[:\-–]\s*(.+)", re.IGNORECASE)
+
+
 def _valor(txt):
     t = txt.replace("R$", "").replace(" ", "").strip()
     if "," in t:
@@ -75,12 +152,16 @@ def ler_proposta(caminho, cnpjs_ignorar=()):
 
     # ── Licitante ──
     ignorar = {re.sub(r"\D", "", c) for c in cnpjs_ignorar if c}
-    cnpj = None
+    # CNPJ do licitante: o que mais se repete (cabecalho, rodape, assinatura digital);
+    # o CNPJ do orgao, quando aparece, costuma vir uma vez so. Empate: o primeiro.
+    contagem, ordem = {}, []
     for m in RE_CNPJ.finditer(texto):
         d = re.sub(r"\D", "", m.group())
         if len(d) == 14 and d not in ignorar:
-            cnpj = d
-            break
+            if d not in contagem:
+                ordem.append(d)
+            contagem[d] = contagem.get(d, 0) + 1
+    cnpj = max(ordem, key=lambda d: (contagem[d], -ordem.index(d))) if ordem else None
     nome_pdf = None
     for ln in linhas:
         s = ln.strip()
@@ -147,7 +228,23 @@ def ler_proposta(caminho, cnpjs_ignorar=()):
                         partes.append(seg)
             marca = " ".join(partes).strip() or None
 
+        # "MARCA OFERTADA: X" escrita dentro do bloco do item (abaixo da descricao)
+        if not marca:
+            fim_bloco = idx_itens[pos + 1][0] if pos + 1 < len(idx_itens) else min(len(linhas), i + 15)
+            for j in range(i, fim_bloco):
+                mm = RE_MARCA_INLINE.search(linhas[j])
+                if mm and not re.search(r"\bVALOR\b", linhas[j], re.I):
+                    marca = re.split(r"\s{3,}", mm.group(1).strip())[0].strip() or None
+                    break
+
         itens.append({"numero": numero, "qtd": qtd, "unit": unit, "total": total, "marca": marca})
+
+    # Marca pela posicao real da coluna (PDFs exportados do Excel desalinham o texto)
+    if itens and any(not it["marca"] for it in itens) or (itens and col_marca is None):
+        por_coluna = _marcas_por_coluna(palavras_do_pdf(caminho), [it["numero"] for it in itens])
+        for k, it in enumerate(itens):
+            if not it["marca"] and por_coluna.get(k):
+                it["marca"] = por_coluna[k]
 
     if not itens:
         return {"ok": False, "erro": "Não encontrei a tabela de itens nesta proposta. Preencha o resultado à mão.",

@@ -52,6 +52,10 @@
      class="filtro-pill {% if status_filtro == 'todos' %}ativo{% endif %}">Todos</a>
   <a href="{{ url_for('main.painel', status='favoritas', cliente_id=cliente_filtro, busca=busca or None) }}"
      class="filtro-pill filtro-favoritas {% if status_filtro == 'favoritas' %}ativo{% endif %}">★ Favoritas</a>
+  {% if current_user.is_assessor() %}
+  <a href="{{ url_for('main.painel', status='fav_cliente', cliente_id=cliente_filtro, busca=busca or None) }}"
+     class="filtro-pill filtro-fav-cliente {% if status_filtro == 'fav_cliente' %}ativo{% endif %}">★ Favoritas do cliente</a>
+  {% endif %}
   <a href="{{ url_for('main.painel', status='finalizadas', cliente_id=cliente_filtro, busca=busca or None) }}"
      class="filtro-pill filtro-finalizadas {% if status_filtro == 'finalizadas' %}ativo{% endif %}">Finalizadas</a>
   {% for s in status_choices %}
@@ -101,7 +105,7 @@
     </thead>
     <tbody>
       {% for l in licitacoes %}
-      <tr{% if current_user.is_assessor() and l.tem_interesse_cliente %} class="linha-interesse"{% endif %}>
+      <tr{% if current_user.is_assessor() and l.status == 'agendada' and l.tem_interesse_cliente %} class="linha-interesse"{% endif %}>
         <td class="col-fav">
           <form method="POST" action="{{ url_for('lic.favoritar', id=l.id) }}" class="form-favorito">
             <button type="submit" class="btn-favorito {% if l.id in fav_ids %}favorita{% endif %}"
@@ -111,7 +115,8 @@
         <td>
           <strong>{{ l.numero_pregao }}</strong>
           {% if l.uasg %}<br><small class="muted">UASG {{ l.uasg }}</small>{% endif %}
-          {% if current_user.is_assessor() and l.tem_interesse_cliente %}
+          {% if l.id in fav_cliente_ids %}<br><span class="tag-fav-cliente" title="O cliente marcou esta licitação como favorita">★ Favorita do cliente</span>{% endif %}
+          {% if current_user.is_assessor() and l.status == 'agendada' and l.tem_interesse_cliente %}
           {% set up = l.ultimo_preco_em %}
           <br><span class="tag-interesse {% if l.preco_fora_do_prazo %}tag-interesse-atrasado{% endif %}"
                 title="{{ l.itens_com_preco|length }} item(ns) com preço{% if up %} · último em {{ up.strftime('%d/%m %H:%M') }}{% endif %}{% if l.preco_fora_do_prazo %} · fora do prazo (12h do dia anterior){% endif %}">

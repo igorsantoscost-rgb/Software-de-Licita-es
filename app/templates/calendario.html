@@ -50,7 +50,7 @@
                 <span class="evento-hora">{{ l.data_disputa.strftime('%H:%M') }} {{ l.numero_pregao }}</span>
                 {% if l|tem_comentario_assessor %}<span class="evento-recado-icon" title="Tem comentário do assessor">💬</span>{% endif %}
               </span>
-              <span class="evento-orgao">{{ l.orgao_licitante }} {% if current_user.is_assessor() and l.comentario_cliente_pendente_em %}<span class="tag-comentario-cliente" title="Comentário novo do cliente ({{ l.comentario_cliente_pendente_em.strftime('%d/%m %H:%M') }})">C</span>{% endif %}</span>
+              <span class="evento-orgao">{% if current_user.is_assessor() and l.favoritada_pelo_cliente %}<span class="estrela-cliente" title="Favorita do cliente">★</span>{% endif %}{{ l.orgao_licitante }} {% if current_user.is_assessor() and l.comentario_cliente_pendente_em %}<span class="tag-comentario-cliente" title="Comentário novo do cliente ({{ l.comentario_cliente_pendente_em.strftime('%d/%m %H:%M') }})">C</span>{% endif %}</span>
               {% if l.data_disputa_original %}<span class="tag-reagendada tag-reagendada-mini">↻ Reagendada</span>{% endif %}
             </a>
             {% endfor %}

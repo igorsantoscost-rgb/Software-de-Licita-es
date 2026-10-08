@@ -39,7 +39,7 @@
             {% if l|tem_comentario_assessor %}<span class="evento-recado-icon" title="Tem comentário do assessor">💬</span>{% endif %}
           </div>
           <div class="evento-card-pregao">{{ l.numero_pregao }}</div>
-          <div class="evento-card-orgao">{{ l.orgao_licitante }} {% if current_user.is_assessor() and l.comentario_cliente_pendente_em %}<span class="tag-comentario-cliente" title="Comentário novo do cliente ({{ l.comentario_cliente_pendente_em.strftime('%d/%m %H:%M') }})">C</span>{% endif %}</div>
+          <div class="evento-card-orgao">{% if current_user.is_assessor() and l.favoritada_pelo_cliente %}<span class="estrela-cliente" title="Favorita do cliente">★</span>{% endif %}{{ l.orgao_licitante }} {% if current_user.is_assessor() and l.comentario_cliente_pendente_em %}<span class="tag-comentario-cliente" title="Comentário novo do cliente ({{ l.comentario_cliente_pendente_em.strftime('%d/%m %H:%M') }})">C</span>{% endif %}</div>
           {% if l.data_disputa_original %}<div class="tag-reagendada tag-reagendada-mini" title="Data original: {{ l.data_disputa_original.strftime('%d/%m/%Y %H:%M') }}">↻ Reagendada</div>{% endif %}
         </a>
         {% endfor %}
