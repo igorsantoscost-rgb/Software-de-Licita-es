@@ -1688,3 +1688,21 @@ button.btn-ver-resultado:hover { filter: brightness(.96); text-decoration: under
 .vr-bloco { background: #f7f9fb; border: 1px solid #e5eaf0; border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; font-size: .88rem; }
 .vr-rotulo { font-size: .7rem; text-transform: uppercase; letter-spacing: .04em; color: #6b7280; margin-bottom: 3px; }
 .vr-bloco .muted-sm, .vr-bloco div { margin: 1px 0; }
+
+/* Status do assessor no painel = mesmo desenho da etiqueta do cliente (pilula pequena).
+   A setinha so aparece ao passar o mouse, para indicar que da para trocar. */
+body .tabela td.col-status select.select-status-mini,
+body.com-menu .tabela td.col-status select.select-status-mini {
+  width: auto; min-width: 0; height: auto; field-sizing: content;
+  padding: 3px 10px; border-radius: 20px; border: none;
+  font-size: .78rem; font-weight: 600; line-height: 1.4;
+  text-align: center; text-align-last: center;
+  background-size: 0 0, 0 0, 100% 100%;
+  box-shadow: none; cursor: pointer;
+}
+body .tabela td.col-status select.select-status-mini:hover,
+body .tabela td.col-status select.select-status-mini:focus {
+  padding-right: 22px;
+  background-size: 5px 5px, 5px 5px, 100% 100%;
+  outline: none;
+}
