@@ -1602,3 +1602,51 @@ button.res-badge { cursor: pointer; }
 .tag-fav-cliente-titulo { margin: 0 0 0 8px; font-size: .78rem; vertical-align: middle; letter-spacing: 0; }
 .estrela-cliente { color: #d97706; margin-right: 3px; }
 .filtro-fav-cliente.ativo { background: #fef3c7; border-color: #f59e0b; color: #92400e; }
+
+/* ─── Tags de status: degrade verde (agendada) -> dourado (homologada); demais em cinza ─── */
+.badge.status-agendada, body.com-menu .badge.status-agendada,
+.select-status-mini.status-agendada, .select-status-compacto.status-agendada { background: #15803d; color: #fff; border-color: #15803d; }
+.badge.status-em-disputa, body.com-menu .badge.status-em-disputa,
+.select-status-mini.status-em-disputa, .select-status-compacto.status-em-disputa { background: #3e8130; color: #fff; border-color: #3e8130; }
+.badge.status-em-julgamento, body.com-menu .badge.status-em-julgamento,
+.select-status-mini.status-em-julgamento, .select-status-compacto.status-em-julgamento { background: #668324; color: #fff; border-color: #668324; }
+.badge.status-em-habilitacao, body.com-menu .badge.status-em-habilitacao,
+.select-status-mini.status-em-habilitacao, .select-status-compacto.status-em-habilitacao { background: #8f8417; color: #fff; border-color: #8f8417; }
+.badge.status-homologada, body.com-menu .badge.status-homologada,
+.select-status-mini.status-homologada, .select-status-compacto.status-homologada { background: #b8860b; color: #fff; border-color: #b8860b; }
+.badge.status-revogada, .badge.status-cancelada, .badge.status-encerrada, .badge.status-sem-participacao,
+body.com-menu .badge.status-revogada, body.com-menu .badge.status-cancelada, body.com-menu .badge.status-encerrada, body.com-menu .badge.status-sem-participacao,
+.select-status-mini.status-revogada, .select-status-mini.status-cancelada, .select-status-mini.status-encerrada, .select-status-mini.status-sem-participacao,
+.select-status-compacto.status-revogada, .select-status-compacto.status-cancelada, .select-status-compacto.status-encerrada, .select-status-compacto.status-sem-participacao { background: #e5e7eb; color: #4b5563; border-color: #d1d5db; }
+.select-status-mini option, .select-status-compacto option { background: #fff; color: #1f2937; }
+
+/* (mesmas cores com prioridade sobre o tema) degrade verde (agendada) -> dourado (homologada); demais em cinza ─── */
+.badge.status-agendada, body.com-menu .badge.status-agendada,
+body.com-menu .select-status-mini.status-agendada, body.com-menu .select-status-compacto.status-agendada { background: #15803d; color: #fff; border-color: #15803d; }
+.badge.status-em-disputa, body.com-menu .badge.status-em-disputa,
+body.com-menu .select-status-mini.status-em-disputa, body.com-menu .select-status-compacto.status-em-disputa { background: #3e8130; color: #fff; border-color: #3e8130; }
+.badge.status-em-julgamento, body.com-menu .badge.status-em-julgamento,
+body.com-menu .select-status-mini.status-em-julgamento, body.com-menu .select-status-compacto.status-em-julgamento { background: #668324; color: #fff; border-color: #668324; }
+.badge.status-em-habilitacao, body.com-menu .badge.status-em-habilitacao,
+body.com-menu .select-status-mini.status-em-habilitacao, body.com-menu .select-status-compacto.status-em-habilitacao { background: #8f8417; color: #fff; border-color: #8f8417; }
+.badge.status-homologada, body.com-menu .badge.status-homologada,
+body.com-menu .select-status-mini.status-homologada, body.com-menu .select-status-compacto.status-homologada { background: #b8860b; color: #fff; border-color: #b8860b; }
+.badge.status-revogada, .badge.status-cancelada, .badge.status-encerrada, .badge.status-sem-participacao,
+body.com-menu .badge.status-revogada, body.com-menu .badge.status-cancelada, body.com-menu .badge.status-encerrada, body.com-menu .badge.status-sem-participacao,
+body.com-menu .select-status-mini.status-revogada, body.com-menu .select-status-mini.status-cancelada, body.com-menu .select-status-mini.status-encerrada, body.com-menu .select-status-mini.status-sem-participacao,
+body.com-menu .select-status-compacto.status-revogada, body.com-menu .select-status-compacto.status-cancelada, body.com-menu .select-status-compacto.status-encerrada, body.com-menu .select-status-compacto.status-sem-participacao { background: #e5e7eb; color: #4b5563; border-color: #d1d5db; }
+.select-status-mini option, .select-status-compacto option { background: #fff; color: #1f2937; }
+
+/* ─── Calendario: faixa "Em andamento" ─── */
+.andamento { margin-top: 18px; }
+.andamento-titulo { font-size: 1rem; color: #1e3348; margin-bottom: 10px; }
+.andamento-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 900px) { .andamento-grid { grid-template-columns: 1fr; } }
+.andamento-coluna { display: flex; flex-direction: column; gap: 6px; }
+.andamento-coluna-topo { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+.andamento-card { display: flex; flex-direction: column; gap: 1px; padding: 7px 10px; background: #fff; border: 1px solid #e3e9e5; border-left: 4px solid #9ca3af; border-radius: 8px; text-decoration: none; color: inherit; font-size: .8rem; }
+.andamento-card:hover { background: #f6faf7; }
+.andamento-card-topo { display: flex; justify-content: space-between; gap: 6px; }
+.andamento-card-orgao { color: #374151; line-height: 1.3; }
+.andamento-card-cliente { color: #6b7280; font-size: .7rem; }
+.andamento-vazio { font-size: .8rem; }

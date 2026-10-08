@@ -19,6 +19,17 @@ _ORDEM_STATUS = {s: i for i, s in enumerate(STATUS_ATIVOS)}
 # Status que, uma vez atingidos, tiram a licitacao do calendario (ela continua
 # disponivel no painel, so nao faz mais sentido ocupar espaco na agenda).
 STATUS_OCULTOS_CALENDARIO = ["revogada", "cancelada", "sem participacao", "encerrada"]
+STATUS_ANDAMENTO = ["em disputa", "em julgamento", "em habilitacao"]
+
+
+def _em_andamento(busca=""):
+    """Licitacoes ja disputadas e ainda em andamento (disputa, julgamento, habilitacao),
+    agrupadas por status, para a faixa abaixo do calendario."""
+    q = Licitacao.query.filter(Licitacao.status.in_(STATUS_ANDAMENTO))
+    if not current_user.is_assessor():
+        q = q.filter(Licitacao.cliente_id == current_user.cliente_id)
+    lics = filtrar_por_busca(q.order_by(Licitacao.data_disputa.asc()).all(), busca)
+    return [(s, [l for l in lics if l.status == s]) for s in STATUS_ANDAMENTO]
 
 
 
@@ -236,7 +247,7 @@ def calendario():
     q = Licitacao.query.filter(
         Licitacao.data_disputa >= datetime(ano, mes, 1),
         Licitacao.data_disputa <= datetime(ano, mes, ultimo_dia.day, 23, 59, 59),
-        ~Licitacao.status.in_(STATUS_OCULTOS_CALENDARIO),
+        Licitacao.status == "agendada",  # no calendario so as disputas agendadas
     )
     if not current_user.is_assessor():
         q = q.filter(Licitacao.cliente_id == current_user.cliente_id)
@@ -268,6 +279,7 @@ def calendario():
         hoje=date.today(),
         busca=busca,
         resultados_busca=resultados_busca,
+        em_andamento=_em_andamento(busca),
     )
 
 
@@ -299,7 +311,7 @@ def calendario_semana():
     q = Licitacao.query.filter(
         Licitacao.data_disputa >= datetime(inicio.year, inicio.month, inicio.day),
         Licitacao.data_disputa <= datetime(fim.year, fim.month, fim.day, 23, 59, 59),
-        ~Licitacao.status.in_(STATUS_OCULTOS_CALENDARIO),
+        Licitacao.status == "agendada",  # no calendario so as disputas agendadas
     )
     if not current_user.is_assessor():
         q = q.filter(Licitacao.cliente_id == current_user.cliente_id)
@@ -333,6 +345,7 @@ def calendario_semana():
         dia_destaque=dia_destaque,
         busca=busca,
         resultados_busca=resultados_busca,
+        em_andamento=_em_andamento(busca),
     )
 
 
