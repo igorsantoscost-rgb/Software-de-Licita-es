@@ -152,6 +152,7 @@ def create_app():
             db.session.rollback()
         _migrar_coluna_tipo_documento()
         _migrar_faturas()
+        _migrar_quadro_societario()
         _seed_admin(app)
         _seed_capag_estados()
         _padronizar_textos_importados()
@@ -169,6 +170,18 @@ def create_app_for_cli():
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     db.init_app(app)
     return app
+
+
+def _migrar_quadro_societario():
+    """Documentos do cliente: socio, critica do envio e dados lidos do arquivo."""
+    from sqlalchemy import text
+    try:
+        with db.engine.connect() as conn:
+            for coluna, tipo in [("socio_id", "INTEGER"), ("alerta", "TEXT"), ("dados_extra", "TEXT")]:
+                conn.execute(text(f"ALTER TABLE documentos_cliente ADD COLUMN IF NOT EXISTS {coluna} {tipo}"))
+            conn.commit()
+    except Exception:
+        db.session.rollback()
 
 
 def _migrar_faturas():

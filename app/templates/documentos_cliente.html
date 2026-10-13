@@ -3,7 +3,7 @@
 {% block conteudo %}
 
 <style>
-.setor-bloco { margin-bottom: 28px; }
+.setor-bloco { margin-bottom: 28px; scroll-margin-top: 80px; }
 .setor-titulo {
   font-size: 1.05rem;
   font-weight: 700;
@@ -26,22 +26,206 @@
 .docs-acoes-topo { display: flex; gap: 10px; flex-wrap: wrap; margin: 4px 0 20px; }
 .campo-check-sem-val { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
 .campo-check-sem-val label { font-size: .82rem; color: #475569; }
-.validade-info { font-size: .78rem; margin-top: 6px; line-height: 1.35; color: #1d4ed8; }
-.validade-info.aviso { color: #b45309; }
-.validade-info.lendo { color: #5f6b64; }
+.doc-card { scroll-margin-top: 80px; }
+.validade-info, .conferencia-info { font-size: .78rem; margin-top: 6px; line-height: 1.35; color: #1d4ed8; }
+.validade-info.aviso, .conferencia-info.aviso { color: #b45309; }
+.validade-info.lendo, .conferencia-info.lendo { color: #5f6b64; }
+.conferencia-info.ok { color: #15803d; }
+.conferencia-info.erro {
+  color: #991b1b; background: #fee2e2; border: 1px solid #fecaca;
+  border-radius: 8px; padding: 8px 10px; font-weight: 600;
+}
+.confirmar-divergencia { display: none; align-items: center; gap: 6px; margin-top: 6px; font-size: .8rem; color: #991b1b; font-weight: 600; }
+.campo-obs.obrigatorio { background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 8px; padding: 8px 10px; }
+.campo-obs.obrigatorio label { color: #3730a3; font-weight: 600; }
+.aviso-conjuge { display: none; font-size: .78rem; color: #3730a3; margin-top: 6px; }
+.doc-alerta { font-size: .78rem; color: #991b1b; background: #fee2e2; border-radius: 6px; padding: 6px 8px; margin-top: 6px; }
+.lista-criticas { margin: 6px 0 0 18px; padding: 0; font-weight: 500; }
+.lista-criticas li { margin: 2px 0; }
+
+/* Quadro societário */
+.quadro-info { font-size: .85rem; color: #475569; margin: 0 0 12px; }
+.socio-card {
+  border: 1px solid #dbe4dd; border-radius: 14px; padding: 14px 16px 6px;
+  margin-bottom: 16px; background: #fbfdfb; scroll-margin-top: 80px;
+}
+.socio-topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.socio-nome { font-weight: 700; font-size: 1rem; color: #1a1a2e; }
+.socio-dados { font-size: .8rem; color: #5f6b64; margin-top: 2px; }
+.socio-acoes { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.socio-acoes details summary { cursor: pointer; font-size: .8rem; color: #1d4ed8; list-style: none; }
+.socio-acoes form.form-editar { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.socio-acoes input { font-size: .82rem; }
+.badge-fora { font-size: .72rem; font-weight: 600; background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 20px; margin-left: 6px; }
+.nota-conjuge { font-size: .8rem; color: #3730a3; background: #eef2ff; border-radius: 8px; padding: 8px 10px; margin: 0 0 10px; }
+.box-contrato { border: 1px dashed #93c5fd; background: #eff6ff; border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; font-size: .85rem; }
+.box-contrato label { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
+.form-novo-socio { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; margin-top: 8px; }
+.form-novo-socio .campo { margin: 0; }
+.docs-soltos { border: 1px solid #fde68a; background: #fffbeb; border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; font-size: .85rem; }
+.docs-soltos li { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 4px 0; }
 </style>
+
+{# ─────────────────────────────────────────────────────────────────────────
+   Um espaço de documento (card). socio = None para documentos da empresa.
+   ───────────────────────────────────────────────────────────────────────── #}
+{% macro slot_doc(slug, label, doc, is_lista, socio=None) %}
+{% set chave = slug ~ ('_' ~ socio.id if socio else '') %}
+<div class="doc-card" id="{{ 'doc-' ~ slug if not socio else 'doc-' ~ chave }}">
+  <div class="doc-card-header">
+    <span class="doc-card-titulo">{{ label }}</span>
+
+    {% if is_lista %}
+      {% set tem = doc and doc|length > 0 %}
+    {% else %}
+      {% set tem = doc is not none %}
+    {% endif %}
+
+    {% if tem %}
+      {% if is_lista %}
+        <span class="badge-doc ok">{{ doc|length }} arquivo(s)</span>
+      {% elif doc.nao_se_aplica %}
+        <span class="badge-doc nao-aplica">Não se aplica</span>
+      {% elif doc.alerta %}
+        <span class="badge-doc vencido">Conferir</span>
+      {% else %}
+        {% set sv = status_validade(doc.validade) %}
+        {% if sv == 'vencido' %}
+          <span class="badge-doc vencido">Vencido</span>
+        {% elif sv == 'vencendo' %}
+          <span class="badge-doc vencendo">Vence em breve</span>
+        {% elif sv == 'ok' %}
+          <span class="badge-doc ok">OK</span>
+        {% else %}
+          <span class="badge-doc sem-val">Sem validade</span>
+        {% endif %}
+      {% endif %}
+    {% else %}
+      <span class="badge-doc pendente">Pendente</span>
+    {% endif %}
+  </div>
+
+  <!-- Documentos existentes -->
+  {% if is_lista and doc %}
+    <ul class="doc-lista-inner">
+      {% for d in doc %}
+      <li class="doc-item-inner">
+        {% if not d.nao_se_aplica %}
+        <a href="{{ url_for('docs.download', doc_id=d.id) }}" class="doc-nome-link">📄 {{ d.nome_original }}</a>
+        {% else %}
+        <span class="muted">Não se aplica</span>
+        {% endif %}
+        {% if d.validade %}
+        <span class="doc-val {% if status_validade(d.validade) == 'vencido' %}txt-vencido{% elif status_validade(d.validade) == 'vencendo' %}txt-vencendo{% endif %}">
+          Val: {{ d.validade.strftime('%d/%m/%Y') }}
+        </span>
+        {% endif %}
+        {% if d.obs %}<span class="doc-obs-text">Obs: {{ d.obs }}</span>{% endif %}
+        {% if d.alerta %}<span class="doc-alerta">⚠️ {{ d.alerta }}</span>{% endif %}
+        {% if current_user.is_assessor() %}
+        <form method="POST" action="{{ url_for('docs.excluir', doc_id=d.id) }}" class="form-inline">
+          <button type="submit" class="btn-excluir" onclick="return confirm('Excluir?')">✕</button>
+        </form>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  {% elif doc and not is_lista and not doc.nao_se_aplica %}
+    <div class="doc-existente">
+      <a href="{{ url_for('docs.download', doc_id=doc.id) }}" class="doc-nome-link">📄 {{ doc.nome_original }}</a>
+      {% if doc.validade %}
+      <span class="doc-val {% if status_validade(doc.validade) == 'vencido' %}txt-vencido{% elif status_validade(doc.validade) == 'vencendo' %}txt-vencendo{% endif %}">
+        Validade: {{ doc.validade.strftime('%d/%m/%Y') }}
+        {% if status_validade(doc.validade) == 'vencendo' %}
+        ⚠️ Vence em {{ (doc.validade - hoje).days }} dia(s)!
+        {% elif status_validade(doc.validade) == 'vencido' %}
+        🔴 Vencido há {{ (hoje - doc.validade).days }} dia(s)!
+        {% endif %}
+      </span>
+      {% endif %}
+      {% if doc.alerta %}<p class="doc-alerta">⚠️ {{ doc.alerta }}</p>{% endif %}
+      {% if doc.obs %}<p class="doc-obs-text">Obs: {{ doc.obs }}</p>{% endif %}
+      {% if current_user.is_assessor() %}
+      <form method="POST" action="{{ url_for('docs.excluir', doc_id=doc.id) }}" class="form-inline">
+        <button type="submit" class="btn-excluir" onclick="return confirm('Excluir este documento?')">✕ Remover</button>
+      </form>
+      {% endif %}
+    </div>
+  {% elif doc and not is_lista and doc.nao_se_aplica %}
+    {% if doc.obs %}<p class="doc-obs-text muted">Motivo: {{ doc.obs }}</p>{% endif %}
+  {% endif %}
+
+  <!-- Formulário de upload -->
+  {% if current_user.is_assessor() %}
+  <details class="upload-details" {% if not tem %}open{% endif %}>
+    <summary>{% if is_lista %}+ Adicionar arquivo{% else %}{% if tem %}🔄 Substituir{% else %}📎 Enviar documento{% endif %}{% endif %}</summary>
+    <form method="POST" action="{{ url_for('docs.upload_doc', cliente_id=cliente.id) }}" enctype="multipart/form-data" class="form-doc" data-chave="{{ chave }}">
+      <input type="hidden" name="tipo" value="{{ slug }}">
+      {% if socio %}<input type="hidden" name="socio_id" value="{{ socio.id }}">{% endif %}
+
+      <div class="campo-check-nao-aplica">
+        <input type="checkbox" name="nao_se_aplica" id="nao_{{ chave }}" class="check-nao-aplica" data-chave="{{ chave }}">
+        <label for="nao_{{ chave }}">Não se aplica</label>
+      </div>
+      {% if slug == 'estado_civil' %}
+      <div class="aviso-conjuge" id="avisoconj_{{ chave }}">Ao salvar, o espaço do documento do cônjuge some deste sócio.</div>
+      {% endif %}
+
+      <div class="campos-doc" id="campos_{{ chave }}">
+        <div class="campo">
+          <label>Arquivo</label>
+          <input type="file" name="arquivo" class="input-file-doc" data-chave="{{ chave }}" data-slug="{{ slug }}"
+                 {% if socio %}data-socio="{{ socio.id }}"{% endif %}>
+          <div class="conferencia-info" id="confinfo_{{ chave }}"></div>
+          <label class="confirmar-divergencia" id="confirmar_{{ chave }}">
+            <input type="checkbox" name="confirmar_divergencia" class="check-confirmar" data-chave="{{ chave }}">
+            Enviar mesmo assim (conferi e está certo)
+          </label>
+        </div>
+        <div class="campo" id="campo_validade_{{ chave }}">
+          <label>Data de Validade</label>
+          <input type="date" name="validade" id="validade_{{ chave }}">
+          <div class="campo-check-sem-val">
+            <input type="checkbox" name="sem_validade" id="semval_{{ chave }}" class="check-sem-validade" data-chave="{{ chave }}" {% if slug in tipos_sem_validade %}checked{% endif %}>
+            <label for="semval_{{ chave }}">Sem data de validade</label>
+          </div>
+          <div class="validade-info" id="valinfo_{{ chave }}"></div>
+        </div>
+      </div>
+
+      <div class="campo campo-obs" id="campoobs_{{ chave }}">
+        <label id="obslabel_{{ chave }}">Observações</label>
+        <input type="text" name="obs" id="obs_{{ chave }}" placeholder="Opcional...">
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-sm" id="salvar_{{ chave }}">Salvar</button>
+    </form>
+  </details>
+  {% endif %}
+</div>
+{% endmacro %}
+
 
 <div class="page-header">
   <div>
     <a href="{{ url_for('main.clientes') }}" class="voltar">← Clientes</a>
     <h2>{{ cliente.nome }}</h2>
-    <p class="muted">Pasta de Documentos</p>
+    <p class="muted">Pasta de Documentos{% if cliente.cnpj %} · CNPJ {{ cliente.cnpj }}{% endif %}</p>
   </div>
 </div>
 
 <div class="docs-acoes-topo">
   <a href="{{ url_for('docs.baixar_zip', cliente_id=cliente.id) }}" class="btn btn-primary">⬇️ Baixar tudo (ZIP)</a>
 </div>
+
+{% if criticas %}
+<div class="alerta alerta-erro">
+  🚩 <strong>{{ criticas|length }} crítica(s) para conferir:</strong>
+  <ul class="lista-criticas">
+    {% for c in criticas %}<li>{{ c }}</li>{% endfor %}
+  </ul>
+</div>
+{% endif %}
 
 {% if pendencias %}
 <div class="alerta alerta-erro">
@@ -54,6 +238,128 @@
 {% endif %}
 
 {% for setor_nome, setor_docs in setores %}
+
+{% if setor_nome == setor_socios %}
+{# ─────────────────────────── Quadro societário ─────────────────────────── #}
+<div class="setor-bloco" id="quadro-societario">
+  <h3 class="setor-titulo">
+    {{ setor_nome }}
+    <span class="setor-contador">{{ quadro|length }} sócio(s)</span>
+  </h3>
+
+  <p class="quadro-info">
+    {% if not contrato %}
+      Envie o contrato social: o sistema encontra os sócios e monta um card para cada um.
+    {% elif not contrato_lido %}
+      O contrato social está escaneado e não deu para ler os sócios. Cadastre-os abaixo.
+    {% elif socios_contrato %}
+      O contrato social cita {{ socios_contrato|length }} sócio(s). Cada sócio tem seus próprios documentos.
+    {% else %}
+      Não encontrei os sócios no texto do contrato social. Cadastre-os abaixo.
+    {% endif %}
+  </p>
+
+  {% if current_user.is_assessor() and faltando_cadastro %}
+  <div class="box-contrato">
+    <strong>Sócios do contrato social que ainda não estão no quadro:</strong>
+    <form method="POST" action="{{ url_for('docs.adicionar_socio', cliente_id=cliente.id) }}">
+      {% for s in faltando_cadastro %}
+      <label>
+        <input type="checkbox" name="do_contrato" value="{{ s|tojson|forceescape }}" checked>
+        {{ s.nome }} · CPF {{ s.cpf }}{% if s.estado_civil %} · {{ s.estado_civil }}{% endif %}
+      </label>
+      {% endfor %}
+      <button type="submit" class="btn btn-primary btn-sm">Adicionar ao quadro</button>
+    </form>
+  </div>
+  {% endif %}
+
+  {% if current_user.is_assessor() and docs_sem_socio %}
+  <div class="docs-soltos">
+    <strong>Documentos de sócio enviados antes do quadro societário. Escolha de quem é cada um:</strong>
+    <ul style="margin:6px 0 0; padding:0; list-style:none;">
+      {% for d in docs_sem_socio %}
+      <li>
+        <span>{{ rotulos_curtos.get(d.tipo, d.tipo) }}:
+          {% if d.nao_se_aplica %}não se aplica{% else %}
+          <a href="{{ url_for('docs.download', doc_id=d.id) }}">📄 {{ d.nome_original }}</a>{% endif %}
+        </span>
+        {% if socios %}
+        <form method="POST" action="{{ url_for('docs.vincular_socio', doc_id=d.id) }}" class="form-inline">
+          <select name="socio_id">
+            {% for s in socios %}<option value="{{ s.id }}">{{ s.nome }}</option>{% endfor %}
+          </select>
+          <button type="submit" class="btn btn-sm">Vincular</button>
+        </form>
+        {% else %}
+        <span class="muted">(cadastre o sócio primeiro)</span>
+        {% endif %}
+        <form method="POST" action="{{ url_for('docs.excluir', doc_id=d.id) }}" class="form-inline">
+          <button type="submit" class="btn-excluir" onclick="return confirm('Excluir?')">🗑</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% for q in quadro %}
+  {% set s = q.socio %}
+  <div class="socio-card" id="socio-{{ s.id }}">
+    <div class="socio-topo">
+      <div>
+        <div class="socio-nome">
+          👤 Sócio {{ loop.index }}: {{ s.nome }}
+          {% if q.fora_contrato %}<span class="badge-fora">Não aparece no contrato social</span>{% endif %}
+        </div>
+        <div class="socio-dados">
+          CPF {{ s.cpf or 'não informado' }}
+          {% if s.estado_civil_contrato %} · No contrato: {{ s.estado_civil_contrato }}{% endif %}
+        </div>
+      </div>
+      {% if current_user.is_assessor() %}
+      <div class="socio-acoes">
+        <details>
+          <summary>✏️ Editar</summary>
+          <form method="POST" action="{{ url_for('docs.editar_socio', socio_id=s.id) }}" class="form-editar">
+            <input type="text" name="nome" value="{{ s.nome }}" required>
+            <input type="text" name="cpf" value="{{ s.cpf or '' }}" placeholder="CPF">
+            <button type="submit" class="btn btn-sm">Salvar</button>
+          </form>
+        </details>
+        <form method="POST" action="{{ url_for('docs.excluir_socio', socio_id=s.id) }}" class="form-inline">
+          <button type="submit" class="btn-excluir" onclick="return confirm('Remover {{ s.nome }} do quadro societário? Os documentos dele vão para a lixeira.')">🗑 Remover sócio</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+
+    {% if q.conjuge_oculto %}
+    <p class="nota-conjuge">Estado civil marcado como não se aplica: o documento do cônjuge não é exigido.</p>
+    {% endif %}
+
+    <div class="docs-grid">
+      {% for slug in q.slots %}
+        {{ slot_doc(slug, rotulos_curtos[slug], q.docs.get(slug), False, s) }}
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+
+  {% if current_user.is_assessor() %}
+  <details class="upload-details" {% if not quadro %}open{% endif %}>
+    <summary>+ Adicionar sócio</summary>
+    <form method="POST" action="{{ url_for('docs.adicionar_socio', cliente_id=cliente.id) }}" class="form-novo-socio">
+      <div class="campo"><label>Nome do sócio</label><input type="text" name="nome" required></div>
+      <div class="campo"><label>CPF</label><input type="text" name="cpf" placeholder="000.000.000-00"></div>
+      <button type="submit" class="btn btn-primary btn-sm">Adicionar</button>
+    </form>
+  </details>
+  {% endif %}
+</div>
+
+{% else %}
+{# ─────────────────────────── Documentos da empresa ─────────────────────── #}
 <div class="setor-bloco">
   <h3 class="setor-titulo">
     {{ setor_nome }}
@@ -62,138 +368,34 @@
 
   <div class="docs-grid">
     {% for slug, label in setor_docs %}
-    {% set doc = docs_por_tipo.get(slug) %}
-    {% set is_lista = slug in tipos_multiplos %}
-
-    <div class="doc-card">
-      <div class="doc-card-header">
-        <span class="doc-card-titulo">{{ label }}</span>
-
-        {% if is_lista %}
-          {% set tem = doc and doc|length > 0 %}
-        {% else %}
-          {% set tem = doc is not none %}
-        {% endif %}
-
-        {% if tem %}
-          {% if is_lista %}
-            <span class="badge-doc ok">{{ doc|length }} arquivo(s)</span>
-          {% elif doc.nao_se_aplica %}
-            <span class="badge-doc nao-aplica">Não se aplica</span>
-          {% else %}
-            {% set sv = status_validade(doc.validade) %}
-            {% if sv == 'vencido' %}
-              <span class="badge-doc vencido">Vencido</span>
-            {% elif sv == 'vencendo' %}
-              <span class="badge-doc vencendo">Vence em breve</span>
-            {% elif sv == 'ok' %}
-              <span class="badge-doc ok">OK</span>
-            {% else %}
-              <span class="badge-doc sem-val">Sem validade</span>
-            {% endif %}
-          {% endif %}
-        {% else %}
-          <span class="badge-doc pendente">Pendente</span>
-        {% endif %}
-      </div>
-
-      <!-- Documentos existentes -->
-      {% if is_lista and doc %}
-        <ul class="doc-lista-inner">
-          {% for d in doc %}
-          <li class="doc-item-inner">
-            {% if not d.nao_se_aplica %}
-            <a href="{{ url_for('docs.download', doc_id=d.id) }}" class="doc-nome-link">📄 {{ d.nome_original }}</a>
-            {% else %}
-            <span class="muted">Não se aplica</span>
-            {% endif %}
-            {% if d.validade %}
-            <span class="doc-val {% if status_validade(d.validade) == 'vencido' %}txt-vencido{% elif status_validade(d.validade) == 'vencendo' %}txt-vencendo{% endif %}">
-              Val: {{ d.validade.strftime('%d/%m/%Y') }}
-            </span>
-            {% endif %}
-            {% if d.obs %}<span class="doc-obs-text">Obs: {{ d.obs }}</span>{% endif %}
-            {% if current_user.is_assessor() %}
-            <form method="POST" action="{{ url_for('docs.excluir', doc_id=d.id) }}" class="form-inline">
-              <button type="submit" class="btn-excluir" onclick="return confirm('Excluir?')">✕</button>
-            </form>
-            {% endif %}
-          </li>
-          {% endfor %}
-        </ul>
-      {% elif doc and not is_lista and not doc.nao_se_aplica %}
-        <div class="doc-existente">
-          <a href="{{ url_for('docs.download', doc_id=doc.id) }}" class="doc-nome-link">📄 {{ doc.nome_original }}</a>
-          {% if doc.validade %}
-          <span class="doc-val {% if status_validade(doc.validade) == 'vencido' %}txt-vencido{% elif status_validade(doc.validade) == 'vencendo' %}txt-vencendo{% endif %}">
-            Validade: {{ doc.validade.strftime('%d/%m/%Y') }}
-            {% if status_validade(doc.validade) == 'vencendo' %}
-            ⚠️ Vence em {{ (doc.validade - hoje).days }} dia(s)!
-            {% elif status_validade(doc.validade) == 'vencido' %}
-            🔴 Vencido há {{ (hoje - doc.validade).days }} dia(s)!
-            {% endif %}
-          </span>
-          {% endif %}
-          {% if doc.obs %}<p class="doc-obs-text">Obs: {{ doc.obs }}</p>{% endif %}
-          {% if current_user.is_assessor() %}
-          <form method="POST" action="{{ url_for('docs.excluir', doc_id=doc.id) }}" class="form-inline">
-            <button type="submit" class="btn-excluir" onclick="return confirm('Excluir este documento?')">✕ Remover</button>
-          </form>
-          {% endif %}
-        </div>
-      {% elif doc and not is_lista and doc.nao_se_aplica %}
-        {% if doc.obs %}<p class="doc-obs-text muted">Obs: {{ doc.obs }}</p>{% endif %}
-      {% endif %}
-
-      <!-- Formulário de upload -->
-      {% if current_user.is_assessor() %}
-      <details class="upload-details" {% if not tem %}open{% endif %}>
-        <summary>{% if is_lista %}+ Adicionar arquivo{% else %}{% if tem %}🔄 Substituir{% else %}📎 Enviar documento{% endif %}{% endif %}</summary>
-        <form method="POST" action="{{ url_for('docs.upload_doc', cliente_id=cliente.id) }}" enctype="multipart/form-data" class="form-doc">
-          <input type="hidden" name="tipo" value="{{ slug }}">
-
-          <div class="campo-check-nao-aplica">
-            <input type="checkbox" name="nao_se_aplica" id="nao_{{ slug }}" class="check-nao-aplica" data-slug="{{ slug }}">
-            <label for="nao_{{ slug }}">Não se aplica</label>
-          </div>
-
-          <div class="campos-doc" id="campos_{{ slug }}">
-            <div class="campo">
-              <label>Arquivo</label>
-              <input type="file" name="arquivo" class="input-file-doc" data-slug="{{ slug }}">
-            </div>
-            <div class="campo" id="campo_validade_{{ slug }}">
-              <label>Data de Validade</label>
-              <input type="date" name="validade" id="validade_{{ slug }}">
-              <div class="campo-check-sem-val">
-                <input type="checkbox" name="sem_validade" id="semval_{{ slug }}" class="check-sem-validade" data-slug="{{ slug }}" {% if slug in tipos_sem_validade %}checked{% endif %}>
-                <label for="semval_{{ slug }}">Sem data de validade</label>
-              </div>
-              <div class="validade-info" id="valinfo_{{ slug }}"></div>
-            </div>
-          </div>
-
-          <div class="campo">
-            <label>Observações</label>
-            <input type="text" name="obs" placeholder="Opcional...">
-          </div>
-
-          <button type="submit" class="btn btn-primary btn-sm">Salvar</button>
-        </form>
-      </details>
-      {% endif %}
-    </div>
+      {{ slot_doc(slug, label, docs_por_tipo.get(slug), slug in tipos_multiplos) }}
     {% endfor %}
   </div>
 </div>
+{% endif %}
+
 {% endfor %}
 
 <script>
-// "Não se aplica" esconde todos os campos do documento
+// "Não se aplica": esconde arquivo/validade e abre o campo de motivo (obrigatório)
 document.querySelectorAll('.check-nao-aplica').forEach(cb => {
   cb.addEventListener('change', () => {
-    const campos = document.getElementById('campos_' + cb.dataset.slug);
+    const k = cb.dataset.chave;
+    const campos = document.getElementById('campos_' + k);
+    const caixa = document.getElementById('campoobs_' + k);
+    const rotulo = document.getElementById('obslabel_' + k);
+    const obs = document.getElementById('obs_' + k);
+    const conj = document.getElementById('avisoconj_' + k);
     if (campos) campos.style.display = cb.checked ? 'none' : 'block';
+    if (caixa) caixa.classList.toggle('obrigatorio', cb.checked);
+    if (rotulo) rotulo.textContent = cb.checked ? 'Motivo do "não se aplica" (obrigatório)' : 'Observações';
+    if (obs) {
+      obs.required = cb.checked;
+      obs.placeholder = cb.checked ? 'Explique por que não se aplica...' : 'Opcional...';
+      if (cb.checked) obs.focus();
+    }
+    if (conj) conj.style.display = cb.checked ? 'block' : 'none';
+    _travarSalvar(k);
   });
 });
 
@@ -201,7 +403,7 @@ document.querySelectorAll('.check-nao-aplica').forEach(cb => {
 document.querySelectorAll('.check-sem-validade').forEach(cb => {
   if (cb.checked) setTimeout(() => cb.dispatchEvent(new Event('change')), 0);
   cb.addEventListener('change', () => {
-    const inp = document.getElementById('validade_' + cb.dataset.slug);
+    const inp = document.getElementById('validade_' + cb.dataset.chave);
     if (!inp) return;
     if (cb.checked) {
       inp.value = '';
@@ -213,42 +415,85 @@ document.querySelectorAll('.check-sem-validade').forEach(cb => {
     }
   });
 });
-// Ao escolher o arquivo, le a validade do documento e preenche a data
-const URL_LER_VALIDADE = "{{ url_for('docs.ler_validade', cliente_id=cliente.id) }}";
+
+// Documento de outra empresa/pessoa: o Salvar só libera com "Enviar mesmo assim"
+const _divergente = {};
+function _travarSalvar(k) {
+  const btn = document.getElementById('salvar_' + k);
+  const conf = document.querySelector('.check-confirmar[data-chave="' + k + '"]');
+  const nao = document.getElementById('nao_' + k);
+  if (!btn) return;
+  btn.disabled = !!_divergente[k] && !(nao && nao.checked) && !(conf && conf.checked);
+}
+document.querySelectorAll('.check-confirmar').forEach(cb => {
+  cb.addEventListener('change', () => _travarSalvar(cb.dataset.chave));
+});
+
+// Ao escolher o arquivo: lê a validade e confere CNPJ (empresa) ou CPF (sócio)
+const URL_ANALISAR = "{{ url_for('docs.analisar', cliente_id=cliente.id) }}";
 const TIPOS_SEM_VALIDADE = {{ tipos_sem_validade|tojson }};
 
-function _ajustarSemValidade(slug, marcado) {
-  const cb = document.getElementById('semval_' + slug);
+function _ajustarSemValidade(k, marcado) {
+  const cb = document.getElementById('semval_' + k);
   if (cb && cb.checked !== marcado) { cb.checked = marcado; cb.dispatchEvent(new Event('change')); }
 }
 
 document.querySelectorAll('.input-file-doc').forEach(inp => {
   inp.addEventListener('change', async () => {
-    const slug = inp.dataset.slug;
-    const data = document.getElementById('validade_' + slug);
-    const info = document.getElementById('valinfo_' + slug);
-    if (!inp.files.length || !data || !info) return;
-    if (TIPOS_SEM_VALIDADE.includes(slug)) return;
+    const k = inp.dataset.chave, slug = inp.dataset.slug;
+    const data = document.getElementById('validade_' + k);
+    const info = document.getElementById('valinfo_' + k);
+    const conf = document.getElementById('confinfo_' + k);
+    const confirmar = document.getElementById('confirmar_' + k);
+    _divergente[k] = false;
+    if (confirmar) { confirmar.style.display = 'none'; confirmar.querySelector('input').checked = false; }
+    if (conf) { conf.className = 'conferencia-info'; conf.textContent = ''; }
+    _travarSalvar(k);
+    if (!inp.files.length) return;
 
-    info.className = 'validade-info lendo';
-    info.textContent = '⏳ Lendo a validade do documento...';
+    const lerValidade = !TIPOS_SEM_VALIDADE.includes(slug);
+    if (lerValidade && info) { info.className = 'validade-info lendo'; info.textContent = '⏳ Lendo a validade do documento...'; }
+    if (conf) { conf.className = 'conferencia-info lendo'; conf.textContent = '⏳ Conferindo o documento...'; }
+
     const fd = new FormData();
     fd.append('arquivo', inp.files[0]);
     fd.append('tipo', slug);
+    if (inp.dataset.socio) fd.append('socio_id', inp.dataset.socio);
     try {
-      const resp = await fetch(URL_LER_VALIDADE, { method: 'POST', body: fd, credentials: 'same-origin' });
+      const resp = await fetch(URL_ANALISAR, { method: 'POST', body: fd, credentials: 'same-origin' });
       const r = await resp.json();
       if (!r.ok) throw new Error(r.mensagem || 'erro');
-      if (r.validade) {
-        _ajustarSemValidade(slug, false);
-        data.value = r.validade;
+
+      if (lerValidade && info) {
+        if (r.validade && data) { _ajustarSemValidade(k, false); data.value = r.validade; }
+        const aviso = r.origem === 'sem_texto' || r.origem === 'padrao_90_envio';
+        info.className = 'validade-info' + (aviso ? ' aviso' : '');
+        info.textContent = (aviso ? '⚠️ ' : '📅 ') + r.mensagem + ' Pode alterar se precisar.';
       }
-      const aviso = r.origem === 'sem_texto' || r.origem === 'padrao_90_envio';
-      info.className = 'validade-info' + (aviso ? ' aviso' : '');
-      info.textContent = (aviso ? '⚠️ ' : '📅 ') + r.mensagem + ' Pode alterar se precisar.';
+
+      const c = r.conferencia || {};
+      if (conf) {
+        if (c.nivel) {
+          const icone = { ok: '✅ ', aviso: '⚠️ ', erro: '🚫 ' }[c.nivel] || '';
+          conf.className = 'conferencia-info ' + c.nivel;
+          conf.textContent = icone + c.mensagem;
+        } else {
+          conf.className = 'conferencia-info'; conf.textContent = '';
+        }
+        if (r.socios && r.socios.length) {
+          conf.className = 'conferencia-info' + (c.nivel ? ' ' + c.nivel : '');
+          conf.textContent += (conf.textContent ? ' ' : '') + '👥 Sócios no contrato: ' +
+            r.socios.map(s => s.nome).join(', ') + '.';
+        }
+      }
+      if (c.nivel === 'erro') {
+        _divergente[k] = true;
+        if (confirmar) confirmar.style.display = 'flex';
+      }
+      _travarSalvar(k);
     } catch (e) {
-      info.className = 'validade-info aviso';
-      info.textContent = '⚠️ Não consegui ler a validade. Preencha a data.';
+      if (info && lerValidade) { info.className = 'validade-info aviso'; info.textContent = '⚠️ Não consegui ler a validade. Preencha a data.'; }
+      if (conf) { conf.className = 'conferencia-info aviso'; conf.textContent = '⚠️ Não consegui conferir o documento.'; }
     }
   });
 });

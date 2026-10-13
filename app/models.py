@@ -266,9 +266,12 @@ SETORES_DOCUMENTOS = [
         ("alteracao_contratual", "Alteração Contratual"),
         ("inscricao_estado", "Prova de Inscrição no Estado"),
         ("inscricao_municipio", "Prova de Inscrição no Município"),
+    ]),
+    # Quadro societario: um conjunto destes tres documentos para cada socio
+    ("Quadro Societário", [
         ("doc_socio", "Documento de Identificação do Sócio"),
-        ("doc_conjuge", "Identificação do Cônjuge do Sócio"),
         ("estado_civil", "Comprovação de Estado Civil"),
+        ("doc_conjuge", "Identificação do Cônjuge do Sócio"),
     ]),
     ("Outros Documentos", [
         ("outros_documentos", "Outros Documentos"),
@@ -290,6 +293,21 @@ TIPOS_MULTIPLOS = {"alteracao_contratual", "outros_documentos"}
 # Tipos opcionais — nunca contam como pendência
 TIPOS_OPCIONAIS = {"outros_documentos"}
 
+# Setor e tipos do quadro societario (um conjunto por socio)
+SETOR_SOCIOS = "Quadro Societário"
+TIPOS_SOCIO = ("doc_socio", "estado_civil", "doc_conjuge")
+
+
+class SocioCliente(db.Model):
+    """Socio do cliente (quadro societario do contrato social)."""
+    __tablename__ = "socios_cliente"
+    id = db.Column(db.Integer, primary_key=True)
+    cliente_id = db.Column(db.Integer, db.ForeignKey("clientes.id"), nullable=False, index=True)
+    nome = db.Column(db.String(200), nullable=False)
+    cpf = db.Column(db.String(14), nullable=True)
+    estado_civil_contrato = db.Column(db.String(40), nullable=True)  # lido do contrato social
+    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+
 
 class DocumentoCliente(db.Model):
     __tablename__ = "documentos_cliente"
@@ -304,6 +322,13 @@ class DocumentoCliente(db.Model):
     obs = db.Column(db.Text, nullable=True)
     enviado_por = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+    # Quadro societario: de qual socio e o documento (sem chave estrangeira de
+    # proposito: documento restaurado da lixeira pode voltar sem o socio)
+    socio_id = db.Column(db.Integer, nullable=True)
+    # Critica gravada no envio (ex.: CNPJ diferente do cliente, confirmado pelo assessor)
+    alerta = db.Column(db.Text, nullable=True)
+    # Dados lidos do arquivo (JSON). Contrato social: {"socios": [...], "lido": true}
+    dados_extra = db.Column(db.Text, nullable=True)
 
 
 class ItemLicitacao(db.Model):

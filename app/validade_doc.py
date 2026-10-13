@@ -176,12 +176,17 @@ def analisar_texto(texto, hoje=None):
             "mensagem": f"Sem validade no documento: {base_txt} + {DIAS_PADRAO} dias → {v:%d/%m/%Y}."}
 
 
-def ler_validade(caminho, nome_original="", tipo="", hoje=None):
+_NAO_LIDO = object()
+
+
+def ler_validade(caminho, nome_original="", tipo="", hoje=None, texto=_NAO_LIDO):
+    """texto: passe o texto ja lido do arquivo para nao ler de novo."""
     hoje = hoje or date.today()
     if tipo in TIPOS_SEM_VALIDADE:
         return {"validade": None, "emissao": None, "origem": "nao_vence",
                 "mensagem": "Este tipo de documento não tem validade."}
-    texto = _texto_do_arquivo(caminho, nome_original)
+    if texto is _NAO_LIDO:
+        texto = _texto_do_arquivo(caminho, nome_original)
     if texto is None or not texto.strip():
         v = hoje + timedelta(days=DIAS_PADRAO)
         motivo = "PDF escaneado (sem texto)" if texto is not None else "formato que não dá para ler"
