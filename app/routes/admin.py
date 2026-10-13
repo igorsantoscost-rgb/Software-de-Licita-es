@@ -83,6 +83,12 @@ def baixar(id):
     if len(arquivos) == 1:
         o, g = arquivos[0]
         return send_file(g, as_attachment=True, download_name=nomes.get(o, os.path.basename(o)))
+    # Certificado digital nunca vai para o ZIP
+    from app.certificado import e_certificado
+    arquivos = [(o, g) for o, g in arquivos if not e_certificado(nomes.get(o), o, g, caminho=g)]
+    if not arquivos:
+        flash("Este item só tem certificado digital, que não é baixado em ZIP.", "erro")
+        return redirect(url_for("admin.lixeira", qual=item.lixeira))
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         usados = set()

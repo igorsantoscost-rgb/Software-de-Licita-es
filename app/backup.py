@@ -20,6 +20,7 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from app import db
+from app.certificado import e_certificado
 
 PASTA_UPLOADS = "/app/uploads"
 PASTA_BACKUP = os.path.join(PASTA_UPLOADS, "_backup")
@@ -165,6 +166,9 @@ def gerar_backup_completo():
                 pastas[:] = [p for p in pastas if p not in PASTAS_FORA]
             for nome in arquivos:
                 caminho = os.path.join(raiz, nome)
+                # Certificado digital nunca vai para o ZIP
+                if e_certificado(nome, caminho=caminho):
+                    continue
                 destino = os.path.join("arquivos", os.path.relpath(caminho, PASTA_UPLOADS))
                 try:
                     with open(caminho, "rb") as origem, zf.open(destino, "w", force_zip64=True) as alvo:

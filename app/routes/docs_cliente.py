@@ -39,6 +39,13 @@ def _nome_cliente(cliente_id):
     return c.nome if c else ""
 
 
+def _nome_seguro(txt):
+    """Nome valido para pasta/arquivo no Windows ("Contrato Social / Consolidado" -> "Contrato Social - Consolidado")."""
+    import re
+    txt = re.sub(r'\s*[\\/:*?"<>|]+\s*', " - ", str(txt or "")).strip(" .-")
+    return re.sub(r"\s+", " ", txt) or "Documento"
+
+
 def _voltar(cliente_id, ancora=None):
     # Envio pela tela (salvar varios de uma vez): responde sem redirecionar.
     # As mensagens ficam guardadas e aparecem quando a tela recarrega.
@@ -244,24 +251,46 @@ def baixar_zip(cliente_id):
             .order_by(DocumentoCliente.criado_em)
             .all())
     nomes_socio = {s.id: s.nome for s in SocioCliente.query.filter_by(cliente_id=cliente_id).all()}
+    from app.certificado import e_certificado
+
+    # Uma pasta por nivel de habilitacao, na ordem da tela ("1 - Regularidade Fiscal"...)
+    pasta_do_tipo = {}
+    for i, (setor, docs_setor) in enumerate(SETORES_DOCUMENTOS, start=1):
+        for slug, _label in docs_setor:
+            pasta_do_tipo[slug] = f"{i} - {_nome_seguro(setor)}"
 
     buf = io.BytesIO()
     adicionados = 0
-    usados = {}
+    certificados = 0
+    usados = set()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for d in docs:
             if d.nao_se_aplica or not d.caminho or not os.path.exists(d.caminho):
                 continue
-            label = ROTULOS.get(d.tipo, d.tipo)
-            if d.tipo in TIPOS_SOCIO and d.socio_id in nomes_socio:
-                label = f"{ROTULOS_CURTOS[d.tipo]} - {nomes_socio[d.socio_id]}"
+            # Certificado digital nunca vai para o ZIP
+            if e_certificado(d.nome_original, d.caminho, caminho=d.caminho):
+                certificados += 1
+                continue
+            pasta = pasta_do_tipo.get(d.tipo, "Outros")
+            nome = ROTULOS.get(d.tipo, d.tipo)
+            if d.tipo in TIPOS_SOCIO:
+                dono = nomes_socio.get(d.socio_id, "Sem sócio vinculado")
+                pasta = f"{pasta}/{_nome_seguro(dono)}"
+                nome = ROTULOS_CURTOS[d.tipo]
             ext = os.path.splitext(d.nome_original)[1] or os.path.splitext(d.caminho)[1]
+            if d.tipo == "outros_documentos" and d.nome_original:
+                nome = os.path.splitext(d.nome_original)[0]  # mantem o nome do arquivo enviado
+            base = _nome_seguro(nome)
+            destino, n = f"{pasta}/{base}{ext}", 2
             # Evita nomes repetidos quando há vários do mesmo tipo
-            usados[label] = usados.get(label, 0) + 1
-            base = label if usados[label] == 1 else f"{label} ({usados[label]})"
-            zf.write(d.caminho, f"{base}{ext}")
+            while destino.lower() in usados:
+                destino, n = f"{pasta}/{base} ({n}){ext}", n + 1
+            usados.add(destino.lower())
+            zf.write(d.caminho, destino)
             adicionados += 1
 
+    if certificados:
+        flash(f"{certificados} certificado(s) digital(is) ficaram fora do ZIP: certificado nunca é baixado em ZIP.", "erro")
     if adicionados == 0:
         flash("Nenhum documento disponível para baixar.", "erro")
         return _voltar(cliente_id)
