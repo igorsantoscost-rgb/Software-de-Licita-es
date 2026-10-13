@@ -39,11 +39,22 @@ def _nome_cliente(cliente_id):
     return c.nome if c else ""
 
 
-def _nome_seguro(txt):
-    """Nome valido para pasta/arquivo no Windows ("Contrato Social / Consolidado" -> "Contrato Social - Consolidado")."""
+def _nome_seguro(txt, limite=60):
+    """Nome aceito por qualquer portal de licitacao: sem acento, sem cedilha, sem
+    simbolos e sem espaco. "Comprovação de estado civil" -> "Comprovacao_de_estado_civil"."""
+    import re, unicodedata
+    txt = unicodedata.normalize("NFKD", str(txt or ""))
+    txt = "".join(c for c in txt if not unicodedata.combining(c))
+    txt = txt.replace("º", "o").replace("ª", "a").replace("&", "e")
+    txt = re.sub(r"[^A-Za-z0-9]+", "_", txt).strip("_")
+    txt = txt[:limite].rstrip("_")
+    return txt or "Documento"
+
+
+def _ext_segura(ext):
     import re
-    txt = re.sub(r'\s*[\\/:*?"<>|]+\s*', " - ", str(txt or "")).strip(" .-")
-    return re.sub(r"\s+", " ", txt) or "Documento"
+    ext = re.sub(r"[^a-z0-9]", "", (ext or "").lower())
+    return f".{ext}" if ext else ""
 
 
 def _voltar(cliente_id, ancora=None):
@@ -260,7 +271,7 @@ def baixar_zip(cliente_id):
                    if not all(slug in TIPOS_FORA_DO_ZIP for slug, _ in ds)]
     for i, (setor, docs_setor) in enumerate(setores_zip, start=1):
         for slug, _label in docs_setor:
-            pasta_do_tipo[slug] = f"{i} - {_nome_seguro(setor)}"
+            pasta_do_tipo[slug] = f"{i}_{_nome_seguro(setor)}"
 
     buf = io.BytesIO()
     adicionados = 0
@@ -283,14 +294,14 @@ def baixar_zip(cliente_id):
                 dono = nomes_socio.get(d.socio_id, "Sem sócio vinculado")
                 pasta = f"{pasta}/{_nome_seguro(dono)}"
                 nome = ROTULOS_CURTOS[d.tipo]
-            ext = os.path.splitext(d.nome_original)[1] or os.path.splitext(d.caminho)[1]
+            ext = _ext_segura(os.path.splitext(d.nome_original)[1] or os.path.splitext(d.caminho)[1])
             if d.tipo == "outros_documentos" and d.nome_original:
                 nome = os.path.splitext(d.nome_original)[0]  # mantem o nome do arquivo enviado
             base = _nome_seguro(nome)
             destino, n = f"{pasta}/{base}{ext}", 2
             # Evita nomes repetidos quando há vários do mesmo tipo
             while destino.lower() in usados:
-                destino, n = f"{pasta}/{base} ({n}){ext}", n + 1
+                destino, n = f"{pasta}/{base}_{n}{ext}", n + 1
             usados.add(destino.lower())
             zf.write(d.caminho, destino)
             adicionados += 1
@@ -303,7 +314,7 @@ def baixar_zip(cliente_id):
 
     buf.seek(0)
     data_hoje = date.today().strftime("%d-%m-%Y")
-    nome_zip = f"Habilitação - {cliente.nome} - {data_hoje}.zip"
+    nome_zip = f"Habilitacao_{_nome_seguro(cliente.nome)}_{data_hoje.replace('-', '_')}.zip"
     return send_file(buf, mimetype="application/zip",
                      as_attachment=True, download_name=nome_zip)
 
