@@ -1709,3 +1709,21 @@ body .tabela td.col-status select.select-status-mini:focus {
 
 .tabela th.col-homologado, .tabela td.col-homologado { text-align: right; white-space: nowrap; }
 .tabela td.col-homologado .valor-destaque-homologado { font-weight: 700; color: #8a6206; }
+
+/* Parametros da disputa: numero do item e "i" do registro do valor minimo */
+.tabela-itens .col-item { width: 1%; white-space: nowrap; text-align: center; font-weight: 600; }
+.info-registro { position: relative; display: inline-block; margin-left: 4px; vertical-align: middle; }
+.info-registro-btn {
+  width: 17px; height: 17px; border-radius: 50%; border: 1px solid #94a3b8; background: #fff; color: #475569;
+  font: italic 700 11px/15px Georgia, serif; padding: 0; cursor: pointer; text-align: center;
+}
+.info-registro-btn:hover, .info-registro.aberto .info-registro-btn { background: #1e3a5f; border-color: #1e3a5f; color: #fff; }
+.info-registro-btn.atrasado { border-color: #dc2626; color: #dc2626; }
+.info-registro-balao {
+  display: none; position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; min-width: 170px;
+  background: #1e293b; color: #f8fafc; font-size: .76rem; font-weight: 500; line-height: 1.4;
+  padding: 8px 10px; border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,.18); white-space: nowrap; text-align: left;
+}
+.info-registro.aberto .info-registro-balao { display: block; }
+.info-registro-balao .texto-atrasado { color: #fca5a5; }
+.col-detalhe-principal .tabela-itens td.col-valor-min { white-space: nowrap; }

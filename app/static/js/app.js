@@ -404,3 +404,9 @@ function atualizarTotalEdicao() {
   const el = document.getElementById(id);
   if (el) el.addEventListener('input', atualizarTotalEdicao);
 });
+
+// Balao "i" do valor minimo: fecha ao clicar fora
+document.addEventListener('click', function (e) {
+  if (e.target.closest && e.target.closest('.info-registro')) return;
+  document.querySelectorAll('.info-registro.aberto').forEach(function (el) { el.classList.remove('aberto'); });
+});
