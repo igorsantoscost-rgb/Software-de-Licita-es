@@ -1,12 +1,13 @@
-from flask import Blueprint, render_template, redirect, url_for, request, flash, send_from_directory, send_file, abort
+from flask import Blueprint, render_template, redirect, url_for, request, flash, send_from_directory, send_file, abort, jsonify
 from flask_login import login_required, current_user
 from app.models import (
     Cliente, DocumentoCliente, DOCUMENTOS_CLIENTE, DOCUMENTO_TIPOS,
     SETORES_DOCUMENTOS, TIPOS_MULTIPLOS, TIPOS_OPCIONAIS,
 )
 from app import db
+from app import validade_doc
 from datetime import datetime, date
-import os, uuid, io, zipfile
+import os, uuid, io, zipfile, tempfile
 
 docs_bp = Blueprint("docs", __name__, url_prefix="/clientes")
 
@@ -77,6 +78,7 @@ def documentos(cliente_id):
         status_validade=_status_validade,
         hoje=date.today(),
         aviso_dias=AVISO_DIAS,
+        tipos_sem_validade=list(validade_doc.TIPOS_SEM_VALIDADE),
     )
 
 
@@ -120,6 +122,37 @@ def baixar_zip(cliente_id):
                      as_attachment=True, download_name=nome_zip)
 
 
+@docs_bp.route("/<int:cliente_id>/documentos/ler-validade", methods=["POST"])
+@login_required
+def ler_validade(cliente_id):
+    """Le a validade do arquivo escolhido, antes de salvar (preenche o campo na tela)."""
+    if not current_user.is_assessor():
+        abort(403)
+    Cliente.query.get_or_404(cliente_id)
+    arquivo = request.files.get("arquivo")
+    tipo = request.form.get("tipo", "")
+    if not arquivo or not arquivo.filename:
+        return jsonify({"ok": False, "mensagem": "Nenhum arquivo."}), 400
+    ext = os.path.splitext(arquivo.filename)[1].lower()
+    fd, tmp = tempfile.mkstemp(suffix=ext)
+    os.close(fd)
+    try:
+        arquivo.save(tmp)
+        r = validade_doc.ler_validade(tmp, arquivo.filename, tipo)
+    finally:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+    return jsonify({
+        "ok": True,
+        "validade": r["validade"].isoformat() if r["validade"] else "",
+        "emissao": r["emissao"].isoformat() if r["emissao"] else "",
+        "origem": r["origem"],
+        "mensagem": r["mensagem"],
+    })
+
+
 @docs_bp.route("/<int:cliente_id>/documentos/upload", methods=["POST"])
 @login_required
 def upload_doc(cliente_id):
@@ -131,6 +164,7 @@ def upload_doc(cliente_id):
     nao_aplica = request.form.get("nao_se_aplica") == "on"
     obs = request.form.get("obs", "").strip()
     validade_str = request.form.get("validade", "").strip()
+    sem_validade = request.form.get("sem_validade") == "on"
     validade = None
     if validade_str:
         try:
@@ -179,6 +213,14 @@ def upload_doc(cliente_id):
     caminho = os.path.join(pasta, nome_salvo)
     arquivo.save(caminho)
 
+    # Data em branco: le do documento (ou emissao + 90 dias)
+    validade_auto = None
+    if not validade and not sem_validade:
+        r = validade_doc.ler_validade(caminho, arquivo.filename, tipo)
+        validade = r["validade"]
+        if validade:
+            validade_auto = r["mensagem"]
+
     # Para tipos únicos, remove o anterior
     if tipo not in TIPOS_MULTIPLOS:
         antigos = DocumentoCliente.query.filter_by(cliente_id=cliente_id, tipo=tipo).all()
@@ -202,7 +244,10 @@ def upload_doc(cliente_id):
     )
     db.session.add(doc)
     db.session.commit()
-    flash("Documento enviado com sucesso.", "ok")
+    if validade_auto:
+        flash(f"Documento enviado. {validade_auto}", "ok")
+    else:
+        flash("Documento enviado com sucesso.", "ok")
     return redirect(url_for("docs.documentos", cliente_id=cliente_id))
 
 

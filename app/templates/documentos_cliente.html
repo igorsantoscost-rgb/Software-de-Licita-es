@@ -26,6 +26,9 @@
 .docs-acoes-topo { display: flex; gap: 10px; flex-wrap: wrap; margin: 4px 0 20px; }
 .campo-check-sem-val { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
 .campo-check-sem-val label { font-size: .82rem; color: #475569; }
+.validade-info { font-size: .78rem; margin-top: 6px; line-height: 1.35; color: #1d4ed8; }
+.validade-info.aviso { color: #b45309; }
+.validade-info.lendo { color: #5f6b64; }
 </style>
 
 <div class="page-header">
@@ -157,15 +160,16 @@
           <div class="campos-doc" id="campos_{{ slug }}">
             <div class="campo">
               <label>Arquivo</label>
-              <input type="file" name="arquivo" class="input-file-doc">
+              <input type="file" name="arquivo" class="input-file-doc" data-slug="{{ slug }}">
             </div>
             <div class="campo" id="campo_validade_{{ slug }}">
               <label>Data de Validade</label>
               <input type="date" name="validade" id="validade_{{ slug }}">
               <div class="campo-check-sem-val">
-                <input type="checkbox" id="semval_{{ slug }}" class="check-sem-validade" data-slug="{{ slug }}">
+                <input type="checkbox" name="sem_validade" id="semval_{{ slug }}" class="check-sem-validade" data-slug="{{ slug }}" {% if slug in tipos_sem_validade %}checked{% endif %}>
                 <label for="semval_{{ slug }}">Sem data de validade</label>
               </div>
+              <div class="validade-info" id="valinfo_{{ slug }}"></div>
             </div>
           </div>
 
@@ -195,6 +199,7 @@ document.querySelectorAll('.check-nao-aplica').forEach(cb => {
 
 // "Sem data de validade" esconde e limpa o campo de data
 document.querySelectorAll('.check-sem-validade').forEach(cb => {
+  if (cb.checked) setTimeout(() => cb.dispatchEvent(new Event('change')), 0);
   cb.addEventListener('change', () => {
     const inp = document.getElementById('validade_' + cb.dataset.slug);
     if (!inp) return;
@@ -205,6 +210,45 @@ document.querySelectorAll('.check-sem-validade').forEach(cb => {
     } else {
       inp.disabled = false;
       inp.style.display = 'block';
+    }
+  });
+});
+// Ao escolher o arquivo, le a validade do documento e preenche a data
+const URL_LER_VALIDADE = "{{ url_for('docs.ler_validade', cliente_id=cliente.id) }}";
+const TIPOS_SEM_VALIDADE = {{ tipos_sem_validade|tojson }};
+
+function _ajustarSemValidade(slug, marcado) {
+  const cb = document.getElementById('semval_' + slug);
+  if (cb && cb.checked !== marcado) { cb.checked = marcado; cb.dispatchEvent(new Event('change')); }
+}
+
+document.querySelectorAll('.input-file-doc').forEach(inp => {
+  inp.addEventListener('change', async () => {
+    const slug = inp.dataset.slug;
+    const data = document.getElementById('validade_' + slug);
+    const info = document.getElementById('valinfo_' + slug);
+    if (!inp.files.length || !data || !info) return;
+    if (TIPOS_SEM_VALIDADE.includes(slug)) return;
+
+    info.className = 'validade-info lendo';
+    info.textContent = '⏳ Lendo a validade do documento...';
+    const fd = new FormData();
+    fd.append('arquivo', inp.files[0]);
+    fd.append('tipo', slug);
+    try {
+      const resp = await fetch(URL_LER_VALIDADE, { method: 'POST', body: fd, credentials: 'same-origin' });
+      const r = await resp.json();
+      if (!r.ok) throw new Error(r.mensagem || 'erro');
+      if (r.validade) {
+        _ajustarSemValidade(slug, false);
+        data.value = r.validade;
+      }
+      const aviso = r.origem === 'sem_texto' || r.origem === 'padrao_90_envio';
+      info.className = 'validade-info' + (aviso ? ' aviso' : '');
+      info.textContent = (aviso ? '⚠️ ' : '📅 ') + r.mensagem + ' Pode alterar se precisar.';
+    } catch (e) {
+      info.className = 'validade-info aviso';
+      info.textContent = '⚠️ Não consegui ler a validade. Preencha a data.';
     }
   });
 });
