@@ -24,6 +24,7 @@ DIAS_PADRAO = 90
 TIPOS_SEM_VALIDADE = {
     "contrato_social", "alteracao_contratual", "doc_socio", "doc_conjuge",
     "atestado_tecnico", "balanco_ultimo", "balanco_penultimo",
+    "contrato_consultoria", "aditivo_consultoria",
 }
 
 MESES = {

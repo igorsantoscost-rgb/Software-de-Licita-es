@@ -19,7 +19,8 @@ TIPOS_SOCIO = ("doc_socio", "estado_civil", "doc_conjuge")
 # Documentos que pertencem a empresa e devem citar o CNPJ do cliente
 TIPOS_SEM_CNPJ = set(TIPOS_SOCIO) | {"outros_documentos"}
 # Contrato/alteracao podem nao citar o CNPJ (constituicao e anterior a ele)
-TIPOS_CNPJ_OPCIONAL = {"contrato_social", "alteracao_contratual", "atestado_tecnico"}
+TIPOS_CNPJ_OPCIONAL = {"contrato_social", "alteracao_contratual", "atestado_tecnico",
+                       "contrato_consultoria", "aditivo_consultoria"}
 
 RE_CNPJ = re.compile(r"(?<![\d.])(\d{2})\.?(\d{3})\.?(\d{3})\s*/\s*(\d{4})\s*-?\s*(\d{2})(?!\d)")
 RE_CNPJ_RAIZ = re.compile(r"(?<![\d.])(\d{2})\.(\d{3})\.(\d{3})(?![\d/.])")

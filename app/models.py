@@ -243,6 +243,11 @@ TIPOS_DOC_LICITACAO_UNICOS = {
 # Documentos organizados por setor.
 # Cada setor: (nome_do_setor, [(slug, rotulo), ...])
 SETORES_DOCUMENTOS = [
+    # Contrato do cliente com a consultoria: interno, NUNCA vai para o ZIP de habilitação
+    ("Contrato de Prestação de Serviços de Consultoria", [
+        ("contrato_consultoria", "Contrato de Prestação de Serviços de Consultoria"),
+        ("aditivo_consultoria", "Aditivos ao Contrato de Consultoria"),
+    ]),
     ("Regularidade Fiscal", [
         ("cnd_federal", "CND Federal"),
         ("cnd_municipal", "CND Municipal"),
@@ -288,10 +293,13 @@ DOCUMENTOS_CLIENTE = [
 DOCUMENTO_TIPOS = [slug for slug, _ in DOCUMENTOS_CLIENTE]
 
 # Tipos que aceitam VÁRIOS arquivos (não substituem o anterior)
-TIPOS_MULTIPLOS = {"alteracao_contratual", "outros_documentos"}
+TIPOS_MULTIPLOS = {"alteracao_contratual", "outros_documentos", "aditivo_consultoria"}
 
 # Tipos opcionais — nunca contam como pendência
-TIPOS_OPCIONAIS = {"outros_documentos"}
+TIPOS_OPCIONAIS = {"outros_documentos", "aditivo_consultoria"}
+
+# Documentos internos da consultoria: ficam fora do ZIP de habilitação
+TIPOS_FORA_DO_ZIP = {"contrato_consultoria", "aditivo_consultoria"}
 
 # Setor e tipos do quadro societario (um conjunto por socio)
 SETOR_SOCIOS = "Quadro Societário"

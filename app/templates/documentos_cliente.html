@@ -15,6 +15,7 @@
   align-items: center;
   gap: 8px;
 }
+.setor-titulo .setor-contador.setor-fora-zip { background: #fef3c7; color: #92400e; }
 .setor-titulo .setor-contador {
   font-size: .72rem;
   font-weight: 600;
@@ -377,6 +378,9 @@
   <h3 class="setor-titulo">
     {{ setor_nome }}
     <span class="setor-contador">{{ setor_docs|length }} item(ns)</span>
+    {% if setor_docs|map('first')|select('in', tipos_fora_zip)|list|length == setor_docs|length %}
+    <span class="setor-contador setor-fora-zip" title="Documento interno da consultoria: não entra no &quot;Baixar tudo (ZIP)&quot;">🔒 Não vai para o ZIP</span>
+    {% endif %}
   </h3>
 
   <div class="docs-grid">

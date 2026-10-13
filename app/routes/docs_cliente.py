@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, request, flash,
 from flask_login import login_required, current_user
 from app.models import (
     Cliente, DocumentoCliente, SocioCliente, DOCUMENTOS_CLIENTE, DOCUMENTO_TIPOS,
-    SETORES_DOCUMENTOS, TIPOS_MULTIPLOS, TIPOS_OPCIONAIS, SETOR_SOCIOS, TIPOS_SOCIO,
+    SETORES_DOCUMENTOS, TIPOS_MULTIPLOS, TIPOS_OPCIONAIS, SETOR_SOCIOS, TIPOS_SOCIO, TIPOS_FORA_DO_ZIP,
 )
 from app import db
 from app import validade_doc, verifica_doc
@@ -219,6 +219,7 @@ def documentos(cliente_id):
         setores=SETORES_DOCUMENTOS,
         setor_socios=SETOR_SOCIOS,
         tipos_multiplos=list(TIPOS_MULTIPLOS),
+        tipos_fora_zip=list(TIPOS_FORA_DO_ZIP),
         docs_por_tipo=docs_por_tipo,
         pendencias=pendencias,
         criticas=criticas,
@@ -255,7 +256,9 @@ def baixar_zip(cliente_id):
 
     # Uma pasta por nivel de habilitacao, na ordem da tela ("1 - Regularidade Fiscal"...)
     pasta_do_tipo = {}
-    for i, (setor, docs_setor) in enumerate(SETORES_DOCUMENTOS, start=1):
+    setores_zip = [(st, ds) for st, ds in SETORES_DOCUMENTOS
+                   if not all(slug in TIPOS_FORA_DO_ZIP for slug, _ in ds)]
+    for i, (setor, docs_setor) in enumerate(setores_zip, start=1):
         for slug, _label in docs_setor:
             pasta_do_tipo[slug] = f"{i} - {_nome_seguro(setor)}"
 
@@ -266,6 +269,9 @@ def baixar_zip(cliente_id):
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for d in docs:
             if d.nao_se_aplica or not d.caminho or not os.path.exists(d.caminho):
+                continue
+            # Contrato de consultoria e aditivos: internos, nunca vao para o ZIP
+            if d.tipo in TIPOS_FORA_DO_ZIP:
                 continue
             # Certificado digital nunca vai para o ZIP
             if e_certificado(d.nome_original, d.caminho, caminho=d.caminho):
