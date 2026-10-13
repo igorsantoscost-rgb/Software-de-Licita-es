@@ -73,8 +73,8 @@
   <div class="kpis">
     <div class="kpi"><span>Êxito em itens</span><strong>{{ m.pct_exito|pct(0) if m.pct_exito is not none else '—' }}</strong><small>{{ m.vitorias }} de {{ m.disputados }} itens disputados</small></div>
     <div class="kpi"><span>Valor total vencido</span><strong>{{ m.valor_vencido|brl }}</strong><small>itens vencidos × quantidade</small></div>
-    <div class="kpi"><span>Acima do vencedor nas derrotas</span><strong>{{ ('+' ~ (m.media_acima|pct)) if m.media_acima is not none else '—' }}</strong><small>{% if m.maior_acima is not none %}de +{{ m.menor_acima|pct }} a +{{ m.maior_acima|pct }}{% else %}média por item{% endif %}</small></div>
-    <div class="kpi"><span>Derrotas</span><strong>{{ m.derrotas + m.justificadas }}</strong><small>{{ m.derrotas }} por preço · {{ m.justificadas }} justificada(s)</small></div>
+    {% if m.media_acima is not none %}<div class="kpi"><span>Acima do vencedor nas derrotas</span><strong>{{ ('+' ~ (m.media_acima|pct)) if m.media_acima is not none else '—' }}</strong><small>{% if m.maior_acima is not none %}de +{{ m.menor_acima|pct }} a +{{ m.maior_acima|pct }}{% else %}média por item{% endif %}</small></div>{% endif %}
+    {% if m.derrotas or m.justificadas %}<div class="kpi"><span>Derrotas</span><strong>{{ m.derrotas + m.justificadas }}</strong><small>{{ m.derrotas }} por preço · {{ m.justificadas }} justificada(s)</small></div>{% endif %}
     <div class="kpi"><span>Valor perdido p/ concorrentes</span><strong>{{ m.valor_perdido|brl }}</strong><small>itens perdidos × quantidade</small></div>
     {% if m.valor_homologado %}<div class="kpi"><span>Valor homologado</span><strong>{{ m.valor_homologado|brl }}</strong><small>soma das homologadas</small></div>{% endif %}
   </div>

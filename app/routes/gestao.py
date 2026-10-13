@@ -29,7 +29,7 @@ from app.models import Licitacao, Empenho, Cliente
 gestao_bp = Blueprint("gestao", __name__, url_prefix="/gestao")
 
 PARTICIPOU = {"em disputa", "em julgamento", "em habilitacao", "homologada", "encerrada"}
-NAO_PARTICIPOU = {"revogada", "cancelada", "sem participacao"}
+NAO_PARTICIPOU = {"revogada", "cancelada", "sem participacao", "interesse nao manifestado"}
 
 MESES = ["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
          "Jul", "Ago", "Set", "Out", "Nov", "Dez"]

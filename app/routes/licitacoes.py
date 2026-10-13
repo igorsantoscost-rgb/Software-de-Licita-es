@@ -339,7 +339,8 @@ def atualizar_status(id):
             if item.resultado:
                 item.resultado_definitivo = True
     db.session.commit()
-    rotulos = {"em habilitacao": "Em habilitação", "sem participacao": "Sem participação"}
+    rotulos = {"em habilitacao": "Em habilitação", "sem participacao": "Sem participação",
+               "interesse nao manifestado": "Interesse não manifestado"}
     flash(f"Status atualizado para '{rotulos.get(novo, novo.capitalize())}'.", "ok")
     return redirect(destino)
 
@@ -439,12 +440,47 @@ def _avisar_preco_registrado(lic, itens):
         logging.getLogger(__name__).error(f"Falha no aviso de preco registrado: {e}")
 
 
+MSG_TRAVA = "Proposta já cadastrada no portal: os valores mínimos e as marcas estão travados."
+
+
+def _proposta_travada(lic):
+    """Depois do "Proposta cadastrada", valor minimo e marca nao mudam mais."""
+    return lic.proposta_cadastrada_em is not None
+
+
+@lic_bp.route("/<int:id>/proposta-cadastrada", methods=["POST"])
+@login_required
+def proposta_cadastrada(id):
+    """Assessor confirma que cadastrou a proposta no portal (trava os valores do
+    cliente) ou reabre, se marcou por engano."""
+    if not current_user.is_assessor():
+        abort(403)
+    lic = Licitacao.query.get_or_404(id)
+    if not _pode_ver(lic):
+        abort(403)
+    if request.form.get("acao") == "reabrir":
+        lic.proposta_cadastrada_em = None
+        lic.proposta_cadastrada_por = None
+        flash("Proposta reaberta: os valores mínimos podem ser alterados de novo.", "ok")
+    else:
+        from app.models import agora_brasilia
+        lic.proposta_cadastrada_em = agora_brasilia()
+        lic.proposta_cadastrada_por = current_user.id
+        flash("Proposta cadastrada. Os valores mínimos e as marcas do cliente ficaram travados.", "ok")
+    db.session.commit()
+    return redirect(url_for("lic.detalhe", id=id) + "#parametros-disputa")
+
+
 @lic_bp.route("/<int:id>/itens/adicionar", methods=["POST"])
 @login_required
 def adicionar_item(id):
     lic = Licitacao.query.get_or_404(id)
     if not _pode_ver(lic):
         abort(403)
+    if _proposta_travada(lic) and (not current_user.is_assessor()
+                                   or request.form.get("valor_minimo", "").strip()):
+        flash("Proposta já cadastrada no portal: os valores mínimos e as marcas estão travados. Não dá para incluir item com valor mínimo.", "erro")
+        return redirect(url_for("lic.detalhe", id=id))
     descricao = request.form.get("descricao", "").strip()
     if not descricao:
         flash("Descricao do item e obrigatoria.", "erro")
@@ -491,17 +527,33 @@ def editar_item(item_id):
     lic = Licitacao.query.get_or_404(item.licitacao_id)
     if not _pode_ver(lic):
         abort(403)
+    travada = _proposta_travada(lic)
+    tentou_mudar_travado = False
+    if travada and not current_user.is_assessor():
+        flash("Proposta já cadastrada no portal: os valores mínimos e as marcas estão travados.", "erro")
+        return redirect(url_for("lic.detalhe", id=lic.id))
+    if travada:
+        marca_pedida = request.form.get("marca", "").strip()
+        valor_pedido = request.form.get("valor_minimo", "").replace(",", ".").strip()
+        try:
+            valor_pedido = float(valor_pedido) if valor_pedido else None
+        except ValueError:
+            valor_pedido = "x"
+        valor_atual = float(item.valor_minimo) if item.valor_minimo is not None else None
+        tentou_mudar_travado = marca_pedida != (item.marca or "").strip() or valor_pedido != valor_atual
     item.numero_item = request.form.get("numero_item", "").strip()
     item.descricao = request.form.get("descricao", item.descricao).strip()
-    item.marca = request.form.get("marca", "").strip()
+    if not travada:
+        item.marca = request.form.get("marca", "").strip()
     item.lote_grupo = request.form.get("lote_grupo", "").strip()
     item.unidade = request.form.get("unidade", "").strip()
     valor_str = request.form.get("valor_minimo", "").replace(",", ".")
     valor_antes = float(item.valor_minimo) if item.valor_minimo is not None else None
-    try:
-        item.valor_minimo = float(valor_str) if valor_str else None
-    except ValueError:
-        pass
+    if not travada:
+        try:
+            item.valor_minimo = float(valor_str) if valor_str else None
+        except ValueError:
+            pass
     valor_depois = float(item.valor_minimo) if item.valor_minimo is not None else None
     if valor_depois is not None and not current_user.is_assessor() and not (item.marca or "").strip():
         db.session.rollback()
@@ -510,7 +562,7 @@ def editar_item(item_id):
     preco_novo = valor_depois is not None and valor_depois != valor_antes
     if preco_novo:
         _marcar_preco_registrado(item)
-    elif valor_depois is None:
+    elif valor_depois is None and not travada:
         item.valor_registrado_em = None
         item.valor_registrado_por = None
     qtd_str = request.form.get("quantidade", "")
@@ -521,7 +573,10 @@ def editar_item(item_id):
     db.session.commit()
     if preco_novo:
         _avisar_preco_registrado(lic, [item])
-    flash("Item atualizado.", "ok")
+    if tentou_mudar_travado:
+        flash(f"{MSG_TRAVA} Os outros campos foram salvos.", "erro")
+    else:
+        flash("Item atualizado.", "ok")
     return redirect(url_for("lic.detalhe", id=lic.id))
 
 
@@ -530,8 +585,12 @@ def editar_item(item_id):
 def excluir_item(item_id):
     item = ItemLicitacao.query.get_or_404(item_id)
     lic_id = item.licitacao_id
-    if not _pode_ver(Licitacao.query.get_or_404(lic_id)):
+    lic = Licitacao.query.get_or_404(lic_id)
+    if not _pode_ver(lic):
         abort(403)
+    if _proposta_travada(lic) and item.valor_minimo is not None:
+        flash("Proposta já cadastrada no portal: os valores mínimos e as marcas estão travados. Este item tem valor mínimo e não pode ser excluído.", "erro")
+        return redirect(url_for("lic.detalhe", id=lic_id))
     db.session.delete(item)
     db.session.commit()
     flash("Item removido.", "ok")
@@ -806,6 +865,11 @@ def excluir_itens_selecionados(id):
         flash("Nenhum item selecionado.", "erro")
         return redirect(url_for("lic.detalhe", id=id))
     itens = ItemLicitacao.query.filter(ItemLicitacao.licitacao_id == id, ItemLicitacao.id.in_(ids)).all()
+    if _proposta_travada(lic):
+        presos = [i for i in itens if i.valor_minimo is not None]
+        if presos:
+            flash(f"{MSG_TRAVA} {len(presos)} item(ns) com valor mínimo não foram excluídos.", "erro")
+        itens = [i for i in itens if i.valor_minimo is None]
     for item in itens:
         db.session.delete(item)
     db.session.commit()

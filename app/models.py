@@ -104,8 +104,13 @@ STATUS_CHOICES = [
     "revogada",
     "cancelada",
     "sem participacao",
+    "interesse nao manifestado",
     "encerrada",
 ]
+
+# Status em que a licitacao conta como "nao participou" (some do calendario,
+# entra em "sem participacao" na gestao)
+STATUS_SEM_PARTICIPACAO = ("sem participacao", "interesse nao manifestado")
 
 PORTAL_CHOICES = [
     "ComprasNet",
@@ -147,6 +152,9 @@ class Licitacao(db.Model):
     data_disputa_original = db.Column(db.DateTime, nullable=True)
     reagendada_em = db.Column(db.DateTime, nullable=True)
     motivo_encerramento = db.Column(db.String(300), nullable=True)
+    # Proposta cadastrada no portal: a partir dai os valores minimos do cliente ficam travados
+    proposta_cadastrada_em = db.Column(db.DateTime, nullable=True)
+    proposta_cadastrada_por = db.Column(db.Integer, nullable=True)  # id do usuario (sem FK: evita ambiguidade com outras ligacoes a users)
     resumo_ia = db.Column(db.Text, nullable=True)
     # CAPAG (Capacidade de Pagamento - Tesouro Nacional)
     esfera = db.Column(db.String(20), nullable=True)        # federal | estadual | municipal
@@ -167,6 +175,13 @@ class Licitacao(db.Model):
     aviso_preco_enviado_em = db.Column(db.DateTime, nullable=True)  # ultimo e-mail de "preco registrado"
     # Comentario do cliente ainda nao visto pelo assessor (some quando o assessor abre a licitacao)
     comentario_cliente_pendente_em = db.Column(db.DateTime, nullable=True)
+
+    @property
+    def proposta_cadastrada_por_nome(self):
+        if not self.proposta_cadastrada_por:
+            return ""
+        u = User.query.get(self.proposta_cadastrada_por)
+        return u.nome if u else ""
 
     # ─── Interesse do cliente (precos registrados) ───────────────────────────
     @property

@@ -102,6 +102,7 @@ def create_app():
     _ROTULOS_STATUS = {
         "em habilitacao": "Em habilitação",
         "sem participacao": "Sem participação",
+        "interesse nao manifestado": "Interesse não manifestado",
         "ordinario": "Ordinário",
         "aguardando pagamento": "Aguardando pagamento",
     }
@@ -327,6 +328,9 @@ def _migrar_coluna_tipo_documento():
                 ("itens_licitacao", "resultado_em", "TIMESTAMP"),
                 ("itens_licitacao", "resultado_por", "INTEGER"),
                 ("itens_licitacao", "vencedor_marca", "VARCHAR(200)"),
+                # Proposta cadastrada: trava os valores minimos do cliente
+                ("licitacoes", "proposta_cadastrada_em", "TIMESTAMP"),
+                ("licitacoes", "proposta_cadastrada_por", "INTEGER"),
             ]
             for tabela, coluna, tipo in colunas_importacao:
                 existe = conn.execute(text("""

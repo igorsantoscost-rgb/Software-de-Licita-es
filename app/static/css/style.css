@@ -1727,3 +1727,35 @@ body .tabela td.col-status select.select-status-mini:focus {
 .info-registro.aberto .info-registro-balao { display: block; }
 .info-registro-balao .texto-atrasado { color: #fca5a5; }
 .col-detalhe-principal .tabela-itens td.col-valor-min { white-space: nowrap; }
+
+/* Botao de status do detalhe: so uma setinha (sem a seta nativa do navegador) */
+.select-status-compacto { appearance: none; -webkit-appearance: none; -moz-appearance: none; padding-right: 30px; cursor: pointer; }
+.select-status-compacto::-ms-expand { display: none; }
+
+/* Status "Interesse nao manifestado": mesma cara de "Sem participacao" */
+.status-interesse-nao-manifestado { --st-a: #d1d5db; --st-b: #eceef1; --st-txt: #4b5563; background: #e5e7eb; color: #4b5563; border-color: #d1d5db; }
+
+/* Resultado do item: valor + V verde de vitoria (clique abre os detalhes) */
+.res-valor {
+  display: inline-flex; align-items: center; gap: 4px; padding: 1px 4px;
+  border: 1px solid transparent; border-radius: 6px; background: none; cursor: pointer;
+  font: inherit; font-size: .8rem; font-weight: 600; color: #334155; white-space: nowrap;
+}
+.res-valor:hover { border-color: #cbd5e1; background: #f8fafc; }
+.res-valor.res-provisorio .res-valor-num { border-bottom: 1px dashed #94a3b8; }
+.res-v {
+  display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; flex: none;
+  border-radius: 50%; background: #16a34a; color: #fff; font-size: .64rem; font-weight: 800; line-height: 1;
+}
+
+/* Proposta cadastrada */
+.titulo-parametros { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+.titulo-parametros h3 { margin: 0; }
+.btn-proposta-cadastrada { background: #eff6ff; color: #1e3a8a; border: 1px solid #bfdbfe; }
+.btn-proposta-cadastrada:hover { background: #dbeafe; }
+.tag-proposta-cadastrada { font-size: .76rem; font-weight: 600; background: #e0e7ff; color: #3730a3; padding: 3px 10px; border-radius: 20px; }
+.btn-link-reabrir { background: none; border: none; padding: 0; color: #64748b; font-size: .76rem; text-decoration: underline; cursor: pointer; }
+.aviso-proposta-travada { font-size: .84rem; color: #3730a3; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 10px; padding: 8px 12px; margin: 8px 0; }
+input.campo-travado { background: #f1f5f9 !important; color: #64748b; cursor: not-allowed; }
+.btn-excluir[disabled] { opacity: .35; cursor: not-allowed; }
+.col-detalhe-principal .tabela-itens td.col-resultado { white-space: nowrap; }
