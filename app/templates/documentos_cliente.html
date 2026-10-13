@@ -42,6 +42,19 @@
 .doc-alerta { font-size: .78rem; color: #991b1b; background: #fee2e2; border-radius: 6px; padding: 6px 8px; margin-top: 6px; }
 .lista-criticas { margin: 6px 0 0 18px; padding: 0; font-weight: 500; }
 .lista-criticas li { margin: 2px 0; }
+.doc-card.pendente-salvar { box-shadow: 0 0 0 2px #93c5fd; }
+.doc-card.precisa-corrigir { box-shadow: 0 0 0 2px #f87171; }
+.salvando-fundo {
+  position: fixed; inset: 0; background: rgba(15, 23, 42, .35); z-index: 9998;
+  display: none; align-items: center; justify-content: center;
+}
+.salvando-fundo.ativo { display: flex; }
+.salvando-caixa { background: #fff; border-radius: 14px; padding: 18px 22px; font-weight: 600; color: #1a1a2e; box-shadow: 0 10px 30px rgba(0,0,0,.2); }
+.toast-docs {
+  position: fixed; right: 16px; bottom: 16px; z-index: 9999; max-width: min(460px, calc(100vw - 32px));
+  display: flex; flex-direction: column; gap: 8px;
+}
+.toast-docs .alerta { margin: 0; box-shadow: 0 8px 24px rgba(0,0,0,.15); cursor: pointer; }
 
 /* Quadro societário */
 .quadro-info { font-size: .85rem; color: #475569; margin: 0 0 12px; }
@@ -376,6 +389,8 @@
 
 {% endfor %}
 
+<div class="salvando-fundo" id="salvando-fundo"><div class="salvando-caixa" id="salvando-texto">Salvando...</div></div>
+
 <script>
 // "Não se aplica": esconde arquivo/validade e abre o campo de motivo (obrigatório)
 document.querySelectorAll('.check-nao-aplica').forEach(cb => {
@@ -418,6 +433,7 @@ document.querySelectorAll('.check-sem-validade').forEach(cb => {
 
 // Documento de outra empresa/pessoa: o Salvar só libera com "Enviar mesmo assim"
 const _divergente = {};
+const _analises = {};
 function _travarSalvar(k) {
   const btn = document.getElementById('salvar_' + k);
   const conf = document.querySelector('.check-confirmar[data-chave="' + k + '"]');
@@ -459,6 +475,7 @@ document.querySelectorAll('.input-file-doc').forEach(inp => {
     fd.append('arquivo', inp.files[0]);
     fd.append('tipo', slug);
     if (inp.dataset.socio) fd.append('socio_id', inp.dataset.socio);
+    let _fim; _analises[k] = new Promise(res => { _fim = res; });
     try {
       const resp = await fetch(URL_ANALISAR, { method: 'POST', body: fd, credentials: 'same-origin' });
       const r = await resp.json();
@@ -494,9 +511,154 @@ document.querySelectorAll('.input-file-doc').forEach(inp => {
     } catch (e) {
       if (info && lerValidade) { info.className = 'validade-info aviso'; info.textContent = '⚠️ Não consegui ler a validade. Preencha a data.'; }
       if (conf) { conf.className = 'conferencia-info aviso'; conf.textContent = '⚠️ Não consegui conferir o documento.'; }
+    } finally {
+      _fim();
     }
   });
 });
+
+// ─── Salvar tudo de uma vez ────────────────────────────────────────────────
+// Qualquer "Salvar" (ou outro botão desta página) envia antes todos os
+// documentos que já foram preenchidos e ainda não foram salvos. Depois a
+// página atualiza e volta para o mesmo ponto da tela.
+const CHAVE_ROLAGEM = 'bidfy-docs-rolagem:' + location.pathname;
+
+function _temProgresso(form) {
+  if (!form.classList.contains('form-doc')) return false;
+  const arq = form.querySelector('input[type=file]');
+  const nao = form.querySelector('.check-nao-aplica');
+  return !!(arq && arq.files.length) || !!(nao && nao.checked);
+}
+
+function _problema(form) {
+  const k = form.dataset.chave;
+  const nao = form.querySelector('.check-nao-aplica');
+  const obs = form.querySelector('input[name=obs]');
+  if (nao && nao.checked && obs && !obs.value.trim()) return 'escreva o motivo do "não se aplica"';
+  const conf = form.querySelector('.check-confirmar');
+  if (_divergente[k] && !(nao && nao.checked) && !(conf && conf.checked)) return 'o documento parece ser de outra empresa/pessoa: confira e marque "Enviar mesmo assim"';
+  return null;
+}
+
+function _tituloCard(form) {
+  const card = form.closest('.doc-card');
+  const t = card && card.querySelector('.doc-card-titulo');
+  const socio = form.closest('.socio-card');
+  const nome = socio && socio.querySelector('.socio-nome');
+  return (t ? t.textContent.trim() : 'Documento') + (nome ? ' (' + nome.textContent.replace(/^\s*👤\s*/, '').split('\n')[0].trim() + ')' : '');
+}
+
+function _mostrarSalvando(txt) {
+  document.getElementById('salvando-texto').textContent = txt;
+  document.getElementById('salvando-fundo').classList.add('ativo');
+}
+
+async function _enviar(form) {
+  const resp = await fetch(form.action, {
+    method: 'POST', body: new FormData(form), credentials: 'same-origin',
+    headers: { 'X-Requested-With': 'fetch' },
+  });
+  if (!resp.ok) throw new Error('HTTP ' + resp.status);
+}
+
+let _enviando = false;
+document.querySelectorAll('main form[method="POST"], main form[method="post"]').forEach(form => {
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (_enviando) return;
+
+    // Espera as leituras de arquivo que ainda estão em andamento
+    await Promise.all(Object.values(_analises));
+
+    const pendentes = Array.from(document.querySelectorAll('form.form-doc'))
+      .filter(f => f !== form && _temProgresso(f));
+    const fila = form.classList.contains('form-doc') && !_temProgresso(form) && pendentes.length
+      ? pendentes                       // Salvar de um card vazio: salva só os outros
+      : pendentes.concat([form]);
+
+    if (form.classList.contains('form-doc') && !_temProgresso(form) && !pendentes.length) {
+      alert('Escolha um arquivo ou marque "Não se aplica" antes de salvar.');
+      return;
+    }
+
+    // Confere tudo antes de enviar: nada é perdido se algum card precisar de ajuste
+    document.querySelectorAll('.doc-card.precisa-corrigir').forEach(c => c.classList.remove('precisa-corrigir'));
+    for (const f of fila) {
+      if (!f.classList.contains('form-doc')) continue;
+      const p = _problema(f);
+      if (p) {
+        const card = f.closest('.doc-card');
+        if (card) { card.classList.add('precisa-corrigir'); card.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+        const det = f.closest('details'); if (det) det.open = true;
+        alert('Nada foi salvo ainda.\n\n' + _tituloCard(f) + ': ' + p + '.');
+        return;
+      }
+      if (!f.reportValidity()) return;
+    }
+
+    _enviando = true;
+    const nDocs = fila.filter(f => f.classList.contains('form-doc')).length;
+    let falhas = [];
+    for (let i = 0; i < fila.length; i++) {
+      const f = fila[i];
+      _mostrarSalvando(nDocs > 1 ? `Salvando documento ${Math.min(i + 1, nDocs)} de ${nDocs}...` : 'Salvando...');
+      try { await _enviar(f); }
+      catch (err) { falhas.push(f.classList.contains('form-doc') ? _tituloCard(f) : 'ação'); }
+    }
+
+    try { sessionStorage.setItem(CHAVE_ROLAGEM, String(window.scrollY)); } catch (err) {}
+    if (falhas.length) {
+      alert('Não consegui salvar: ' + falhas.join(', ') + '. Os demais foram salvos. A página vai atualizar.');
+    }
+    location.replace(location.pathname + location.search);
+  });
+});
+
+// Card com arquivo escolhido (ou "não se aplica") ainda não salvo: contorno azul
+document.querySelectorAll('form.form-doc').forEach(f => {
+  f.addEventListener('change', () => {
+    const card = f.closest('.doc-card');
+    if (card) card.classList.toggle('pendente-salvar', _temProgresso(f));
+  });
+});
+
+// Sair da página com documento preenchido e não salvo: pede confirmação
+window.addEventListener('beforeunload', (e) => {
+  if (_enviando) return;
+  if (Array.from(document.querySelectorAll('form.form-doc')).some(_temProgresso)) {
+    e.preventDefault(); e.returnValue = '';
+  }
+});
+
+// Ao atualizar depois de salvar: volta para o mesmo ponto e mostra as mensagens num aviso flutuante
+(function () {
+  let y = null;
+  try { y = sessionStorage.getItem(CHAVE_ROLAGEM); sessionStorage.removeItem(CHAVE_ROLAGEM); } catch (err) {}
+  if (y === null) return;
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  const voltar = () => window.scrollTo(0, parseInt(y, 10) || 0);
+  voltar();
+  window.addEventListener('load', voltar);
+  setTimeout(voltar, 150);
+
+  // So as mensagens do salvar (ficam antes do titulo da pagina)
+  const msgs = [];
+  for (const el of (document.querySelector('main') || document.body).children) {
+    if (el.classList.contains('page-header')) break;
+    if (el.classList.contains('alerta')) msgs.push(el);
+  }
+  if (!msgs.length) return;
+  const caixa = document.createElement('div');
+  caixa.className = 'toast-docs';
+  msgs.forEach(m => {
+    const c = m.cloneNode(true);
+    c.title = 'Clique para fechar';
+    c.addEventListener('click', () => c.remove());
+    caixa.appendChild(c);
+  });
+  document.body.appendChild(caixa);
+  setTimeout(() => caixa.remove(), 12000);
+})();
 </script>
 
 {% endblock %}

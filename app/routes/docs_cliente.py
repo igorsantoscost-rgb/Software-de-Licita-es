@@ -40,6 +40,10 @@ def _nome_cliente(cliente_id):
 
 
 def _voltar(cliente_id, ancora=None):
+    # Envio pela tela (salvar varios de uma vez): responde sem redirecionar.
+    # As mensagens ficam guardadas e aparecem quando a tela recarrega.
+    if request.headers.get("X-Requested-With") == "fetch":
+        return jsonify({"ok": True})
     return redirect(url_for("docs.documentos", cliente_id=cliente_id) + (f"#{ancora}" if ancora else ""))
 
 
