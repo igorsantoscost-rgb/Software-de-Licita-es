@@ -159,14 +159,34 @@ def _analisar_e_conferir(pacote, cliente_forcado, clientes):
     for p in analise["propostas"]:
         resultado = classificador.classificar(p.get("itens"))
         p["classificacao"] = resultado
+        p["grupo_misto"] = []
         if cliente_forcado:
             p["cliente_sugerido"] = cliente_forcado
             p["origem_cliente"] = "escolhido"
+            mistos = classificador.analisar_cliente(cliente_forcado, p.get("itens"))
+            if mistos:
+                p["grupo_misto"] = mistos
+                forcado = next((r for r in resultado["ranking"] if r["cliente_id"] == cliente_forcado), None)
+                if forcado and forcado["so_grupo_misto"]:
+                    p["selecionada"] = False
+                    p["avisos"].insert(0, "Grupo misto: os itens do cliente só aparecem em grupo com itens "
+                                          "fora do ramo dele. Desmarquei.")
         else:
             p["cliente_sugerido"] = resultado["cliente_id"]
             p["origem_cliente"] = "itens" if resultado["cliente_id"] else None
+            escolhido = next((r for r in resultado["ranking"] if r["cliente_id"] == resultado["cliente_id"]), None)
+            if escolhido and escolhido["mistos"]:
+                p["grupo_misto"] = escolhido["mistos"]
+            bloqueados = resultado.get("bloqueados") or []
             if not resultado["itens_total"]:
                 p["avisos"].insert(0, "Sem itens na planilha: escolha o cliente.")
+            elif not resultado["cliente_id"] and bloqueados:
+                # So tinha cliente em grupo misto: nao apresentar
+                p["selecionada"] = False
+                p["grupo_misto"] = bloqueados[0]["mistos"]
+                nomes_bloq = ", ".join(r["nome"] for r in bloqueados)
+                p["avisos"].insert(0, f"Grupo misto: {nomes_bloq} só tem item em grupo com itens fora do ramo. "
+                                      "Não dá para disputar só a parte do cliente. Desmarquei.")
             elif not resultado["cliente_id"]:
                 p["avisos"].insert(0, "Nenhuma palavra-chave de cliente nos itens: escolha o cliente.")
             elif resultado["empate"]:

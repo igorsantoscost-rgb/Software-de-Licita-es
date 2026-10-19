@@ -188,8 +188,9 @@ def detalhe(id):
         db.session.commit()
     docs_existentes = {d.tipo: d for d in lic.documentos if d.tipo in TIPOS_DOC_LICITACAO_UNICOS}
     # Parametros da disputa: so os itens com palavras-chave do cliente
-    from app.classificador_cliente import itens_do_cliente
+    from app.classificador_cliente import itens_do_cliente, grupos_mistos_licitacao
     itens_visiveis, itens_ocultos, palavras_cliente = itens_do_cliente(lic.cliente, lic.itens)
+    grupos_mistos, itens_fora_ramo = grupos_mistos_licitacao(lic.cliente, lic.itens)
     todos_itens = request.args.get("todos_itens") == "1"
     return render_template("detalhe_licitacao.html", lic=lic,
                            status_choices=STATUS_CHOICES, portal_choices=PORTAL_CHOICES,
@@ -198,6 +199,7 @@ def detalhe(id):
                            itens_lista=lic.itens if todos_itens else itens_visiveis,
                            itens_ocultos=len(itens_ocultos), todos_itens=todos_itens,
                            palavras_cliente=palavras_cliente,
+                           grupos_mistos=grupos_mistos, itens_fora_ramo=itens_fora_ramo,
                            favorita=any(f.user_id == current_user.id for f in lic.favoritos))
 
 

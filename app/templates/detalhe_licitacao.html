@@ -155,6 +155,15 @@
         {% if lic.prazo_precos %}<br><small>Prazo combinado: {{ lic.prazo_precos.strftime('%d/%m/%Y às %H:%M') }}{% if lic.preco_fora_do_prazo %} · <strong>preço enviado fora do prazo</strong>{% endif %}</small>{% endif %}
       </div>
       {% endif %}
+      {% if current_user.is_assessor() and grupos_mistos %}
+      <div class="aviso-grupo-misto">
+        ⚠ <strong>Grupo misto</strong>: {{ 'este grupo tem' if grupos_mistos|length == 1 else 'estes grupos têm' }} itens fora das palavras-chave de {{ lic.cliente.nome }}.
+        No grupo, a disputa é do conjunto, então não dá para participar só da parte do cliente.
+        {% for g in grupos_mistos %}
+        <br><small><strong>{{ g.grupo }}</strong>: {{ g.do_cliente }} de {{ g.total }} itens do cliente · fora do ramo: {{ g.fora|join('; ') }}{% if g.qtd_fora > g.fora|length %} e mais {{ g.qtd_fora - g.fora|length }}{% endif %}</small>
+        {% endfor %}
+      </div>
+      {% endif %}
       <p class="muted-sm">Preencha os valores mínimos para orientar a disputa.</p>
       {% if lic.itens %}
       <p class="muted-sm itens-filtro-info">
@@ -198,11 +207,11 @@
         </thead>
         <tbody>
           {% for item in itens_lista %}
-          <tr>
+          <tr{% if item.id in itens_fora_ramo %} class="item-fora-ramo"{% endif %}>
             <td class="col-sel"><input type="checkbox" name="item_ids" value="{{ item.id }}" form="form-excluir-itens" class="sel-item"></td>
             <td class="col-item">{{ item.numero_item or '—' }}</td>
             {% if tem_lote %}<td>{{ item.lote_grupo or '—' }}</td>{% endif %}
-            <td class="col-desc"><div class="item-desc" title="Clique para ver a descrição inteira" onclick="this.classList.toggle('item-desc-aberta')">{{ item.descricao }}</div></td>
+            <td class="col-desc">{% if item.id in itens_fora_ramo %}<span class="tag-grupo-misto" title="Item do grupo fora das palavras-chave do cliente">fora do ramo</span>{% endif %}<div class="item-desc" title="Clique para ver a descrição inteira" onclick="this.classList.toggle('item-desc-aberta')">{{ item.descricao }}</div></td>
             {% if tem_marca %}<td>{{ item.marca or '—' }}</td>{% endif %}
             <td class="col-num col-qtd">{{ item.quantidade or '—' }}{% if item.unidade %}<small class="unidade" title="{{ item.unidade }}">{{ item.unidade }}</small>{% endif %}</td>
             <td class="nowrap col-num">

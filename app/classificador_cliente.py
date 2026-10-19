@@ -10,7 +10,11 @@ Regras:
 - singular e plural contam igual ("uniforme" acha "uniformes",
   "cama hospitalar" acha "camas hospitalares");
 - vence o cliente com mais itens encontrados; no empate, o que soma mais
-  valor estimado nesses itens.
+  valor estimado nesses itens;
+- GRUPO MISTO: quando os itens do cliente estao num grupo/lote junto com
+  itens que nao tem nenhuma palavra-chave dele (ex.: meias + uniformes),
+  ele nao pode disputar so a parte dele. Esses itens nao contam como
+  "aproveitaveis". Cliente que so aparece em grupo misto nao e sugerido.
 """
 import re
 import unicodedata
@@ -53,6 +57,55 @@ def _padrao(palavra_chave):
     return re.compile(r"\b" + r"\s+".join(pedacos) + r"\b")
 
 
+def _chave_grupo(nome):
+    """'Grupo 01', 'GRUPO 1' e 'grupo 1' viram a mesma chave."""
+    txt = _normalizar(nome)
+    return re.sub(r"\b0+(\d)", r"\1", txt)
+
+
+def _campo(item, nome):
+    return item.get(nome) if isinstance(item, dict) else getattr(item, nome, None)
+
+
+def grupos_mistos(padroes, itens):
+    """Grupos/lotes que tem item do cliente E item fora das palavras-chave dele.
+
+    padroes: lista de regex do cliente. itens: dicts (importacao) ou
+    ItemLicitacao. Devolve lista de
+    {"grupo", "total", "do_cliente", "qtd_fora", "fora": [descricoes curtas], "chave"}
+    """
+    grupos = {}
+    for item in itens or []:
+        grupo = _campo(item, "lote_grupo")
+        chave = _chave_grupo(grupo)
+        if not chave:
+            continue  # item sem grupo e disputado sozinho
+        g = grupos.setdefault(chave, {"grupo": grupo, "itens": []})
+        txt = _normalizar(_campo(item, "descricao"))
+        g["itens"].append((item, any(rx.search(txt) for rx in padroes)))
+
+    mistos = []
+    for g in grupos.values():
+        do_cliente = [i for i, ok in g["itens"] if ok]
+        fora = [i for i, ok in g["itens"] if not ok]
+        if do_cliente and fora:
+            descr = []
+            for i in fora[:3]:
+                d = str(_campo(i, "descricao") or "").strip()
+                descr.append(d[:60] + ("…" if len(d) > 60 else ""))
+            mistos.append({"grupo": g["grupo"], "total": len(g["itens"]),
+                           "do_cliente": len(do_cliente), "qtd_fora": len(fora),
+                           "fora": descr,
+                           "chave": _chave_grupo(g["grupo"])})
+    mistos.sort(key=lambda m: m["grupo"] or "")
+    return mistos
+
+
+def _padroes_do_cliente(cliente):
+    palavras = [p.palavra for p in (cliente.palavras_chave if cliente else [])]
+    return [rx for rx in (_padrao(p) for p in palavras) if rx], palavras
+
+
 class Classificador:
     """Monta uma vez os padroes de todos os clientes e classifica cada proposta."""
 
@@ -89,12 +142,13 @@ class Classificador:
                     valor = float(item.get("valor_estimado") or 0) * float(item.get("quantidade") or 1)
                 except (TypeError, ValueError):
                     pass
-                textos.append((txt, valor))
+                textos.append((txt, valor, _chave_grupo(item.get("lote_grupo"))))
 
         ranking = []
         for cid, nome, padroes in self.clientes:
             n_itens, valor, achadas = 0, 0.0, []
-            for txt, v in textos:
+            grupos_hit = []
+            for txt, v, grupo in textos:
                 hit = False
                 for palavra, rx in padroes:
                     if rx.search(txt):
@@ -104,33 +158,79 @@ class Classificador:
                 if hit:
                     n_itens += 1
                     valor += v
+                    grupos_hit.append(grupo)
             if n_itens:
+                mistos = grupos_mistos([rx for _, rx in padroes], itens)
+                chaves_mistas = {m["chave"] for m in mistos}
+                aproveitaveis = sum(1 for g in grupos_hit if not g or g not in chaves_mistas)
                 ranking.append({"cliente_id": cid, "nome": nome, "itens": n_itens,
-                                "valor": round(valor, 2), "palavras": achadas[:6]})
+                                "valor": round(valor, 2), "palavras": achadas[:6],
+                                "aproveitaveis": aproveitaveis,
+                                "so_grupo_misto": aproveitaveis == 0,
+                                "mistos": [{k: m[k] for k in ("grupo", "total", "do_cliente", "qtd_fora", "fora")}
+                                           for m in mistos]})
 
-        ranking.sort(key=lambda r: (-r["itens"], -r["valor"], r["nome"]))
-        empate = (len(ranking) > 1 and ranking[0]["itens"] == ranking[1]["itens"]
-                  and ranking[0]["valor"] == ranking[1]["valor"])
+        # Quem so aparece em grupo misto vai para o fim: nao da para disputar
+        ranking.sort(key=lambda r: (r["so_grupo_misto"], -r["itens"], -r["valor"], r["nome"]))
+        validos = [r for r in ranking if not r["so_grupo_misto"]]
+        empate = (len(validos) > 1 and validos[0]["itens"] == validos[1]["itens"]
+                  and validos[0]["valor"] == validos[1]["valor"])
         return {
-            "cliente_id": ranking[0]["cliente_id"] if ranking else None,
+            "cliente_id": validos[0]["cliente_id"] if validos else None,
             "itens_total": len(textos),
             "ranking": ranking[:4],
             "empate": empate,
+            "bloqueados": [r for r in ranking if r["so_grupo_misto"]],
         }
+
+    def analisar_cliente(self, cliente_id, itens):
+        """Grupos mistos de um cliente especifico (cliente escolhido no envio)."""
+        for cid, _nome, padroes in self.clientes:
+            if cid == cliente_id:
+                return grupos_mistos([rx for _, rx in padroes], itens)
+        return []
 
 
 def itens_do_cliente(cliente, itens):
     """Separa os itens que tem alguma palavra-chave do cliente.
     Devolve (visiveis, ocultos, palavras_cadastradas). Sem palavras-chave
     cadastradas, ou sem nenhum item que combine, todos ficam visiveis."""
-    palavras = [p.palavra for p in (cliente.palavras_chave if cliente else [])]
-    padroes = [rx for rx in (_padrao(p) for p in palavras) if rx]
+    padroes, palavras = _padroes_do_cliente(cliente)
     if not padroes:
         return list(itens), [], palavras
-    visiveis, ocultos = [], []
+    combina = []
+    grupos_do_cliente = set()
     for item in itens:
         txt = _normalizar(f"{item.descricao or ''} {item.lote_grupo or ''}")
-        (visiveis if any(rx.search(txt) for rx in padroes) else ocultos).append(item)
+        ok = any(rx.search(txt) for rx in padroes)
+        combina.append(ok)
+        if ok and _chave_grupo(item.lote_grupo):
+            grupos_do_cliente.add(_chave_grupo(item.lote_grupo))
+    visiveis, ocultos = [], []
+    for item, ok in zip(itens, combina):
+        # Item de um grupo que tem item do cliente aparece junto: o grupo
+        # e disputado inteiro, entao o cliente precisa ver tudo que esta nele
+        if ok or (_chave_grupo(item.lote_grupo) in grupos_do_cliente):
+            visiveis.append(item)
+        else:
+            ocultos.append(item)
     if not visiveis:
         return list(itens), [], palavras
     return visiveis, ocultos, palavras
+
+
+def grupos_mistos_licitacao(cliente, itens):
+    """Grupos mistos de uma licitacao ja cadastrada, para o aviso na tela.
+    Devolve (mistos, ids_dos_itens_fora_do_ramo)."""
+    padroes, _ = _padroes_do_cliente(cliente)
+    if not padroes:
+        return [], set()
+    mistos = grupos_mistos(padroes, itens)
+    chaves = {m["chave"] for m in mistos}
+    fora = set()
+    for item in itens:
+        if _chave_grupo(item.lote_grupo) in chaves:
+            txt = _normalizar(item.descricao)
+            if not any(rx.search(txt) for rx in padroes):
+                fora.add(item.id)
+    return mistos, fora

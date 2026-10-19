@@ -76,6 +76,7 @@
                 <input type="checkbox" name="extra_{{ i }}" value="{{ r.cliente_id }}">
                 Também para <strong>{{ r.nome }}</strong>
                 <span class="muted-sm">({{ r.itens }} {{ 'item' if r.itens == 1 else 'itens' }}: {{ r.palavras|join(', ') }})</span>
+                {% if r.so_grupo_misto %}<span class="tag-grupo-misto" title="Os itens deste cliente estão em grupo com itens fora do ramo dele">⚠ só em grupo misto</span>{% endif %}
               </label>
               {% endfor %}
               <select class="select import-add-cliente" aria-label="Adicionar outro cliente">
@@ -98,6 +99,17 @@
             {% for a in p.avisos %}
             <span class="import-aviso">⚠ {{ a }}</span>
             {% endfor %}
+            {% if p.grupo_misto %}
+            <details class="grupo-misto-box">
+              <summary>⚠ {{ p.grupo_misto|length }} grupo(s) misto(s), veja os itens fora do ramo</summary>
+              {% for g in p.grupo_misto %}
+              <div class="grupo-misto-linha">
+                <strong>{{ g.grupo }}</strong>: {{ g.do_cliente }} de {{ g.total }} itens do cliente.
+                Fora do ramo: {{ g.fora|join('; ') }}{% if g.qtd_fora > g.fora|length %} e mais {{ g.qtd_fora - g.fora|length }}{% endif %}.
+              </div>
+              {% endfor %}
+            </details>
+            {% endif %}
             <span class="muted-sm import-sub">Pasta: {{ p.pasta }}</span>
           </td>
           <td>{{ p.numero_pregao }}{% if p.uasg %}<br><span class="muted-sm">UASG {{ p.uasg }}</span>{% endif %}</td>
