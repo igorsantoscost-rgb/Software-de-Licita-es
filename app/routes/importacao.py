@@ -1,10 +1,12 @@
 """
-Importacao em lote: o assessor sobe o ZIP do sistema de busca de editais,
-confere a lista de processos encontrados e o Bidfy cria uma licitacao por
-pasta (com os arquivos, os itens e os campos basicos ja preenchidos).
+Importacao em lote: o assessor sobe o HTML exportado da Effecti (ou o ZIP
+antigo do sistema de busca), confere a lista de processos encontrados e o
+Bidfy cria uma licitacao por processo (com os arquivos, os itens e os campos
+basicos ja preenchidos).
 """
 import json
 import os
+import re
 import shutil
 import time
 import uuid
@@ -19,13 +21,15 @@ from app.models import (Licitacao, Documento, ItemLicitacao, Cliente,
                         CapagMunicipio, PacoteImportado)
 from app.capag import consultar as consultar_capag, normalizar
 from app.importador_pacote import extrair_zip, analisar_pacote, BaseMunicipios
+from app.importador_html import analisar_html
 from app.classificador_cliente import Classificador
 
 imp_bp = Blueprint("imp", __name__, url_prefix="/licitacoes/importar")
 
 UPLOAD_FOLDER = "/app/uploads"
 PASTA_IMPORTACOES = os.path.join(UPLOAD_FOLDER, "_importacoes")
-PASTA_PACOTES = os.path.join(UPLOAD_FOLDER, "_pacotes")  # zips originais (historico)
+PASTA_PACOTES = os.path.join(UPLOAD_FOLDER, "_pacotes")  # arquivos originais (historico)
+EXTENSOES_PACOTE = (".html", ".htm", ".zip")
 HORAS_PARA_LIMPAR = 48
 
 
@@ -78,6 +82,17 @@ def _classificador(clientes):
     return Classificador([(c.id, c.nome, [p.palavra for p in c.palavras_chave]) for c in clientes])
 
 
+def _cliente_do_perfil(perfil, clientes):
+    """Perfil da Effecti (ex: "MERIDIAN") -> cliente cujo nome tem essa palavra.
+    So devolve se for um cliente so."""
+    n = normalizar(perfil or "")
+    if len(n) < 3:
+        return None
+    rx = re.compile(r"\b" + re.escape(n) + r"\b")
+    achados = [c.id for c in clientes if rx.search(normalizar(c.nome))]
+    return achados[0] if len(achados) == 1 else None
+
+
 def _ja_cadastrada(cliente_id, proposta):
     """Procura a mesma licitacao ja cadastrada para o cliente."""
     if proposta.get("codigo_busca"):
@@ -109,15 +124,17 @@ def enviar():
         arquivo = request.files.get("pacote")
         if cliente_forcado and not current_user.pode_ver_cliente(cliente_forcado):
             abort(403)
-        if not arquivo or not arquivo.filename.lower().endswith(".zip"):
-            flash("Envie o arquivo .zip gerado pelo sistema de busca de editais.", "erro")
+        nome_enviado = (arquivo.filename or "").lower() if arquivo else ""
+        if not nome_enviado.endswith(EXTENSOES_PACOTE):
+            flash("Envie o arquivo .html exportado da Effecti (ou o .zip do sistema antigo).", "erro")
             return redirect(url_for("imp.enviar"))
 
-        # O zip original fica guardado e registrado no historico de pacotes
+        # O arquivo original fica guardado e registrado no historico de pacotes
         os.makedirs(PASTA_PACOTES, exist_ok=True)
-        caminho_zip = os.path.join(PASTA_PACOTES, f"{uuid.uuid4().hex}.zip")
+        ext = ".zip" if nome_enviado.endswith(".zip") else ".html"
+        caminho_zip = os.path.join(PASTA_PACOTES, f"{uuid.uuid4().hex}{ext}")
         arquivo.save(caminho_zip)
-        pacote = PacoteImportado(nome_arquivo=(arquivo.filename or "pacote.zip")[:300],
+        pacote = PacoteImportado(nome_arquivo=(arquivo.filename or f"pacote{ext}")[:300],
                                  caminho_zip=caminho_zip, tamanho=os.path.getsize(caminho_zip),
                                  enviado_por=current_user.id, situacao="em conferencia")
         db.session.add(pacote)
@@ -133,40 +150,57 @@ def enviar():
 
 
 def _analisar_e_conferir(pacote, cliente_forcado, clientes):
-    """Extrai o zip guardado do pacote, monta as propostas e abre a conferencia."""
+    """Le o pacote guardado (HTML da Effecti ou ZIP), monta as propostas e
+    abre a conferencia."""
     _limpar_importacoes_antigas()
     token = uuid.uuid4().hex
     pasta = _pasta_token(token)
     os.makedirs(pasta, exist_ok=True)
+    eh_html = not pacote.caminho_zip.lower().endswith(".zip")
     try:
-        raiz = extrair_zip(pacote.caminho_zip, os.path.join(pasta, "extraido"))
-        analise = analisar_pacote(raiz, _base_municipios())
+        if eh_html:
+            with open(pacote.caminho_zip, "rb") as f:
+                conteudo = f.read()
+            # baixa os anexos de cada licitacao para a pasta da conferencia
+            analise = analisar_html(conteudo, os.path.join(pasta, "anexos"), _base_municipios())
+        else:
+            raiz = extrair_zip(pacote.caminho_zip, os.path.join(pasta, "extraido"))
+            analise = analisar_pacote(raiz, _base_municipios())
     except Exception as e:
+        current_app.logger.exception("Falha ao ler o pacote %s", pacote.nome_arquivo)
         shutil.rmtree(pasta, ignore_errors=True)
         pacote.situacao = "com erro"
         db.session.commit()
-        flash(f"Não consegui abrir o ZIP: {e}", "erro")
+        flash(f"Não consegui ler o arquivo: {e}", "erro")
         return redirect(url_for("imp.enviar"))
 
     if not analise["propostas"]:
         shutil.rmtree(pasta, ignore_errors=True)
         pacote.situacao = "com erro"
         db.session.commit()
-        flash("O ZIP não tem nenhuma pasta de processo dentro.", "erro")
+        flash("Não achei nenhuma licitação no HTML." if eh_html
+              else "O ZIP não tem nenhuma pasta de processo dentro.", "erro")
         return redirect(url_for("imp.enviar"))
 
     classificador = _classificador(clientes)
     for p in analise["propostas"]:
-        resultado = classificador.classificar(p.get("itens"))
+        # Sem itens (a Effecti nem sempre traz), compara as palavras-chave com o objeto
+        itens_classif = p.get("itens")
+        p["classificou_por"] = "itens"
+        if not itens_classif and eh_html and p.get("objeto"):
+            itens_classif = [{"descricao": p["objeto"]}]
+            p["classificou_por"] = "objeto"
+        resultado = classificador.classificar(itens_classif)
         p["classificacao"] = resultado
         p["grupo_misto"] = []
-        if cliente_forcado:
-            p["cliente_sugerido"] = cliente_forcado
-            p["origem_cliente"] = "escolhido"
-            mistos = classificador.analisar_cliente(cliente_forcado, p.get("itens"))
+        do_perfil = None if cliente_forcado else _cliente_do_perfil(p.get("perfil"), clientes)
+        if cliente_forcado or do_perfil:
+            p["cliente_sugerido"] = cliente_forcado or do_perfil
+            p["origem_cliente"] = "escolhido" if cliente_forcado else "perfil"
+            mistos = classificador.analisar_cliente(p["cliente_sugerido"], p.get("itens"))
             if mistos:
                 p["grupo_misto"] = mistos
-                forcado = next((r for r in resultado["ranking"] if r["cliente_id"] == cliente_forcado), None)
+                forcado = next((r for r in resultado["ranking"] if r["cliente_id"] == p["cliente_sugerido"]), None)
                 if forcado and forcado["so_grupo_misto"]:
                     p["selecionada"] = False
                     p["avisos"].insert(0, "Grupo misto: os itens do cliente só aparecem em grupo com itens "
@@ -179,7 +213,7 @@ def _analisar_e_conferir(pacote, cliente_forcado, clientes):
                 p["grupo_misto"] = escolhido["mistos"]
             bloqueados = resultado.get("bloqueados") or []
             if not resultado["itens_total"]:
-                p["avisos"].insert(0, "Sem itens na planilha: escolha o cliente.")
+                p["avisos"].insert(0, "Sem itens nem objeto para comparar: escolha o cliente.")
             elif not resultado["cliente_id"] and bloqueados:
                 # So tinha cliente em grupo misto: nao apresentar
                 p["selecionada"] = False
@@ -188,7 +222,8 @@ def _analisar_e_conferir(pacote, cliente_forcado, clientes):
                 p["avisos"].insert(0, f"Grupo misto: {nomes_bloq} só tem item em grupo com itens fora do ramo. "
                                       "Não dá para disputar só a parte do cliente. Desmarquei.")
             elif not resultado["cliente_id"]:
-                p["avisos"].insert(0, "Nenhuma palavra-chave de cliente nos itens: escolha o cliente.")
+                onde = "no objeto" if p["classificou_por"] == "objeto" else "nos itens"
+                p["avisos"].insert(0, f"Nenhuma palavra-chave de cliente {onde}: escolha o cliente.")
             elif resultado["empate"]:
                 p["avisos"].insert(0, "Empate entre clientes: confira o cliente sugerido.")
         p["ja_cadastrada"] = None
@@ -294,7 +329,7 @@ def conferir(token):
         abort(403)
     analise = _ler_analise(token)
     if not analise:
-        flash("Essa importação expirou ou já foi concluída. Envie o ZIP de novo.", "erro")
+        flash("Essa importação expirou ou já foi concluída. Envie o arquivo de novo.", "erro")
         return redirect(url_for("imp.enviar"))
     clientes = _clientes_do_usuario()
     nomes = {c.id: c.nome for c in clientes}
@@ -306,7 +341,7 @@ def conferir(token):
         p["edital_nome"] = next((a["nome"] for a in p["arquivos"] if a["tipo"] == "edital"), None)
         if p.get("cliente_sugerido") not in nomes:
             p["cliente_sugerido"] = None
-    identificadas = sum(1 for p in propostas if p.get("origem_cliente") == "itens" and p.get("cliente_sugerido"))
+    identificadas = sum(1 for p in propostas if p.get("origem_cliente") in ("itens", "perfil") and p.get("cliente_sugerido"))
     return render_template("importar_conferir.html", token=token, analise=analise,
                            clientes=clientes, nomes=nomes, propostas=propostas,
                            cliente_forcado=nomes.get(analise.get("cliente_id")),
@@ -358,7 +393,7 @@ def _criar_licitacao(cliente_id, p):
         data_disputa=data_disputa,
         status="agendada",
         objeto=p.get("objeto") or "",
-        link_edital="",
+        link_edital=(p.get("link_edital") or "")[:500],
         valor_estimado=p.get("valor_estimado"),
         codigo_busca=(p.get("codigo_busca") or None),
         esfera=p.get("esfera"),

@@ -13,7 +13,7 @@
   <h2>Painel de licitações</h2>
   {% if current_user.is_assessor() %}
   <div style="display:flex; gap:8px; flex-wrap:wrap;">
-    <a href="{{ url_for('imp.enviar') }}" class="btn">⇪ Importar pacote (.zip)</a>
+    <a href="{{ url_for('imp.enviar') }}" class="btn">⇪ Importar licitações (Effecti)</a>
     <a href="{{ url_for('lic.nova') }}" class="btn btn-primary">+ Nova licitação</a>
   </div>
   {% endif %}

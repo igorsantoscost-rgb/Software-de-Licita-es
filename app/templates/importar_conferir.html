@@ -13,7 +13,7 @@
   <p style="margin:0;">
     Pacote <strong>{{ analise.nome_pacote }}</strong> ·
     {{ propostas|length }} processo(s) encontrado(s) ·
-    {% if cliente_forcado %}todos para <strong>{{ cliente_forcado }}</strong>{% else %}<strong>{{ identificadas }}</strong> com cliente identificado pelos itens{% endif %}.
+    {% if cliente_forcado %}todos para <strong>{{ cliente_forcado }}</strong>{% else %}<strong>{{ identificadas }}</strong> com cliente identificado{% endif %}.
   </p>
   <p class="muted-sm" style="margin:6px 0 0;">
     Confirme ou troque o cliente de cada processo na coluna <strong>Cliente</strong>.
@@ -62,9 +62,12 @@
               {% endfor %}
             </select>
             {% set cl = p.classificacao or {} %}
+            {% if p.origem_cliente == 'perfil' %}
+            <span class="import-match">Perfil Effecti: <em>{{ p.perfil }}</em></span>
+            {% endif %}
             {% if p.origem_cliente == 'itens' and cl.ranking %}
             <span class="import-match">
-              {{ cl.ranking[0].itens }} de {{ cl.itens_total }} itens ·
+              {% if p.classificou_por == 'objeto' %}pelo objeto{% else %}{{ cl.ranking[0].itens }} de {{ cl.itens_total }} itens{% endif %} ·
               {% for w in cl.ranking[0].palavras %}<em>{{ w }}</em>{% if not loop.last %}, {% endif %}{% endfor %}
             </span>
             {% endif %}
@@ -110,7 +113,18 @@
               {% endfor %}
             </details>
             {% endif %}
-            <span class="muted-sm import-sub">Pasta: {{ p.pasta }}</span>
+            {% if p.links_falhos %}
+            <details class="grupo-misto-box">
+              <summary>⚠ Anexos que não baixaram ({{ p.links_falhos|length }})</summary>
+              {% for f in p.links_falhos %}
+              <div class="grupo-misto-linha"><a href="{{ f.url }}" target="_blank" rel="noopener">{{ f.nome or f.url[:60] }}</a> <span class="muted-sm">({{ f.erro }})</span></div>
+              {% endfor %}
+            </details>
+            {% endif %}
+            <span class="muted-sm import-sub">
+              {% if p.id_effecti %}Effecti {{ p.id_effecti }}{% if p.modalidade %} · {{ p.modalidade }}{% endif %}{% if p.srp %} · SRP{% endif %}{% if p.perfil and p.origem_cliente != 'perfil' %} · Perfil {{ p.perfil }}{% endif %}{% else %}Pasta: {{ p.pasta }}{% endif %}
+              {% if p.link_edital %} · <a href="{{ p.link_edital }}" target="_blank" rel="noopener">abrir no portal ↗</a>{% endif %}
+            </span>
           </td>
           <td>{{ p.numero_pregao }}{% if p.uasg %}<br><span class="muted-sm">UASG {{ p.uasg }}</span>{% endif %}</td>
           <td>{% if p.data_fmt %}{{ p.data_fmt }}{% else %}<span class="import-falta">—</span>{% endif %}</td>
@@ -130,7 +144,7 @@
       Avisar o cliente por e-mail (1 e-mail de "nova licitação" para cada processo importado)
     </label>
     <div class="form-btns" style="margin-top:12px;">
-      <a href="{{ url_for('imp.enviar') }}" class="btn">Enviar outro pacote</a>
+      <a href="{{ url_for('imp.enviar') }}" class="btn">Enviar outro arquivo</a>
       <button type="submit" class="btn btn-primary" id="btn-confirmar">Importar selecionados</button>
     </div>
   </div>

@@ -9,13 +9,15 @@
 
 <div class="card card-form">
   <p class="muted-sm" style="margin-bottom:16px;">
-    Envie o <strong>.zip</strong> gerado pelo sistema de busca de editais. O Bidfy abre pasta por pasta,
-    lê a planilha <em>resumo.xlsx</em> e os editais, e monta uma licitação para cada processo
+    Envie o <strong>.html</strong> exportado da Effecti. O Bidfy lê cada licitação do arquivo,
+    <strong>baixa os anexos</strong> pelos links, lê os editais e monta uma licitação para cada processo
     (órgão, número, UASG, data e hora da disputa, portal, valor estimado, objeto, itens e arquivos).
+    O .zip do sistema antigo continua aceito.
   </p>
   <p class="muted-sm" style="margin-bottom:16px;">
-    O cliente de cada licitação é identificado pelas <strong>palavras-chave cadastradas de cada cliente</strong>,
-    comparadas com a descrição dos <strong>itens</strong> do edital. Antes de criar, você só confirma ou troca o cliente de cada processo.
+    O cliente de cada licitação é identificado pelo <strong>Perfil</strong> da Effecti (quando bate com o nome de um cliente)
+    ou pelas <strong>palavras-chave cadastradas de cada cliente</strong>, comparadas com os <strong>itens</strong>
+    (ou com o objeto, quando a Effecti não traz itens). Antes de criar, você só confirma ou troca o cliente de cada processo.
   </p>
   {% if sem_palavras %}
   <div class="alerta alerta-erro" style="margin-bottom:16px;">
@@ -37,9 +39,9 @@
     </div>
 
     <div class="campo">
-      <label>Pacote (.zip) *</label>
-      <input type="file" name="pacote" accept=".zip" required class="input-file-doc">
-      <small class="muted">Pacotes grandes (100 MB ou mais) podem levar alguns minutos para subir.</small>
+      <label>Arquivo da Effecti (.html) *</label>
+      <input type="file" name="pacote" accept=".html,.htm,.zip" required class="input-file-doc">
+      <small class="muted">Baixar os anexos pode levar de 1 a 4 minutos, conforme a quantidade de licitações.</small>
     </div>
 
     <div class="form-btns">
@@ -47,7 +49,7 @@
       <button type="submit" class="btn btn-primary" id="btn-importar">Ler pacote</button>
     </div>
     <p class="muted-sm import-aguarde" id="import-aguarde" style="display:none;">
-      ⏳ Enviando e lendo os editais... não feche esta página.
+      ⏳ Lendo o arquivo e baixando os anexos dos editais... não feche esta página.
     </p>
   </form>
 </div>
@@ -89,7 +91,7 @@
             <form method="POST" action="{{ url_for('imp.reconferir', id=pc.id) }}" class="form-inline">
               <button type="submit" class="btn btn-sm">{{ 'Continuar conferência' if pc.conferencia_aberta else ('Importar mais processos' if pc.situacao == 'importado' else 'Conferir de novo') }}</button>
             </form>
-            <a href="{{ url_for('imp.baixar_pacote', id=pc.id) }}" class="btn btn-sm" title="Baixar o .zip original">Baixar</a>
+            <a href="{{ url_for('imp.baixar_pacote', id=pc.id) }}" class="btn btn-sm" title="Baixar o arquivo original">Baixar</a>
             <details class="pacote-excluir">
               <summary class="btn btn-sm btn-excluir-licitacao">Excluir</summary>
               <form method="POST" action="{{ url_for('imp.excluir_pacote', id=pc.id) }}" class="pacote-excluir-form">

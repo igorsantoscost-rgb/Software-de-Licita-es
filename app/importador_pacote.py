@@ -45,6 +45,7 @@ MAPA_PORTAIS = {
     "compras.gov.br": "ComprasNet",
     "compras gov": "ComprasNet",
     "portal de compras publicas": "PCP",
+    "compras publicas": "PCP",
     "licitar digital": "Licitar Digital",
     "licitanet": "Licitanet",
     "procergs": "PROCERGS",
@@ -89,7 +90,7 @@ PALAVRAS_FEDERAL = [
 ]
 PALAVRAS_MUNICIPAL = [
     "municipio", "municipal", "prefeitura", "camara de vereadores",
-    "servico autonomo", "saae", "dml/pm", "fundo municipal",
+    "servico autonomo", "saae", "dml/pm", "fundo municipal", "pm de ",
 ]
 PALAVRAS_ESTADUAL = [
     "governo do estado", "secretaria de estado", "secretaria estadual",
@@ -380,7 +381,9 @@ def escolher_edital(arquivos):
                   if arquivos[j][0].lower().endswith((".pdf", ".docx", ".odt"))
                   and _pontuar_edital(arquivos[j][0]) >= 0][:6]
     if not candidatos:
-        return None
+        # um unico documento em formato que nao da para ler (.doc, .rtf): e o edital
+        docs = [j for j, a in enumerate(arquivos) if a[0].lower().endswith((".doc", ".rtf", ".pdf", ".docx", ".odt"))]
+        return docs[0] if len(docs) == 1 else None
     if len(candidatos) == 1:
         return candidatos[0]
     return max(candidatos, key=lambda j: (len(texto_inicio(arquivos[j][1], 6000).strip()), arquivos[j][2]))
@@ -695,10 +698,23 @@ def analisar_pacote(raiz, municipios=None, agora=None):
 
 
 def _analisar_pasta(nome_pasta, caminho_pasta, info, municipios, agora):
+    numero_bruto, uasg_pasta, orgao_pasta = parse_nome_pasta(nome_pasta)
+    return analisar_processo(nome_pasta, _listar_arquivos(caminho_pasta), info,
+                             numero_bruto, uasg_pasta, orgao_pasta, municipios, agora)
+
+
+def analisar_processo(nome_pasta, arquivos, info, numero_bruto, uasg_pasta, orgao_pasta,
+                      municipios, agora):
+    """Analise de um processo (pasta do ZIP ou licitacao do HTML da Effecti).
+
+    arquivos: [(nome, caminho, tamanho)]. info: dados ja conhecidos
+    (planilha/HTML). Chaves extras opcionais em info:
+      portal_definido     -> portal ja certo, nao tenta descobrir
+      uf                  -> UF ja certa
+      hora_disputa_vazia  -> data veio com 00:00, tenta achar a hora no edital
+    """
     avisos = []
     info = info or {}
-    numero_bruto, uasg_pasta, orgao_pasta = parse_nome_pasta(nome_pasta)
-    arquivos = _listar_arquivos(caminho_pasta)
 
     i_edital = escolher_edital(arquivos)
     i_tr = escolher_termo_referencia(arquivos, i_edital)
@@ -712,6 +728,12 @@ def _analisar_pasta(nome_pasta, caminho_pasta, info, municipios, agora):
 
     # Datas
     data_disputa = info.get("data_disputa") or data_no_texto(texto)
+    if data_disputa and info.get("hora_disputa_vazia"):
+        do_edital = data_no_texto(texto)
+        if do_edital and do_edital.date() == data_disputa.date():
+            data_disputa = do_edital
+        else:
+            avisos.append("A hora da disputa veio 00:00 — confira no edital.")
     if not data_disputa:
         avisos.append("Data da disputa não encontrada.")
     ano_ref = (data_disputa or info.get("data_publicacao") or agora).year
@@ -724,7 +746,7 @@ def _analisar_pasta(nome_pasta, caminho_pasta, info, municipios, agora):
     # Esfera / UF / municipio
     esfera = inferir_esfera(comprador) if not generico else None
     candidatos = _candidatos_ente(texto)
-    uf = detectar_uf(comprador, orgao_pasta, texto[:4000])
+    uf = info.get("uf") or detectar_uf(comprador, orgao_pasta, texto[:4000])
     municipio = None
     if municipios and esfera in (None, "municipal"):
         achado = None
@@ -772,7 +794,7 @@ def _analisar_pasta(nome_pasta, caminho_pasta, info, municipios, agora):
 
     # Portal
     portal_planilha = info.get("portal") or ""
-    portal = mapear_portal(portal_planilha)
+    portal = info.get("portal_definido") or mapear_portal(portal_planilha)
     if not portal:
         portal = detectar_portal_no_texto(texto)
     if not portal:
@@ -823,17 +845,27 @@ def _analisar_pasta(nome_pasta, caminho_pasta, info, municipios, agora):
 
 
 def _marcar_duplicadas_no_pacote(propostas):
+    marcar_duplicadas(propostas)
+
+
+def marcar_duplicadas(propostas, preferir=None):
     """O mesmo processo pode vir duas vezes (ex: achado no PNCP e no portal).
-    Marca a segunda ocorrencia (mesma data de disputa + mesmo numero + mesma UF)."""
-    vistos = {}
+    Mesma data de disputa + mesmo numero + mesmo municipio (ou UF) = repetida.
+    Fica a primeira, ou a que 'preferir(p)' aprovar (ex: a que nao e do PNCP)."""
+    grupos = {}
     for p in propostas:
-        num = (p["numero_pregao"] or "").split("/")[0]
-        chave = (p["data_disputa"], num, normalizar(p.get("municipio") or ""))
         if not p["data_disputa"]:
             continue
-        if chave in vistos:
-            p["duplicada_de"] = vistos[chave]
-            p["avisos"].append(f"Parece repetida da pasta \"{vistos[chave]}\".")
+        num = (p["numero_pregao"] or "").split("/")[0]
+        local = normalizar(p.get("municipio") or "") or (p.get("uf") or "")
+        grupos.setdefault((p["data_disputa"], num, local), []).append(p)
+    for repetidas in grupos.values():
+        if len(repetidas) < 2:
+            continue
+        fica = next((p for p in repetidas if preferir and preferir(p)), repetidas[0])
+        for p in repetidas:
+            if p is fica:
+                continue
+            p["duplicada_de"] = fica["pasta"]
+            p["avisos"].append(f"Parece repetida de \"{fica['pasta']}\".")
             p["selecionada"] = False
-        else:
-            vistos[chave] = p["pasta"]
