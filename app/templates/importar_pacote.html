@@ -78,7 +78,8 @@
           </td>
           <td style="white-space:nowrap;">{{ pc.enviado_em.strftime('%d/%m/%Y %H:%M') }}<br><span class="muted-sm">{{ pc.usuario.nome if pc.usuario else '—' }}</span></td>
           <td>
-            {% if pc.situacao == 'importado' %}<span class="pacote-sit pacote-sit-ok">Importado</span>
+            {% if pc.situacao == 'processando' %}<a href="{{ url_for('imp.processando', id=pc.id) }}" class="pacote-sit pacote-sit-aberta">⏳ Lendo…</a>
+            {% elif pc.situacao == 'importado' %}<span class="pacote-sit pacote-sit-ok">Importado</span>
             {% elif pc.situacao == 'em conferencia' and pc.conferencia_aberta %}<span class="pacote-sit pacote-sit-aberta">Em conferência</span>
             {% elif pc.situacao == 'descartado' %}<span class="pacote-sit">Conferência descartada</span>
             {% elif pc.situacao == 'com erro' %}<span class="pacote-sit pacote-sit-erro">Não foi possível ler</span>

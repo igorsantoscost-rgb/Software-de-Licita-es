@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block titulo %}Lendo o arquivo{% endblock %}
+{% block conteudo %}
+
+<div class="page-header">
+  <h2>Lendo o arquivo</h2>
+  <a href="{{ url_for('imp.enviar') }}" class="btn">Voltar</a>
+</div>
+
+<div class="card card-form">
+  <p style="margin:0 0 8px;"><strong>{{ pacote.nome_arquivo }}</strong></p>
+  <p class="muted-sm" style="margin:0 0 8px;">
+    ⏳ Lendo as licitações e baixando os anexos dos editais. Isso pode levar de 1 a 4 minutos.
+  </p>
+  <p class="muted-sm" style="margin:0;">
+    Esta página se atualiza sozinha e abre a conferência quando terminar.
+    Se fechar, a leitura continua: depois é só voltar em <strong>Importar pacote</strong>.
+  </p>
+</div>
+
+<script>
+setTimeout(function () { window.location.reload(); }, 5000);
+</script>
+{% endblock %}

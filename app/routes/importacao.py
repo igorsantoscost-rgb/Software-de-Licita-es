@@ -8,6 +8,7 @@ import json
 import os
 import re
 import shutil
+import threading
 import time
 import uuid
 from datetime import datetime
@@ -18,7 +19,7 @@ from flask_login import login_required, current_user
 
 from app import db
 from app.models import (Licitacao, Documento, ItemLicitacao, Cliente,
-                        CapagMunicipio, PacoteImportado)
+                        CapagMunicipio, PacoteImportado, User)
 from app.capag import consultar as consultar_capag, normalizar
 from app.importador_pacote import extrair_zip, analisar_pacote, BaseMunicipios
 from app.importador_html import analisar_html
@@ -31,12 +32,17 @@ PASTA_IMPORTACOES = os.path.join(UPLOAD_FOLDER, "_importacoes")
 PASTA_PACOTES = os.path.join(UPLOAD_FOLDER, "_pacotes")  # arquivos originais (historico)
 EXTENSOES_PACOTE = (".html", ".htm", ".zip")
 HORAS_PARA_LIMPAR = 48
+MINUTOS_MAX_LEITURA = 20  # leitura "processando" ha mais tempo que isso travou (ex: container reiniciou)
 
 
 def _clientes_do_usuario():
-    if current_user.is_master():
+    return _clientes_de(current_user)
+
+
+def _clientes_de(usuario):
+    if usuario.is_master():
         return Cliente.query.order_by(Cliente.nome).all()
-    return current_user.clientes_atendidos.order_by(Cliente.nome).all()
+    return usuario.clientes_atendidos.order_by(Cliente.nome).all()
 
 
 def _pasta_token(token):
@@ -136,10 +142,10 @@ def enviar():
         arquivo.save(caminho_zip)
         pacote = PacoteImportado(nome_arquivo=(arquivo.filename or f"pacote{ext}")[:300],
                                  caminho_zip=caminho_zip, tamanho=os.path.getsize(caminho_zip),
-                                 enviado_por=current_user.id, situacao="em conferencia")
+                                 enviado_por=current_user.id, situacao="processando")
         db.session.add(pacote)
         db.session.commit()
-        return _analisar_e_conferir(pacote, cliente_forcado, clientes)
+        return _iniciar_leitura(pacote, cliente_forcado)
 
     pacotes = PacoteImportado.query.order_by(PacoteImportado.enviado_em.desc()).limit(200).all()
     for pc in pacotes:
@@ -149,9 +155,97 @@ def enviar():
                            pacotes=pacotes)
 
 
-def _analisar_e_conferir(pacote, cliente_forcado, clientes):
+# ─── Leitura em segundo plano ────────────────────────────────────────────────
+# Baixar os anexos de muitas licitacoes leva minutos, e o nginx corta a pagina
+# em 60 s (504). Por isso a leitura roda numa thread e a tela "processando"
+# se atualiza sozinha ate a conferencia ficar pronta.
+
+def _arq_erro(pacote):
+    return f"{pacote.caminho_zip}.erro"
+
+
+def _arq_inicio(pacote):
+    return f"{pacote.caminho_zip}.lendo"
+
+
+def _leitura_travada(pacote):
+    try:
+        return time.time() - os.path.getmtime(_arq_inicio(pacote)) > MINUTOS_MAX_LEITURA * 60
+    except OSError:
+        return True
+
+
+def _iniciar_leitura(pacote, cliente_forcado):
+    for arq in (_arq_erro(pacote),):
+        try:
+            os.remove(arq)
+        except OSError:
+            pass
+    with open(_arq_inicio(pacote), "w") as f:
+        f.write(datetime.now().isoformat())
+    pacote.situacao = "processando"
+    pacote.token = None
+    db.session.commit()
+    app = current_app._get_current_object()
+    threading.Thread(target=_ler_em_segundo_plano,
+                     args=(app, pacote.id, cliente_forcado, current_user.id),
+                     daemon=True).start()
+    return redirect(url_for("imp.processando", id=pacote.id))
+
+
+def _ler_em_segundo_plano(app, pacote_id, cliente_forcado, usuario_id):
+    with app.app_context():
+        pacote = None
+        try:
+            pacote = PacoteImportado.query.get(pacote_id)
+            usuario = User.query.get(usuario_id)
+            erro = _analisar_e_conferir(pacote, cliente_forcado, _clientes_de(usuario), usuario_id)
+        except Exception as e:
+            app.logger.exception("Falha na leitura do pacote %s", pacote_id)
+            db.session.rollback()
+            erro = f"Não consegui ler o arquivo: {e}"
+            if pacote is not None:
+                pacote.situacao = "com erro"
+                db.session.commit()
+        if erro and pacote is not None:
+            with open(_arq_erro(pacote), "w", encoding="utf-8") as f:
+                f.write(erro)
+        try:
+            if pacote is not None:
+                os.remove(_arq_inicio(pacote))
+        except OSError:
+            pass
+        db.session.remove()
+
+
+@imp_bp.route("/pacote/<int:id>/processando")
+@login_required
+def processando(id):
+    if not current_user.is_assessor():
+        abort(403)
+    pacote = PacoteImportado.query.get_or_404(id)
+    if pacote.situacao == "processando":
+        if not _leitura_travada(pacote):
+            return render_template("importar_processando.html", pacote=pacote)
+        pacote.situacao = "com erro"
+        db.session.commit()
+        flash("A leitura parou no meio (o sistema pode ter reiniciado). Clique em \"Conferir de novo\".", "erro")
+        return redirect(url_for("imp.enviar"))
+    if pacote.token and _ler_analise(pacote.token):
+        return redirect(url_for("imp.conferir", token=pacote.token))
+    erro = None
+    try:
+        with open(_arq_erro(pacote), encoding="utf-8") as f:
+            erro = f.read().strip()
+    except OSError:
+        pass
+    flash(erro or "Não consegui ler o arquivo.", "erro")
+    return redirect(url_for("imp.enviar"))
+
+
+def _analisar_e_conferir(pacote, cliente_forcado, clientes, usuario_id):
     """Le o pacote guardado (HTML da Effecti ou ZIP), monta as propostas e
-    abre a conferencia."""
+    deixa a conferencia pronta. Devolve a mensagem de erro, ou None se deu certo."""
     _limpar_importacoes_antigas()
     token = uuid.uuid4().hex
     pasta = _pasta_token(token)
@@ -171,16 +265,14 @@ def _analisar_e_conferir(pacote, cliente_forcado, clientes):
         shutil.rmtree(pasta, ignore_errors=True)
         pacote.situacao = "com erro"
         db.session.commit()
-        flash(f"Não consegui ler o arquivo: {e}", "erro")
-        return redirect(url_for("imp.enviar"))
+        return f"Não consegui ler o arquivo: {e}"
 
     if not analise["propostas"]:
         shutil.rmtree(pasta, ignore_errors=True)
         pacote.situacao = "com erro"
         db.session.commit()
-        flash("Não achei nenhuma licitação no HTML." if eh_html
-              else "O ZIP não tem nenhuma pasta de processo dentro.", "erro")
-        return redirect(url_for("imp.enviar"))
+        return ("Não achei nenhuma licitação no HTML." if eh_html
+                else "O ZIP não tem nenhuma pasta de processo dentro.")
 
     classificador = _classificador(clientes)
     for p in analise["propostas"]:
@@ -237,15 +329,15 @@ def _analisar_e_conferir(pacote, cliente_forcado, clientes):
     analise["cliente_id"] = cliente_forcado
     analise["nome_pacote"] = pacote.nome_arquivo
     analise["pacote_id"] = pacote.id
-    analise["criado_por"] = current_user.id
+    analise["criado_por"] = usuario_id
     analise["criado_em"] = datetime.now().isoformat()
     with open(os.path.join(pasta, "analise.json"), "w", encoding="utf-8") as f:
         json.dump(analise, f, ensure_ascii=False)
     pacote.token = token
-    pacote.situacao = "em conferencia" if pacote.situacao != "importado" else pacote.situacao
+    pacote.situacao = "importado" if pacote.ids_licitacoes else "em conferencia"
     pacote.qtd_processos = len(analise["propostas"])
     db.session.commit()
-    return redirect(url_for("imp.conferir", token=token))
+    return None
 
 
 def _pacote_do_token(token, analise):
@@ -261,12 +353,14 @@ def reconferir(id):
     if not current_user.is_assessor():
         abort(403)
     pacote = PacoteImportado.query.get_or_404(id)
+    if pacote.situacao == "processando" and not _leitura_travada(pacote):
+        return redirect(url_for("imp.processando", id=pacote.id))
     if pacote.token and _ler_analise(pacote.token):
         return redirect(url_for("imp.conferir", token=pacote.token))
     if not pacote.caminho_zip or not os.path.exists(pacote.caminho_zip):
         flash("O arquivo deste pacote não está mais guardado.", "erro")
         return redirect(url_for("imp.enviar"))
-    return _analisar_e_conferir(pacote, None, _clientes_do_usuario())
+    return _iniciar_leitura(pacote, None)
 
 
 @imp_bp.route("/pacote/<int:id>/baixar")
