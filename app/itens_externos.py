@@ -464,7 +464,7 @@ def _colunas_do_cabecalho(linhas_cab):
     for g in grupos:
         txt = _norm(" ".join(w["t"] for w in sorted(g["p"], key=lambda w: (w["yc"], w["x0"]))))
         junto = txt.replace(" ", "")
-        if re.search(r"descri|especifica|discrimina|produto|objeto", junto):
+        if re.search(r"descri|especifica|discrimina|produto|objeto|^material|materialservico", junto):
             r = "descricao"
         elif re.search(r"qtd|quant|qtde", junto):
             r = "quantidade"
@@ -494,6 +494,11 @@ def _colunas_do_cabecalho(linhas_cab):
     return colunas
 
 
+def _abre_item(bloco):
+    desc = bloco["cols"].get("descricao") or []
+    return bool(desc and re.fullmatch(r"\d{4,7}", desc[0]) and len(desc) > 1 and desc[1] in ("-", "–"))
+
+
 def _montar_linhas_da_tabela(blocos):
     """blocos: linhas da tabela (dicts com 'cols', 'ancora', 'y').
     Liga cada linha ao item certo: se o numero do item fica no topo da celula,
@@ -515,13 +520,24 @@ def _montar_linhas_da_tabela(blocos):
             limite = blocos[a]["y"] + (blocos[a]["y"] - topo) + 3
             fim = a
             for i in range(a + 1, prox):
+                # linha que comeca com codigo de catalogo ("49024 - ...") abre o proximo item
+                if _abre_item(blocos[i]):
+                    break
                 if blocos[i]["y"] <= limite:
                     fim = i
             for i in range(inicio, fim + 1):
                 dono[i] = a
             inicio = fim + 1
     else:
+        proxima = None  # linha que abre o proximo item (codigo de catalogo) antes do numero dele
         for i in range(len(blocos)):
+            if blocos[i]["ancora"]:
+                proxima = None
+            elif _abre_item(blocos[i]):
+                proxima = next((a for a in ancoras if a > i), None)
+            if proxima is not None:
+                dono[i] = proxima
+                continue
             antes = [a for a in ancoras if a <= i]
             if antes:
                 dono[i] = antes[-1]
@@ -553,13 +569,21 @@ def itens_de_pdf(caminho):
     linhas = _linhas_pdf(palavras)
     resultado, colunas, lote_atual = [], None, None
     blocos = []
+    tabelas = []   # (assinatura das colunas, itens) de cada trecho de tabela
 
     def fechar():
         nonlocal blocos
+        achados = []
+        lotes_col = {t for b in blocos for t in b["cols"].get("lote", []) if re.fullmatch(r"0*\d{1,3}", t)}
+        lote_unico = f"Lote {next(iter(lotes_col)).lstrip('0') or '0'}" if len(lotes_col) == 1 else None
         for a in _montar_linhas_da_tabela(blocos):
-            if a["desc"] and a["qtd"] is not None:
-                resultado.append(_item(a["numero"], " ".join(a["desc"]), a["unidade_txt"],
-                                       a["qtd"], a["valor"], a["lote"]))
+            desc = _limpar_descricao(" ".join(a["desc"]))
+            if desc and a["qtd"] is not None:
+                achados.append(_item(a["numero"], desc, a["unidade_txt"], a["qtd"], a["valor"],
+                                     a["lote"] or lote_unico))
+        if achados:
+            assinatura = tuple(c["rotulo"] for c in colunas or [])
+            tabelas.append((assinatura, achados))
         blocos = []
 
     i = 0
@@ -595,6 +619,10 @@ def itens_de_pdf(caminho):
             i += 1
             continue
 
+        if RE_RODAPE.search(texto):
+            i += 1
+            continue
+
         def coluna_de(w):
             escolhida = colunas[0]
             for c in colunas:
@@ -602,9 +630,18 @@ def itens_de_pdf(caminho):
                     escolhida = c
             return escolhida["rotulo"]
 
+        x_desc = next((c["x0"] for c in colunas if c["rotulo"] == "descricao"), None)
         cols = {}
-        for w in linha:
-            cols.setdefault(coluna_de(w), []).append(w["t"])
+        for k, w in enumerate(linha):
+            col = coluna_de(w)
+            # Cabecalho "DESCRICAO" centralizado e texto alinhado a esquerda: o comeco
+            # da descricao cai antes do titulo. Texto (nao numero) antes da coluna de
+            # descricao, depois do numero do item, e descricao.
+            if (x_desc is not None and col in ("item", "lote", "outra") and w["x0"] < x_desc and k > 0
+                    and (not re.fullmatch(r"[\d.,]+", w["t"])
+                         or any(not re.fullmatch(r"[\d.,]+", x["t"]) for x in linha[:k]))):
+                col = "descricao"
+            cols.setdefault(col, []).append(w["t"])
         primeira = linha[0]
         qtd = next((q for q in (_float(t) for t in cols.get("quantidade", [])) if q is not None), None)
         col_primeira = coluna_de(primeira)
@@ -623,7 +660,30 @@ def itens_de_pdf(caminho):
                        "qtd": qtd, "lote": lote_atual})
         i += 1
     fechar()
-    return resultado
+    if not tabelas:
+        return []
+    # O mesmo documento costuma repetir a lista (anexo com valores, TR so com
+    # quantidades): junta os trechos do mesmo formato e fica com o melhor formato
+    grupos = {}
+    for assinatura, itens in tabelas:
+        grupos.setdefault(assinatura, []).extend(itens)
+    return max(grupos.values(), key=lambda its: (_qualidade(its) + sum(bool(i["valor_estimado"]) for i in its), len(its)))
+
+
+RE_RODAPE = re.compile(r"https?://|controlador\.php|^\d{2}/\d{2}/\d{4},?\s+\d{2}:\d{2}|^p[aá]gina\s+\d+\s*(de|/)\s*\d+", re.I)
+
+
+def _limpar_descricao(txt):
+    """Tira o codigo do catalogo do comeco ("49015 - ") e a repeticao do nome
+    que alguns sistemas colocam ("Tinta X Tinta X - Cota Principal")."""
+    txt = " ".join(txt.split())
+    txt = re.sub(r"^\d{4,7}\s*[-–]\s*", "", txt)
+    palavras = txt.split()
+    for n in range(len(palavras) // 2, 3, -1):
+        if palavras[:n] == palavras[n:2 * n]:
+            txt = " ".join(palavras[n:])
+            break
+    return txt
 
 
 # ─── escolha da melhor fonte ─────────────────────────────────────────────────

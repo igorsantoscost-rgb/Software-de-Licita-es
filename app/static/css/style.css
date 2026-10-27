@@ -1974,3 +1974,8 @@ body.com-menu .container, body.com-menu .container.container-full { max-width: n
 .col-detalhe-principal .tabela-itens .col-desc { min-width: 140px; }
 .col-detalhe-principal .tabela-itens td.col-lote, .col-detalhe-principal .tabela-itens th.col-lote { white-space: normal; max-width: 70px; }
 .col-detalhe-principal .tabela-itens .col-desc { min-width: 110px; } .col-detalhe-principal .tabela-itens td.col-resultado { min-width: 0; }
+/* Descricao quebra sempre (ate textos sem espaco): a tabela cabe no card sem cortar colunas */
+.col-detalhe-principal .tabela-itens { width: 100%; }
+.col-detalhe-principal .tabela-itens .col-desc,
+.col-detalhe-principal .tabela-itens .item-desc { overflow-wrap: anywhere; word-break: break-word; }
+.col-detalhe-principal .tabela-itens th.col-num, .col-detalhe-principal .tabela-itens td.col-num { text-align: left; }
