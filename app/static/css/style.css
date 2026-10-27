@@ -1948,3 +1948,5 @@ body.com-menu .container, body.com-menu .container.container-full { max-width: n
   html.menu-recolhido .menu-usuario { flex-direction: column; gap: 6px; padding-left: 0; padding-right: 0; }
 }
 @media (max-width: 960px) { .menu-recolher { display: none; } }
+
+.lead-ramo { display: block; margin-top: 2px; font-size: .76rem; color: #5d6b62; }

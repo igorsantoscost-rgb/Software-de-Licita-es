@@ -150,8 +150,9 @@
         {% if g.vencedores|length > 3 %}<div class="lead-meta">+ {{ g.vencedores|length - 3 }} outro(s) — veja nos itens</div>{% endif %}
       </div>
       <div class="lead-lado">
-        <p class="lead-rotulo">Homologado em {{ g.data.strftime('%d/%m') if g.data else '—' }}</p>
-        <p class="lead-total">{{ g.total|brl }}</p>
+        <p class="lead-rotulo">Total homologado · {{ g.data.strftime('%d/%m') if g.data else '—' }}</p>
+        <p class="lead-total" title="Valor total homologado da licitação">{{ (g.total_licitacao or g.total)|brl }}</p>
+        {% if g.total_licitacao and (g.total_licitacao - g.total)|abs > 0.01 %}<span class="lead-ramo">Itens do ramo: {{ g.total|brl }}</span>{% endif %}
         <span class="lead-ata">{% if g.ata_vigente %}Ata vigente até {{ g.ata.strftime('%d/%m/%Y') }}{% elif g.ata %}Ata venceu em {{ g.ata.strftime('%d/%m/%Y') }}{% elif g.srp %}Registro de preços{% else %}Sem ata{% endif %}</span>
         <div class="lead-botoes">
           <a href="{{ op.link_pncp }}" target="_blank" rel="noopener" class="btn btn-sm" title="Abrir no PNCP">PNCP</a>

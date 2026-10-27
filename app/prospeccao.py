@@ -160,25 +160,28 @@ def _dados_cabecalho(cab):
         "orgao": (orgao.get("razaoSocial") or "")[:300] or None,
         "uf": (unidade.get("ufSigla") or "")[:2] or None,
         "municipio": (unidade.get("municipioNome") or "")[:150] or None,
+        "valor_total": _num(cab.get("valorTotalHomologado")) or None,
     }
 
 
 def completar_compras(limite=120, log=print):
-    """Preenche objeto e numero do pregao das oportunidades que ficaram sem.
-    Devolve (pregoes consultados, pregoes completados)."""
+    """Preenche objeto, numero e valor total do pregao das oportunidades que
+    ficaram sem. Devolve (pregoes consultados, pregoes completados)."""
     pend = (db.session.query(OportunidadeHomologada.cnpj_orgao, OportunidadeHomologada.ano,
                              OportunidadeHomologada.sequencial)
-            .filter((OportunidadeHomologada.objeto.is_(None)) | (OportunidadeHomologada.numero_compra.is_(None)))
+            .filter((OportunidadeHomologada.objeto.is_(None)) | (OportunidadeHomologada.numero_compra.is_(None))
+                    | (OportunidadeHomologada.valor_total_licitacao.is_(None)))
             .distinct().limit(limite).all())
     ok = 0
     for cnpj, ano, seq in pend:
         d = _dados_cabecalho(cabecalho_compra(cnpj, ano, seq))
-        if not d.get("objeto") and not d.get("numero_compra"):
+        if not d.get("objeto") and not d.get("numero_compra") and not d.get("valor_total"):
             continue
         for op in OportunidadeHomologada.query.filter_by(cnpj_orgao=cnpj, ano=ano, sequencial=seq).all():
             op.objeto = op.objeto or d["objeto"]
             op.numero_compra = op.numero_compra or d["numero_compra"]
             op.modalidade = op.modalidade or d["modalidade"]
+            op.valor_total_licitacao = d["valor_total"] or op.valor_total_licitacao
             if op.srp is None:
                 op.srp = d["srp"]
             if d["orgao"]:
@@ -187,7 +190,7 @@ def completar_compras(limite=120, log=print):
             op.municipio = op.municipio or d["municipio"]
         db.session.commit()
         ok += 1
-    log(f"Pregões sem objeto/número: {len(pend)} consultado(s), {ok} completado(s).")
+    log(f"Pregões sem objeto/número/valor total: {len(pend)} consultado(s), {ok} completado(s).")
     return len(pend), ok
 
 
@@ -381,6 +384,7 @@ def processar_compra(compra, clientes, contatos_cache, contador_contatos):
                     modalidade=dc.get("modalidade"),
                     objeto=dc.get("objeto"),
                     srp=dc.get("srp"),
+                    valor_total_licitacao=dc.get("valor_total"),
                     ata_vigencia_fim=compra.ata_vigencia_fim,
                     descricao_item=" ".join(texto.split())[:2000],
                     unidade=(it.get("unidadeMedida") or "")[:60],

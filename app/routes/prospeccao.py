@@ -145,6 +145,7 @@ def _agrupar(ops):
         sits = g["situacoes"]
         g["situacao"] = next(iter(sits)) if len(sits) == 1 else ("nova" if "nova" in sits else "vista")
         g["ata_vigente"] = bool(g["ata"] and g["ata"] >= hoje)
+        g["total_licitacao"] = max((o.valor_total_licitacao or 0) for o in g["itens"]) or None
     lista.sort(key=lambda g: (g["data"] is not None, g["data"] or datetime.min), reverse=True)
     return lista
 
@@ -179,7 +180,7 @@ def _kpis(grupos):
         for it in g["itens"]:
             venc.add(it.fornecedor_cnpj or it.fornecedor_nome)
     return {"licitacoes": len(grupos), "itens": sum(len(g["itens"]) for g in grupos),
-            "valor": sum(g["total"] for g in grupos), "vencedores": len(venc)}
+            "valor": sum((g["total_licitacao"] or g["total"]) for g in grupos), "vencedores": len(venc)}
 
 
 def _comum(cliente_fixo):
@@ -346,7 +347,7 @@ def _planilha(consulta, nome, visao_cliente=False):
     ws.title = "LEADS INDIRETOS"
     colunas = [  # (titulo, largura, formato)
         ("ÓRGÃO", 40, None), ("UF", 5, None), ("MUNICÍPIO", 20, None), ("PREGÃO", 12, None),
-        ("OBJETO", 55, None), ("ITEM", 8, "0"), ("DESCRIÇÃO", 60, None), ("UNID.", 10, None),
+        ("OBJETO", 55, None), ("VALOR TOTAL DA LICITAÇÃO", 18, "#,##0.00"), ("ITEM", 8, "0"), ("DESCRIÇÃO", 60, None), ("UNID.", 10, None),
         ("QTD", 10, "#,##0.##"), ("VALOR UNIT. ESTIMADO", 16, "#,##0.00"),
         ("QTD HOMOLOGADA", 14, "#,##0.##"), ("VALOR UNIT. HOMOLOGADO", 18, "#,##0.00"),
         ("VALOR TOTAL HOMOLOGADO", 18, "#,##0.00"),
@@ -362,7 +363,7 @@ def _planilha(consulta, nome, visao_cliente=False):
         cel.alignment = Alignment(vertical="center", wrap_text=True)
     num = lambda v: float(v) if v is not None else None
     for op in consulta.limit(10000):
-        linha = [op.orgao, op.uf, op.municipio, op.numero_compra, op.objeto, op.numero_item,
+        linha = [op.orgao, op.uf, op.municipio, op.numero_compra, op.objeto, op.valor_total_licitacao, op.numero_item,
                  op.descricao_item, op.unidade, num(op.quantidade), num(op.valor_unitario_estimado),
                  num(op.quantidade_homologada), num(op.valor_unitario_homologado), op.valor_total_homologado,
                  op.fornecedor_nome, op.fornecedor_cnpj, op.fornecedor_telefone, op.fornecedor_email,

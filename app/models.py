@@ -692,6 +692,7 @@ class OportunidadeHomologada(db.Model):
     valor_unitario_homologado = db.Column(db.Numeric(16, 4), nullable=True)
     data_resultado = db.Column(db.DateTime, nullable=True, index=True)
     palavras = db.Column(db.String(300), nullable=True)
+    valor_total_licitacao = db.Column(db.Float, nullable=True)  # valor homologado do pregao inteiro (PNCP)
     encontrada_em = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     avisada_em = db.Column(db.DateTime, nullable=True)
     situacao = db.Column(db.String(20), nullable=False, default="nova", index=True)  # nova | vista | contatada | descartada
