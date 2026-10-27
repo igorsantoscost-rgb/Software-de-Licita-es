@@ -163,6 +163,7 @@ def create_app():
         _padronizar_textos_importados()
         _migrar_encerradas_sem_participacao()
         _corrigir_atas_prospeccao()
+        _limpar_prospeccao_fora_do_nome()
 
     return app
 
@@ -556,6 +557,22 @@ def _corrigir_atas_prospeccao():
         from app.prospeccao import DESDE
         OportunidadeHomologada.query.filter(OportunidadeHomologada.data_resultado < DESDE).delete(
             synchronize_session=False)
+        db.session.add(MigracaoAplicada(nome=nome))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+
+def _limpar_prospeccao_fora_do_nome():
+    """Uma unica vez: a palavra-chave passou a valer so no nome do item.
+    Tira as oportunidades antigas que casavam so no meio da especificacao."""
+    from app.models import MigracaoAplicada
+    nome = "prospeccao_nome_item_v1"
+    try:
+        if MigracaoAplicada.query.filter_by(nome=nome).first():
+            return
+        from app.prospeccao import limpar_fora_do_nome
+        limpar_fora_do_nome()
         db.session.add(MigracaoAplicada(nome=nome))
         db.session.commit()
     except Exception:

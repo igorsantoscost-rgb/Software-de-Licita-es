@@ -230,10 +230,28 @@ def _padroes_clientes():
     return saida
 
 
-def _combina(pares, texto):
+CABECA = 80  # quantos caracteres do inicio da descricao contam como "nome do produto"
+
+
+def _cabeca(texto):
+    """Inicio da descricao, onde fica o nome do produto. A palavra-chave tem que
+    estar aqui: no meio da especificacao ela costuma ser so um detalhe
+    (ex.: tambor de lixo "com pintura em esmalte sintetico")."""
     from app.classificador_cliente import _normalizar
     t = _normalizar(texto)
-    return [p for p, rx in pares if rx.search(t)]
+    if len(t) <= CABECA:
+        return t
+    corte = t.rfind(" ", 0, CABECA + 1)
+    return t[:corte if corte > 20 else CABECA]
+
+
+def _combina(pares, texto, complemento=""):
+    """Palavras-chave que aparecem no nome do item. Se a descricao e generica
+    (nao tem nenhuma), olha o inicio da informacao complementar."""
+    achou = [p for p, rx in pares if rx.search(_cabeca(texto))]
+    if not achou and complemento:
+        achou = [p for p, rx in pares if rx.search(_cabeca(complemento))]
+    return achou
 
 
 # ─── processamento de um pregao ──────────────────────────────────────────────
@@ -259,7 +277,8 @@ def processar_compra(compra, clientes, contatos_cache, contador_contatos):
     novas, pendentes, interesse = 0, 0, 0
     for it in itens:
         texto = f"{it.get('descricao') or ''} {it.get('informacaoComplementar') or ''}"
-        alvo = [(c, _combina(pares, texto)) for c, pares in clientes]
+        alvo = [(c, _combina(pares, it.get('descricao') or '', it.get('informacaoComplementar') or ''))
+                for c, pares in clientes]
         alvo = [(c, ps) for c, ps in alvo if ps]
         if not alvo:
             continue
@@ -407,6 +426,23 @@ def rodar_prospeccao(enviar_email=True, log=print):
 
 
 # ─── e-mail diario ───────────────────────────────────────────────────────────
+
+def limpar_fora_do_nome():
+    """Remove as oportunidades (novas ou vistas) cuja palavra-chave so aparecia
+    no meio da especificacao. Devolve quantas saíram."""
+    from app.classificador_cliente import _padrao
+    padroes, removidas = {}, 0
+    for op in OportunidadeHomologada.query.filter(OportunidadeHomologada.situacao.in_(("nova", "vista"))).all():
+        if op.cliente_id not in padroes:
+            c = Cliente.query.get(op.cliente_id)
+            pares = [(p.palavra, _padrao(p.palavra)) for p in (c.palavras_chave if c else [])]
+            padroes[op.cliente_id] = [(p, rx) for p, rx in pares if rx]
+        if padroes[op.cliente_id] and not _combina(padroes[op.cliente_id], op.descricao_item or ""):
+            db.session.delete(op)
+            removidas += 1
+    db.session.commit()
+    return removidas
+
 
 def ultima_semana(hoje=None):
     """Segunda e domingo da ultima semana completa (seg-dom) antes de hoje."""

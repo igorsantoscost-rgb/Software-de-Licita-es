@@ -134,7 +134,7 @@
                 {% for it in g.itens %}
                 <tr>
                   <td>{{ it.numero_item }}</td>
-                  <td title="{{ it.descricao_item }}">{{ (it.descricao_item or '')[:140] }}{% if (it.descricao_item or '')|length > 140 %}…{% endif %}</td>
+                  <td title="{{ it.descricao_item }}">{{ (it.descricao_item or '')[:140] }}{% if (it.descricao_item or '')|length > 140 %}…{% endif %}{% if it.palavras and not visao_cliente %}<br><span class="muted-sm">casou com: <em>{{ it.palavras }}</em></span>{% endif %}</td>
                   <td>{{ it.fornecedor_nome or '—' }}</td>
                   <td style="text-align:right;white-space:nowrap;">{{ '{:,.0f}'.format(it.quantidade_homologada or it.quantidade or 0).replace(',', '.') if (it.quantidade_homologada or it.quantidade) else '—' }}{% if it.unidade %} <span class="muted-sm">{{ it.unidade }}</span>{% endif %}</td>
                   <td style="text-align:right;white-space:nowrap;">{{ it.valor_unitario_homologado|brl }}{% if it.valor_unitario_estimado %}<br><span class="muted-sm">est. {{ it.valor_unitario_estimado|brl }}</span>{% endif %}</td>
