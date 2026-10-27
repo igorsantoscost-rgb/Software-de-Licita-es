@@ -162,6 +162,7 @@ def create_app():
         _seed_capag_estados()
         _padronizar_textos_importados()
         _migrar_encerradas_sem_participacao()
+        _corrigir_atas_prospeccao()
 
     return app
 
@@ -527,6 +528,23 @@ def _padronizar_textos_importados():
         db.session.commit()
     except Exception:
         # outro worker do gunicorn pode ter aplicado ao mesmo tempo (nome unico)
+        db.session.rollback()
+
+
+def _corrigir_atas_prospeccao():
+    """Uma unica vez: a primeira versao da prospeccao ligou a validade da ata ao
+    pregao errado (usava o numero da ata como numero do pregao). Limpa as
+    validades; a busca diaria preenche de novo, agora no pregao certo."""
+    from app.models import MigracaoAplicada, CompraMonitorada, OportunidadeHomologada
+    nome = "prospeccao_atas_v2"
+    try:
+        if MigracaoAplicada.query.filter_by(nome=nome).first():
+            return
+        CompraMonitorada.query.update({"ata_vigencia_fim": None}, synchronize_session=False)
+        OportunidadeHomologada.query.update({"ata_vigencia_fim": None}, synchronize_session=False)
+        db.session.add(MigracaoAplicada(nome=nome))
+        db.session.commit()
+    except Exception:
         db.session.rollback()
 
 

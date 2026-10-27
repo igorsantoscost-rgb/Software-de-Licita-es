@@ -34,7 +34,7 @@ BUSCA = "https://pncp.gov.br/api/search/"
 CABECALHOS = {"User-Agent": "Mozilla/5.0 (compatible; Bidfy/1.0; +https://licitabidfy.com.br)",
               "Accept": "application/json"}
 TIMEOUT = (10, 40)
-PAUSA = 0.35              # segundos entre chamadas (nao sobrecarregar o PNCP)
+PAUSA = 0.8               # segundos entre chamadas (o PNCP corta quem consulta rapido demais)
 PAGINAS_PRIMEIRA = 8      # primeira busca de uma palavra: ate 8 paginas (~400 editais)
 PAGINAS_DIA = 3           # buscas seguintes: so o comeco da lista (o que e novo)
 TAM_PAGINA = 50
@@ -67,7 +67,13 @@ def _get(url, params=None, tentativas=3):
 
 
 def _ids(item):
-    """(cnpj, ano, sequencial) de um resultado da busca do PNCP."""
+    """(cnpj, ano, sequencial) do PREGAO de um resultado da busca do PNCP.
+    Numa ata, numero_sequencial e o numero da ata; o do pregao esta no link
+    (/atas/<cnpj>/<ano>/<sequencial do pregao>/<numero da ata>)."""
+    url = item.get("item_url") or ""
+    if "atas/" in url:
+        m = RE_IDS_URL.search(url)
+        return (m.group(1), int(m.group(2)), int(m.group(3))) if m else None
     if item.get("orgao_cnpj") and item.get("ano") and item.get("numero_sequencial"):
         try:
             return str(item["orgao_cnpj"]), int(item["ano"]), int(item["numero_sequencial"])
@@ -302,8 +308,11 @@ def rodar_prospeccao(enviar_email=True, log=print):
             if ids in conhecidos:
                 if fim_ata:
                     c = CompraMonitorada.query.filter_by(cnpj=ids[0], ano=ids[1], sequencial=ids[2]).first()
-                    if c and not c.ata_vigencia_fim:
+                    if c and (not c.ata_vigencia_fim or c.ata_vigencia_fim < fim_ata.date()):
                         c.ata_vigencia_fim = fim_ata.date()
+                        OportunidadeHomologada.query.filter_by(
+                            cnpj_orgao=ids[0], ano=ids[1], sequencial=ids[2]).update(
+                            {"ata_vigencia_fim": fim_ata.date()}, synchronize_session=False)
                 continue
             db.session.add(CompraMonitorada(cnpj=ids[0], ano=ids[1], sequencial=ids[2],
                                             titulo=(it.get("orgao_nome") or it.get("title") or "")[:300],

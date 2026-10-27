@@ -14,7 +14,7 @@ from flask_login import login_required, current_user
 from sqlalchemy import or_
 
 from app import db
-from app.models import Cliente, OportunidadeHomologada, CompraMonitorada
+from app.models import Cliente, OportunidadeHomologada, CompraMonitorada, agora_brasilia
 
 pros_bp = Blueprint("pros", __name__, url_prefix="/prospeccao")
 
@@ -121,13 +121,13 @@ def rodar():
     def tarefa():
         with _trava, app.app_context():
             from app.prospeccao import rodar_prospeccao
-            _gravar_status({"inicio": datetime.now().strftime("%d/%m/%Y %H:%M"), "rodando": True})
+            _gravar_status({"inicio": agora_brasilia().strftime("%d/%m/%Y %H:%M"), "rodando": True})
             try:
                 res = rodar_prospeccao(enviar_email=False, log=lambda m: app.logger.info(m))
-                _gravar_status({"fim": datetime.now().strftime("%d/%m/%Y %H:%M"), **res})
+                _gravar_status({"fim": agora_brasilia().strftime("%d/%m/%Y %H:%M"), **res})
             except Exception as e:
                 app.logger.exception("Prospecção manual falhou")
-                _gravar_status({"fim": datetime.now().strftime("%d/%m/%Y %H:%M"), "erro": str(e)[:200]})
+                _gravar_status({"fim": agora_brasilia().strftime("%d/%m/%Y %H:%M"), "erro": str(e)[:200]})
             finally:
                 db.session.remove()
 
