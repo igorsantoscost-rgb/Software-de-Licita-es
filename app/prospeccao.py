@@ -138,8 +138,9 @@ CONSULTA = "https://pncp.gov.br/api/consulta/v1"
 def cabecalho_compra(cnpj, ano, seq):
     """Dados do pregao (objeto, numero, modalidade, SRP, orgao). Tenta a API do
     PNCP e, se nao vier o objeto, a API de consulta."""
-    for base in (API, CONSULTA):
-        d = _get(f"{base}/orgaos/{cnpj}/compras/{ano}/{seq}")
+    # A API de consulta e a que responde hoje; a outra devolve 301 (so reserva).
+    for base, tentativas in ((CONSULTA, 3), (API, 1)):
+        d = _get(f"{base}/orgaos/{cnpj}/compras/{ano}/{seq}", tentativas=tentativas)
         if isinstance(d, dict) and (d.get("objetoCompra") or d.get("numeroCompra")):
             return d
     return {}
