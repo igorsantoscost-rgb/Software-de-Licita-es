@@ -57,6 +57,20 @@ def _padrao(palavra_chave):
     return re.compile(r"\b" + r"\s+".join(pedacos) + r"\b")
 
 
+NOME_ITEM = 80  # caracteres do comeco da descricao que contam como "nome do produto"
+
+
+def _nome_item(descricao):
+    """Comeco da descricao do item (o nome do produto), normalizado. A palavra-chave
+    tem que estar aqui: no meio da especificacao costuma ser so um detalhe
+    (ex.: tinta "de acabamento uniforme" nao e uniforme)."""
+    t = _normalizar(descricao)
+    if len(t) <= NOME_ITEM:
+        return t
+    corte = t.rfind(" ", 0, NOME_ITEM + 1)
+    return t[:corte if corte > 20 else NOME_ITEM]
+
+
 def _chave_grupo(nome):
     """'Grupo 01', 'GRUPO 1' e 'grupo 1' viram a mesma chave."""
     txt = _normalizar(nome)
@@ -81,7 +95,7 @@ def grupos_mistos(padroes, itens):
         if not chave:
             continue  # item sem grupo e disputado sozinho
         g = grupos.setdefault(chave, {"grupo": grupo, "itens": []})
-        txt = _normalizar(_campo(item, "descricao"))
+        txt = _nome_item(_campo(item, "descricao"))
         g["itens"].append((item, any(rx.search(txt) for rx in padroes)))
 
     mistos = []
@@ -125,17 +139,19 @@ class Classificador:
     def vazio(self):
         return not self.clientes
 
-    def classificar(self, itens):
+    def classificar(self, itens, so_nome=True):
         """Devolve dict com o cliente sugerido e o ranking.
 
         {"cliente_id": 3 | None,
          "itens_total": 12,
          "ranking": [{"cliente_id", "nome", "itens", "valor", "palavras"}...],
          "empate": bool}
+        so_nome: compara so o comeco da descricao (nome do item). False quando
+        o "item" e o objeto inteiro da licitacao.
         """
         textos = []
         for item in itens or []:
-            txt = _normalizar(item.get("descricao"))
+            txt = _nome_item(item.get("descricao")) if so_nome else _normalizar(item.get("descricao"))
             if txt:
                 valor = 0.0
                 try:

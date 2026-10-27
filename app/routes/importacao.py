@@ -339,7 +339,7 @@ def _analisar_e_conferir(pacote, cliente_forcado, clientes, usuario_id):
         if not itens_classif and eh_html and p.get("objeto"):
             itens_classif = [{"descricao": p["objeto"]}]
             p["classificou_por"] = "objeto"
-        resultado = classificador.classificar(itens_classif)
+        resultado = classificador.classificar(itens_classif, so_nome=p["classificou_por"] == "itens")
         p["classificacao"] = resultado
         p["grupo_misto"] = []
         do_perfil = None if cliente_forcado else _cliente_do_perfil(p.get("perfil"), clientes)
@@ -347,7 +347,11 @@ def _analisar_e_conferir(pacote, cliente_forcado, clientes, usuario_id):
             # O perfil da Effecti so desempata: vale apenas se as palavras-chave
             # do cliente do perfil aparecem nos itens/objeto
             r_perfil = next((r for r in resultado["ranking"] if r["cliente_id"] == do_perfil), None)
-            if not r_perfil or not r_perfil.get("itens") or r_perfil.get("so_grupo_misto"):
+            validos = [r for r in resultado["ranking"] if not r.get("so_grupo_misto")]
+            melhor = max((r["itens"] for r in validos), default=0)
+            # ... e so desempata: o cliente do perfil precisa ter tantos itens quanto o melhor
+            if (not r_perfil or not r_perfil.get("itens") or r_perfil.get("so_grupo_misto")
+                    or r_perfil["itens"] < melhor):
                 do_perfil = None
         if cliente_forcado or do_perfil:
             p["cliente_sugerido"] = cliente_forcado or do_perfil
