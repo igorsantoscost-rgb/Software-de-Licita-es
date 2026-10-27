@@ -93,10 +93,10 @@
   <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
   <span class="muted-sm busca-contagem">{{ total }} licitação(ões) · {{ total_itens }} item(ns)</span>
 </form>
-{% if sem_uf and not visao_cliente %}
+{% if (sem_uf or sem_objeto) and not visao_cliente %}
 <form method="POST" action="{{ url_for('pros.completar_ufs_agora') }}" class="filtros">
-  <span class="muted-sm">{{ sem_uf }} oportunidade(s) ainda sem UF do órgão.</span>
-  <button type="submit" class="btn btn-sm">Completar UFs</button>
+  <span class="muted-sm">{{ sem_uf }} sem UF do órgão · {{ sem_objeto }} sem objeto/número do pregão.</span>
+  <button type="submit" class="btn btn-sm">Completar dados</button>
 </form>
 {% endif %}
 

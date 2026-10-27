@@ -163,7 +163,8 @@ def painel():
     ufs = [sigla for sigla, _nome in sorted(UFS)]
     acompanhando = CompraMonitorada.query.filter_by(concluida=False).count()
     sem_uf = OportunidadeHomologada.query.filter(OportunidadeHomologada.uf.is_(None)).count()
-    return render_template("prospeccao.html", clientes=clientes, licitacoes=licitacoes, total=total,
+    sem_objeto = OportunidadeHomologada.query.filter(OportunidadeHomologada.objeto.is_(None)).count()
+    return render_template("prospeccao.html", clientes=clientes, licitacoes=licitacoes, sem_objeto=sem_objeto, total=total,
                            total_itens=sum(len(g["itens"]) for g in grupos), pagina=pagina,
                            paginas=(total + POR_PAGINA - 1) // POR_PAGINA, ufs=ufs, situacoes=SITUACOES,
                            status=_status(), rodando=_trava.locked(), acompanhando=acompanhando, sem_uf=sem_uf,
@@ -203,7 +204,7 @@ def leads():
                            total=total, total_itens=sum(len(g["itens"]) for g in grupos), pagina=pagina,
                            paginas=(total + POR_PAGINA - 1) // POR_PAGINA,
                            ufs=[sigla for sigla, _n in sorted(UFS)], situacoes=SITUACOES, status={}, rodando=False,
-                           acompanhando=0, sem_uf=0, filtros=request.args, cliente=Cliente.query.get(cid),
+                           acompanhando=0, sem_uf=0, sem_objeto=0, filtros=request.args, cliente=Cliente.query.get(cid),
                            desde=__import__("app.prospeccao", fromlist=["DESDE"]).DESDE, **_comum(cid))
 
 
@@ -288,9 +289,10 @@ def rodar():
 def completar_ufs_agora():
     if not current_user.is_assessor():
         abort(403)
-    from app.prospeccao import completar_ufs
+    from app.prospeccao import completar_ufs, completar_compras
     n = completar_ufs(limite=150)
-    flash(f"UF preenchida em {n} oportunidade(s)." + (" Clique de novo para continuar." if n >= 100 else ""), "ok")
+    _c, k = completar_compras(limite=40, log=lambda m: None)
+    flash(f"UF preenchida em {n} oportunidade(s); objeto/número completados em {k} pregão(ões).", "ok")
     return redirect(request.referrer or url_for("pros.painel"))
 
 
@@ -319,38 +321,53 @@ def exportar():
     return _planilha(_consulta(), f"leads-indiretos-{date.today():%Y-%m-%d}.xlsx")
 
 
+def _alto(v):
+    return v.upper() if isinstance(v, str) else v
+
+
 def _planilha(consulta, nome, visao_cliente=False):
+    """Uma linha por item, tudo em caixa alta. Ordem: licitacao, item,
+    valores estimado e homologado, depois os dados do vencedor."""
     from openpyxl import Workbook
-    from openpyxl.styles import Font
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.utils import get_column_letter
     wb = Workbook()
     ws = wb.active
-    ws.title = "Leads indiretos"
-    cab = ["Resultado em", "Órgão", "UF", "Município", "Pregão", "Objeto", "Item", "Descrição",
-           "Unid.", "Qtd", "Valor unit. estimado", "Vencedor", "CNPJ vencedor", "Telefone", "E-mail",
-           "Cidade vencedor", "Qtd homologada", "Valor unit. homologado", "Valor total", "SRP",
-           "Ata vigente até", "Link PNCP"]
+    ws.title = "LEADS INDIRETOS"
+    colunas = [  # (titulo, largura, formato)
+        ("ÓRGÃO", 40, None), ("UF", 5, None), ("MUNICÍPIO", 20, None), ("PREGÃO", 12, None),
+        ("OBJETO", 55, None), ("ITEM", 8, "0"), ("DESCRIÇÃO", 60, None), ("UNID.", 10, None),
+        ("QTD", 10, "#,##0.##"), ("VALOR UNIT. ESTIMADO", 16, "#,##0.00"),
+        ("QTD HOMOLOGADA", 14, "#,##0.##"), ("VALOR UNIT. HOMOLOGADO", 18, "#,##0.00"),
+        ("VALOR TOTAL HOMOLOGADO", 18, "#,##0.00"),
+        ("VENCEDOR", 40, None), ("CNPJ VENCEDOR", 18, None), ("TELEFONE", 22, None),
+        ("E-MAIL", 30, None), ("CIDADE VENCEDOR", 22, None),
+    ]
     if not visao_cliente:
-        cab = ["Cliente"] + cab + ["Situação", "Observação"]
-    ws.append(cab)
-    for c in ws[1]:
-        c.font = Font(bold=True)
+        colunas = [("CLIENTE", 25, None)] + colunas + [("SITUAÇÃO", 12, None), ("OBSERVAÇÃO", 40, None)]
+    ws.append([c[0] for c in colunas])
+    for cel in ws[1]:
+        cel.font = Font(bold=True, color="FFFFFF")
+        cel.fill = PatternFill("solid", fgColor="14532D")
+        cel.alignment = Alignment(vertical="center", wrap_text=True)
+    num = lambda v: float(v) if v is not None else None
     for op in consulta.limit(10000):
-        linha = [op.data_resultado, op.orgao, op.uf, op.municipio,
-                 op.numero_compra, op.objeto, op.numero_item, op.descricao_item, op.unidade,
-                 float(op.quantidade) if op.quantidade is not None else None,
-                 float(op.valor_unitario_estimado) if op.valor_unitario_estimado is not None else None,
+        linha = [op.orgao, op.uf, op.municipio, op.numero_compra, op.objeto, op.numero_item,
+                 op.descricao_item, op.unidade, num(op.quantidade), num(op.valor_unitario_estimado),
+                 num(op.quantidade_homologada), num(op.valor_unitario_homologado), op.valor_total_homologado,
                  op.fornecedor_nome, op.fornecedor_cnpj, op.fornecedor_telefone, op.fornecedor_email,
-                 f"{op.fornecedor_municipio or ''}/{op.fornecedor_uf or ''}".strip("/"),
-                 float(op.quantidade_homologada) if op.quantidade_homologada is not None else None,
-                 float(op.valor_unitario_homologado) if op.valor_unitario_homologado is not None else None,
-                 op.valor_total_homologado, "Sim" if op.srp else ("Não" if op.srp is False else ""),
-                 op.ata_vigencia_fim, op.link_pncp]
+                 f"{op.fornecedor_municipio or ''}/{op.fornecedor_uf or ''}".strip("/")]
         if not visao_cliente:
             linha = [op.cliente.nome if op.cliente else ""] + linha + [op.situacao, op.observacao]
-        ws.append(linha)
-    for col, larg in zip("ABCDEFGHIJKLMNOPQRSTUVWXYZ", [12, 40, 5, 18, 12, 50, 6, 60, 8, 10, 14, 40, 18, 16, 28, 20, 12, 14, 14, 6, 12, 50]):
-        ws.column_dimensions[col].width = larg
+        ws.append([_alto(v) for v in linha])
+    for i, (_t, larg, fmt) in enumerate(colunas, start=1):
+        letra = get_column_letter(i)
+        ws.column_dimensions[letra].width = larg
+        if fmt:
+            for (cel,) in ws.iter_rows(min_row=2, min_col=i, max_col=i):
+                cel.number_format = fmt
     ws.freeze_panes = "A2"
+    ws.auto_filter.ref = ws.dimensions
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)

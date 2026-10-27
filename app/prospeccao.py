@@ -132,8 +132,63 @@ def buscar_editais(palavra, tipo="edital", status="encerradas", paginas=3, conhe
     return achados
 
 
+CONSULTA = "https://pncp.gov.br/api/consulta/v1"
+
+
 def cabecalho_compra(cnpj, ano, seq):
-    return _get(f"{API}/orgaos/{cnpj}/compras/{ano}/{seq}") or {}
+    """Dados do pregao (objeto, numero, modalidade, SRP, orgao). Tenta a API do
+    PNCP e, se nao vier o objeto, a API de consulta."""
+    for base in (API, CONSULTA):
+        d = _get(f"{base}/orgaos/{cnpj}/compras/{ano}/{seq}")
+        if isinstance(d, dict) and (d.get("objetoCompra") or d.get("numeroCompra")):
+            return d
+    return {}
+
+
+def _dados_cabecalho(cab):
+    """Campos da oportunidade que vem do cabecalho do pregao."""
+    if not cab:
+        return {}
+    orgao = cab.get("orgaoEntidade") or {}
+    unidade = cab.get("unidadeOrgao") or {}
+    num = cab.get("numeroCompra")
+    return {
+        "numero_compra": f"{num}/{cab.get('anoCompra')}" if num and cab.get("anoCompra") else (str(num) if num else None),
+        "objeto": cab.get("objetoCompra") or None,
+        "modalidade": (cab.get("modalidadeNome") or "")[:80] or None,
+        "srp": bool(cab.get("srp")) if cab.get("srp") is not None else None,
+        "orgao": (orgao.get("razaoSocial") or "")[:300] or None,
+        "uf": (unidade.get("ufSigla") or "")[:2] or None,
+        "municipio": (unidade.get("municipioNome") or "")[:150] or None,
+    }
+
+
+def completar_compras(limite=120, log=print):
+    """Preenche objeto e numero do pregao das oportunidades que ficaram sem.
+    Devolve (pregoes consultados, pregoes completados)."""
+    pend = (db.session.query(OportunidadeHomologada.cnpj_orgao, OportunidadeHomologada.ano,
+                             OportunidadeHomologada.sequencial)
+            .filter((OportunidadeHomologada.objeto.is_(None)) | (OportunidadeHomologada.numero_compra.is_(None)))
+            .distinct().limit(limite).all())
+    ok = 0
+    for cnpj, ano, seq in pend:
+        d = _dados_cabecalho(cabecalho_compra(cnpj, ano, seq))
+        if not d.get("objeto") and not d.get("numero_compra"):
+            continue
+        for op in OportunidadeHomologada.query.filter_by(cnpj_orgao=cnpj, ano=ano, sequencial=seq).all():
+            op.objeto = op.objeto or d["objeto"]
+            op.numero_compra = op.numero_compra or d["numero_compra"]
+            op.modalidade = op.modalidade or d["modalidade"]
+            if op.srp is None:
+                op.srp = d["srp"]
+            if d["orgao"]:
+                op.orgao = d["orgao"]
+            op.uf = op.uf or d["uf"]
+            op.municipio = op.municipio or d["municipio"]
+        db.session.commit()
+        ok += 1
+    log(f"Pregões sem objeto/número: {len(pend)} consultado(s), {ok} completado(s).")
+    return len(pend), ok
 
 
 def itens_compra(cnpj, ano, seq):
@@ -310,24 +365,22 @@ def processar_compra(compra, clientes, contatos_cache, contador_contatos):
                     contatos_cache[forn] = contato_fornecedor(forn)
                     contador_contatos[0] += 1
                 ct = contatos_cache.get(forn) or {}
-                orgao = (cab.get("orgaoEntidade") or {}) if cab else {}
-                unidade = (cab.get("unidadeOrgao") or {}) if cab else {}
-                uf_orgao = (unidade.get("ufSigla") or compra.uf or "")[:2] or None
-                mun_orgao = (unidade.get("municipioNome") or compra.municipio or "")[:150] or None
+                dc = _dados_cabecalho(cab)
+                uf_orgao = dc.get("uf") or (compra.uf or "")[:2] or None
+                mun_orgao = dc.get("municipio") or (compra.municipio or "")[:150] or None
                 if not uf_orgao:
                     lugar = _local_orgao(cnpj, contatos_cache)
                     uf_orgao, mun_orgao = lugar.get("uf") or None, mun_orgao or lugar.get("municipio") or None
                 op = OportunidadeHomologada(
                     cliente_id=cliente.id, cnpj_orgao=cnpj, ano=ano, sequencial=seq,
                     numero_item=int(numero),
-                    orgao=(orgao.get("razaoSocial") or compra.titulo or "")[:300],
+                    orgao=(dc.get("orgao") or compra.titulo or "")[:300],
                     uf=uf_orgao,
                     municipio=mun_orgao,
-                    numero_compra=(f"{cab.get('numeroCompra')}/{cab.get('anoCompra')}"
-                                   if cab and cab.get("numeroCompra") else None),
-                    modalidade=(cab.get("modalidadeNome") or "")[:80] if cab else None,
-                    objeto=(cab.get("objetoCompra") if cab else None),
-                    srp=bool(cab.get("srp")) if cab and cab.get("srp") is not None else None,
+                    numero_compra=dc.get("numero_compra"),
+                    modalidade=dc.get("modalidade"),
+                    objeto=dc.get("objeto"),
+                    srp=dc.get("srp"),
                     ata_vigencia_fim=compra.ata_vigencia_fim,
                     descricao_item=" ".join(texto.split())[:2000],
                     unidade=(it.get("unidadeMedida") or "")[:60],
@@ -416,6 +469,7 @@ def rodar_prospeccao(enviar_email=True, log=print):
     log(f"Prospecção: {verificados} pregão(ões) verificado(s), {novas} oportunidade(s) nova(s).")
     try:
         completar_ufs()
+        completar_compras(log=log)
     except Exception:
         db.session.rollback()
 
