@@ -90,7 +90,7 @@ def painel():
     return render_template("prospeccao.html", clientes=clientes, ops=ops, total=total, pagina=pagina,
                            paginas=(total + 99) // 100, ufs=ufs, situacoes=SITUACOES,
                            status=_status(), rodando=_trava.locked(), acompanhando=acompanhando,
-                           filtros=request.args)
+                           filtros=request.args, desde=__import__("app.prospeccao", fromlist=["DESDE"]).DESDE)
 
 
 @pros_bp.route("/cliente/<int:id>/ligar", methods=["POST"])

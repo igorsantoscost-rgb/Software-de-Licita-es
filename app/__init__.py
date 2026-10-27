@@ -546,6 +546,18 @@ def _corrigir_atas_prospeccao():
         db.session.commit()
     except Exception:
         db.session.rollback()
+    # Uma unica vez: tira as oportunidades homologadas antes do periodo de interesse
+    nome = "prospeccao_desde_v1"
+    try:
+        if MigracaoAplicada.query.filter_by(nome=nome).first():
+            return
+        from app.prospeccao import DESDE
+        OportunidadeHomologada.query.filter(OportunidadeHomologada.data_resultado < DESDE).delete(
+            synchronize_session=False)
+        db.session.add(MigracaoAplicada(nome=nome))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
 
 
 def _migrar_encerradas_sem_participacao():

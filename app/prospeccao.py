@@ -1,5 +1,5 @@
 """
-Prospeccao diaria de licitacoes HOMOLOGADAS no PNCP, pelas palavras-chave
+Prospeccao semanal (toda segunda-feira) de licitacoes HOMOLOGADAS no PNCP, pelas palavras-chave
 cadastradas de cada cliente (so clientes com "prospectar homologadas" ligado).
 
 Para cada item homologado que combina com o cliente, guarda:
@@ -18,6 +18,7 @@ Como funciona:
 Uso pelo terminal: python -m app.prospeccao
 """
 import logging
+import os
 import re
 import time
 from datetime import datetime, timedelta, date
@@ -42,6 +43,13 @@ DIAS_ACOMPANHAR = 120     # pregao sem resultado e verificado por ate 4 meses
 LIMITE_COMPRAS = 600      # pregoes verificados por rodada
 LIMITE_MINUTOS = 40       # tempo maximo de uma rodada
 LIMITE_CONTATOS = 80      # consultas de CNPJ (contato do vencedor) por rodada
+
+# So entram itens homologados a partir desta data (padrao: 01/10/2026).
+# Pode ser mudada pela variavel de ambiente PROSPECCAO_DESDE=AAAA-MM-DD.
+try:
+    DESDE = datetime.strptime(os.environ.get("PROSPECCAO_DESDE", "2026-10-01"), "%Y-%m-%d")
+except ValueError:
+    DESDE = datetime(2026, 10, 1)
 
 RE_IDS_URL = re.compile(r"(?:editais|compras|atas)/(\d{14})/(\d{4})/(\d+)")
 
@@ -234,6 +242,9 @@ def processar_compra(compra, clientes, contatos_cache, contador_contatos):
         for res in resultados:
             if res.get("dataCancelamento") or "cancel" in str(res.get("situacaoCompraItemResultadoNome") or "").lower():
                 continue
+            data_res = _data(res.get("dataResultado"))
+            if data_res and data_res < DESDE:
+                continue  # homologado antes do periodo de interesse
             forn = re.sub(r"\D", "", str(res.get("niFornecedor") or "")) or str(res.get("niFornecedor") or "")
             for cliente, palavras in alvo:
                 existe = OportunidadeHomologada.query.filter_by(
@@ -271,7 +282,7 @@ def processar_compra(compra, clientes, contatos_cache, contador_contatos):
                     fornecedor_email=ct.get("email") or None,
                     quantidade_homologada=_num(res.get("quantidadeHomologada")),
                     valor_unitario_homologado=_num(res.get("valorUnitarioHomologado")),
-                    data_resultado=_data(res.get("dataResultado")),
+                    data_resultado=data_res,
                     palavras=", ".join(palavras)[:300],
                 )
                 db.session.add(op)
