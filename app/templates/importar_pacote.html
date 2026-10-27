@@ -92,6 +92,7 @@
             <form method="POST" action="{{ url_for('imp.reconferir', id=pc.id) }}" class="form-inline">
               <button type="submit" class="btn btn-sm">{{ 'Continuar conferência' if pc.conferencia_aberta else ('Importar mais processos' if pc.situacao == 'importado' else 'Conferir de novo') }}</button>
             </form>
+            {% if pc.resumo %}<a href="{{ url_for('imp.resumo', id=pc.id) }}" class="btn btn-sm" title="Quantas vieram, quantas foram criadas e por que as outras não">Resumo</a>{% endif %}
             <a href="{{ url_for('imp.baixar_pacote', id=pc.id) }}" class="btn btn-sm" title="Baixar o arquivo original">Baixar</a>
             <details class="pacote-excluir">
               <summary class="btn btn-sm btn-excluir-licitacao">Excluir</summary>

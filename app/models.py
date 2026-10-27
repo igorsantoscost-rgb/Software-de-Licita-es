@@ -619,8 +619,17 @@ class PacoteImportado(db.Model):
     qtd_criadas = db.Column(db.Integer, nullable=True)
     licitacoes_ids = db.Column(db.Text, nullable=True)            # "12,13,14"
     importado_em = db.Column(db.DateTime, nullable=True)
+    resumo = db.Column(db.Text, nullable=True)   # JSON: total, criadas e nao criadas (com motivo)
 
     usuario = db.relationship("User")
+
+    @property
+    def resumo_dict(self):
+        import json
+        try:
+            return json.loads(self.resumo) if self.resumo else None
+        except ValueError:
+            return None
 
     @property
     def ids_licitacoes(self):

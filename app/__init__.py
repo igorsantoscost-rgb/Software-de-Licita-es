@@ -192,6 +192,7 @@ def _migrar_prospeccao():
             conn.execute(text("ALTER TABLE clientes ADD COLUMN IF NOT EXISTS capag_bloqueadas VARCHAR(30)"))
             conn.execute(text("ALTER TABLE clientes ADD COLUMN IF NOT EXISTS bloquear_exclusiva_me BOOLEAN DEFAULT FALSE"))
             conn.execute(text("ALTER TABLE licitacoes ADD COLUMN IF NOT EXISTS participacao_me VARCHAR(20)"))
+            conn.execute(text("ALTER TABLE pacotes_importados ADD COLUMN IF NOT EXISTS resumo TEXT"))
             conn.commit()
     except Exception:
         db.session.rollback()

@@ -1958,3 +1958,8 @@ body.com-menu .container, body.com-menu .container.container-full { max-width: n
 .import-me { display: inline-block; padding: 0 6px; border-radius: 4px; font-size: .72rem; font-weight: 700; background: #eef2ee; color: #3a473f; }
 .import-me-exclusiva { background: #fbeee0; color: #8a4b12; }
 .import-me-mista { background: #e2ebf3; color: #0e2c47; }
+/* Resultado da importacao */
+.resultado-motivos { display: flex; flex-wrap: wrap; gap: 8px; }
+.resultado-motivo { padding: 6px 12px; border: 1px solid #e0e5dd; border-radius: 4px; background: #fafbf9; font-size: .86rem; }
+.resultado-motivo strong { color: #153a29; margin-right: 4px; }
+.resultado-cat { display: inline-block; padding: 1px 7px; border-radius: 4px; background: #f3ece0; color: #7a5212; font-size: .72rem; font-weight: 700; }

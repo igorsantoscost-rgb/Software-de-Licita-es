@@ -591,6 +591,50 @@ def _criar_licitacao(cliente_id, p):
     return lic
 
 
+def _motivo_desmarcada(p):
+    """(categoria, motivo) de uma licitacao do pacote que nao foi marcada."""
+    avisos = p.get("avisos") or []
+    if p.get("selecionada", True):
+        alerta = next((a for a in avisos if "palavra-chave" in a or "Empate" in a or "Sem itens" in a), None)
+        return "Desmarcada na conferência", "Você desmarcou na conferência." + (f" (Aviso: {alerta})" if alerta else "")
+    if p.get("fora_do_perfil"):
+        texto = next((a for a in avisos if a.startswith("Fora do perfil")), f"Fora do perfil: {p['fora_do_perfil']}")
+        return "Fora do perfil do cliente", texto.replace(" Desmarquei.", "")
+    if p.get("ja_cadastrada"):
+        return "Já cadastrada", "Já estava cadastrada para este cliente."
+    if p.get("duplicada_de"):
+        return "Repetida no pacote", f"Repetida de \"{p['duplicada_de']}\"."
+    if p.get("situacao_data") == "passada":
+        return "Disputa já passou", "A data da disputa já passou."
+    misto = next((a for a in avisos if a.startswith("Grupo misto")), None)
+    if misto:
+        return "Grupo misto", misto.replace(" Desmarquei.", "")
+    return "Desmarcada na conferência", avisos[0] if avisos else "Desmarcada na conferência."
+
+
+def _rotulo(p):
+    return {"orgao": p.get("orgao_licitante") or p.get("pasta"), "numero": p.get("numero_pregao"),
+            "data": (p.get("data_disputa") or "")[:10], "objeto": (p.get("objeto") or "")[:160]}
+
+
+@imp_bp.route("/pacote/<int:id>/resumo")
+@login_required
+def resumo(id):
+    """O que aconteceu com cada licitacao do pacote: criadas e nao criadas (motivo)."""
+    if not current_user.is_assessor():
+        abort(403)
+    pacote = PacoteImportado.query.get_or_404(id)
+    r = pacote.resumo_dict
+    if not r:
+        flash("Este pacote não tem resumo (foi importado antes desta função).", "erro")
+        return redirect(url_for("imp.enviar"))
+    categorias = {}
+    for n in r["nao_criadas"]:
+        categorias[n["categoria"]] = categorias.get(n["categoria"], 0) + 1
+    return render_template("importar_resultado.html", pacote=pacote, r=r,
+                           categorias=sorted(categorias.items(), key=lambda kv: -kv[1]))
+
+
 @imp_bp.route("/<token>/confirmar", methods=["POST"])
 @login_required
 def confirmar(token):
@@ -628,10 +672,18 @@ def confirmar(token):
         destino[i] = ids
 
     criadas, puladas, erros = [], [], []
+    nao_criadas = []
+    nomes_clientes = {c.id: c.nome for c in Cliente.query.all()}
     for i, p in enumerate(analise["propostas"]):
+        if i not in destino:
+            categoria, motivo = _motivo_desmarcada(p)
+            nao_criadas.append({**_rotulo(p), "categoria": categoria, "motivo": motivo})
+            continue
         for cliente_id in destino.get(i, []):
             if _ja_cadastrada(cliente_id, p):
                 puladas.append(p["pasta"])
+                nao_criadas.append({**_rotulo(p), "categoria": "Já cadastrada",
+                                    "motivo": f"Já estava cadastrada para {nomes_clientes.get(cliente_id, 'o cliente')}."})
                 continue
             try:
                 lic = _criar_licitacao(cliente_id, p)
@@ -641,6 +693,7 @@ def confirmar(token):
                 db.session.rollback()
                 current_app.logger.exception("Falha ao importar %s", p["pasta"])
                 erros.append(f"{p['pasta']}: {e}")
+                nao_criadas.append({**_rotulo(p), "categoria": "Erro ao criar", "motivo": str(e)[:300]})
 
     if avisar and criadas:
         from app.email_service import notificar_nova_licitacao
@@ -659,7 +712,15 @@ def confirmar(token):
         pacote.situacao = "importado" if ids else pacote.situacao
         pacote.importado_em = datetime.utcnow()
         pacote.token = None
+        pacote.resumo = json.dumps({
+            "total": len(analise["propostas"]),
+            "criadas": [{"id": l.id, "orgao": l.orgao_licitante, "numero": l.numero_pregao,
+                         "cliente": l.cliente.nome if l.cliente else "",
+                         "data": l.data_disputa.strftime("%Y-%m-%d") if l.data_disputa else ""} for l in criadas],
+            "nao_criadas": nao_criadas,
+        }, ensure_ascii=False)
         db.session.commit()
+        return redirect(url_for("imp.resumo", id=pacote.id))
 
     if criadas:
         por_cliente = {}

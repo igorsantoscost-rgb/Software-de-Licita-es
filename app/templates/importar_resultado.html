@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block titulo %}Resultado da importação{% endblock %}
+{% block conteudo %}
+<div class="page-header">
+  <div>
+    <h2>Resultado da importação</h2>
+    <p class="leads-sub">{{ pacote.nome_arquivo }}{% if pacote.importado_em %} · {{ pacote.importado_em.strftime('%d/%m/%Y %H:%M') }}{% endif %}</p>
+  </div>
+  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+    <a href="{{ url_for('imp.enviar') }}" class="btn">Voltar às importações</a>
+    <a href="{{ url_for('main.painel') }}" class="btn btn-primary">Ir para o painel</a>
+  </div>
+</div>
+
+<div class="leads-kpis" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
+  <div class="leads-kpi"><p>Oportunidades no pacote</p><strong>{{ r.total }}</strong></div>
+  <div class="leads-kpi"><p>Licitações criadas</p><strong>{{ r.criadas|length }}</strong></div>
+  <div class="leads-kpi"><p>Não criadas</p><strong>{{ r.nao_criadas|length }}</strong></div>
+</div>
+{% if r.criadas|length > 0 and r.criadas|length + r.nao_criadas|length != r.total %}
+<p class="muted-sm" style="margin:-6px 0 14px;">Uma mesma oportunidade pode virar mais de uma licitação quando vai para mais de um cliente.</p>
+{% endif %}
+
+{% if categorias %}
+<div class="card">
+  <h3>Por que não foram criadas</h3>
+  <div class="resultado-motivos">
+    {% for cat, n in categorias %}
+    <span class="resultado-motivo"><strong>{{ n }}</strong> {{ cat }}</span>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if r.nao_criadas %}
+<div class="card">
+  <h3>Não criadas ({{ r.nao_criadas|length }})</h3>
+  <div class="tabela-wrap">
+    <table class="tabela tabela-sm">
+      <thead><tr><th>Órgão / pregão</th><th>Disputa</th><th>Motivo</th></tr></thead>
+      <tbody>
+        {% for n in r.nao_criadas|sort(attribute='categoria') %}
+        <tr>
+          <td><strong>{{ n.orgao }}</strong>{% if n.numero %}<span class="muted-sm import-sub">Pregão {{ n.numero }}</span>{% endif %}{% if n.objeto %}<span class="import-objeto">{{ n.objeto }}</span>{% endif %}</td>
+          <td style="white-space:nowrap;">{% if n.data %}{{ n.data[8:10] }}/{{ n.data[5:7] }}/{{ n.data[:4] }}{% else %}—{% endif %}</td>
+          <td><span class="resultado-cat">{{ n.categoria }}</span><span class="muted-sm import-sub">{{ n.motivo }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if r.criadas %}
+<div class="card">
+  <h3>Criadas ({{ r.criadas|length }})</h3>
+  <div class="tabela-wrap">
+    <table class="tabela tabela-sm">
+      <thead><tr><th>Órgão / pregão</th><th>Disputa</th><th>Cliente</th><th></th></tr></thead>
+      <tbody>
+        {% for c in r.criadas %}
+        <tr>
+          <td><strong>{{ c.orgao }}</strong>{% if c.numero %}<span class="muted-sm import-sub">Pregão {{ c.numero }}</span>{% endif %}</td>
+          <td style="white-space:nowrap;">{% if c.data %}{{ c.data[8:10] }}/{{ c.data[5:7] }}/{{ c.data[:4] }}{% else %}—{% endif %}</td>
+          <td>{{ c.cliente }}</td>
+          <td style="text-align:right;"><a href="{{ url_for('lic.detalhe', id=c.id) }}" class="btn btn-sm">Abrir</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
