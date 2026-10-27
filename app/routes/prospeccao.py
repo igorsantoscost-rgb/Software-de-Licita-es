@@ -78,6 +78,49 @@ def _consulta():
                       OportunidadeHomologada.id.desc())
 
 
+POR_PAGINA = 40
+
+
+def _agrupar(ops):
+    """Junta os itens por licitacao (cliente + pregao). Devolve lista de dicts,
+    a licitacao com resultado mais recente primeiro."""
+    from datetime import date as _date
+    grupos = {}
+    for op in ops:
+        chave = (op.cliente_id, op.cnpj_orgao, op.ano, op.sequencial)
+        g = grupos.get(chave)
+        if g is None:
+            g = grupos[chave] = {"chave": chave, "itens": [], "primeiro": op, "total": 0.0,
+                                 "data": None, "vencedores": {}, "ata": None, "srp": None,
+                                 "situacoes": set(), "observacao": None}
+        g["itens"].append(op)
+        t = op.valor_total_homologado
+        if t:
+            g["total"] += t
+        if op.data_resultado and (g["data"] is None or op.data_resultado > g["data"]):
+            g["data"] = op.data_resultado
+        nome = op.fornecedor_nome or op.fornecedor_cnpj
+        v = g["vencedores"].setdefault(nome, {"op": op, "itens": 0, "total": 0.0})
+        v["itens"] += 1
+        v["total"] += t or 0
+        if op.ata_vigencia_fim and (g["ata"] is None or op.ata_vigencia_fim > g["ata"]):
+            g["ata"] = op.ata_vigencia_fim
+        if op.srp:
+            g["srp"] = True
+        g["situacoes"].add(op.situacao)
+        g["observacao"] = g["observacao"] or op.observacao
+    lista = list(grupos.values())
+    hoje = _date.today()
+    for g in lista:
+        g["itens"].sort(key=lambda o: (o.numero_item, o.fornecedor_nome or ""))
+        g["vencedores"] = sorted(g["vencedores"].items(), key=lambda kv: -kv[1]["total"])
+        sits = g["situacoes"]
+        g["situacao"] = next(iter(sits)) if len(sits) == 1 else ("nova" if "nova" in sits else "vista")
+        g["ata_vigente"] = bool(g["ata"] and g["ata"] >= hoje)
+    lista.sort(key=lambda g: (g["data"] is not None, g["data"] or datetime.min), reverse=True)
+    return lista
+
+
 @pros_bp.route("/")
 @login_required
 def painel():
@@ -85,17 +128,42 @@ def painel():
         abort(403)
     clientes = _clientes()
     pagina = max(request.args.get("pagina", 1, type=int), 1)
-    q = _consulta()
-    total = q.count()
-    ops = q.offset((pagina - 1) * 100).limit(100).all()
+    grupos = _agrupar(_consulta().limit(20000).all())
+    total = len(grupos)
+    licitacoes = grupos[(pagina - 1) * POR_PAGINA: pagina * POR_PAGINA]
     from app.capag import UFS
     ufs = [sigla for sigla, _nome in sorted(UFS)]
     acompanhando = CompraMonitorada.query.filter_by(concluida=False).count()
     sem_uf = OportunidadeHomologada.query.filter(OportunidadeHomologada.uf.is_(None)).count()
-    return render_template("prospeccao.html", clientes=clientes, ops=ops, total=total, pagina=pagina,
-                           paginas=(total + 99) // 100, ufs=ufs, situacoes=SITUACOES,
+    return render_template("prospeccao.html", clientes=clientes, licitacoes=licitacoes, total=total,
+                           total_itens=sum(len(g["itens"]) for g in grupos), pagina=pagina,
+                           paginas=(total + POR_PAGINA - 1) // POR_PAGINA, ufs=ufs, situacoes=SITUACOES,
                            status=_status(), rodando=_trava.locked(), acompanhando=acompanhando, sem_uf=sem_uf,
                            filtros=request.args, desde=__import__("app.prospeccao", fromlist=["DESDE"]).DESDE)
+
+
+@pros_bp.route("/licitacao/situacao", methods=["POST"])
+@login_required
+def situacao_licitacao():
+    """Marca a situacao (e a observacao) de todos os itens de uma licitacao."""
+    if not current_user.is_assessor():
+        abort(403)
+    cid = request.form.get("cliente_id", type=int)
+    if not cid or not current_user.pode_ver_cliente(cid):
+        abort(403)
+    q = OportunidadeHomologada.query.filter_by(
+        cliente_id=cid, cnpj_orgao=request.form.get("cnpj", ""),
+        ano=request.form.get("ano", type=int), sequencial=request.form.get("seq", type=int))
+    dados = {}
+    nova = request.form.get("situacao")
+    if nova in ("nova", "vista", "contatada", "descartada"):
+        dados["situacao"] = nova
+    if "observacao" in request.form:
+        dados["observacao"] = request.form.get("observacao", "").strip()[:2000] or None
+    if dados:
+        q.update(dados, synchronize_session=False)
+        db.session.commit()
+    return redirect(request.referrer or url_for("pros.painel"))
 
 
 @pros_bp.route("/cliente/<int:id>/ligar", methods=["POST"])
