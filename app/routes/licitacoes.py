@@ -479,40 +479,15 @@ def buscar_itens_edital(id):
     """Preenche os Parametros da disputa com a lista de itens do PNCP (ou da
     planilha anexada). So acrescenta itens que ainda nao existem e completa
     campos vazios dos que ja existem; nada que foi digitado e apagado."""
-    from app.itens_externos import buscar_itens
+    from app.itens_preencher import preencher_itens
     lic = Licitacao.query.get_or_404(id)
     if not current_user.is_assessor() or not _pode_ver(lic):
         abort(403)
-    arquivos = [(d.nome_original or "", d.caminho) for d in lic.documentos
-                if d.caminho and os.path.exists(d.caminho)]
-    itens, fonte = buscar_itens(link=lic.link_edital or "", orgao=lic.orgao_licitante or "",
-                                numero=lic.numero_pregao or "", uf=lic.uf, data=lic.data_disputa,
-                                objeto=lic.objeto or "", municipio=lic.municipio, arquivos=arquivos)
-    if not itens:
-        flash("Não achei a lista de itens no PNCP nem em planilha anexada. Preencha pelo TR.", "erro")
+    novos, completados, fonte = preencher_itens(lic)
+    if not fonte:
+        flash("Não achei a lista de itens no PNCP nem nos arquivos do processo (TR, edital, planilha). "
+              "Se o TR estiver em outro anexo, anexe na licitação e clique de novo.", "erro")
         return redirect(url_for("lic.detalhe", id=id) + "#parametros-disputa")
-    existentes = {(i.numero_item or "").strip().lstrip("0"): i for i in lic.itens if (i.numero_item or "").strip()}
-    novos, completados = 0, 0
-    for it in itens:
-        chave = (it["numero_item"] or "").strip().lstrip("0")
-        atual = existentes.get(chave) if chave else None
-        if atual is None:
-            db.session.add(ItemLicitacao(licitacao_id=id, numero_item=it["numero_item"],
-                                         descricao=it["descricao"], lote_grupo=it["lote_grupo"],
-                                         unidade=it["unidade"], quantidade=it["quantidade"],
-                                         valor_estimado=it["valor_estimado"]))
-            novos += 1
-            continue
-        mudou = False
-        for campo in ("lote_grupo", "unidade", "quantidade", "valor_estimado"):
-            if getattr(atual, campo) in (None, "") and it[campo] not in (None, ""):
-                setattr(atual, campo, it[campo])
-                mudou = True
-        if len(it["descricao"]) > len(atual.descricao or "") + 20:
-            atual.descricao = it["descricao"]
-            mudou = True
-        completados += mudou
-    db.session.commit()
     msg = f"Itens lidos do {fonte}: {novos} incluído(s)"
     if completados:
         msg += f", {completados} completado(s)"

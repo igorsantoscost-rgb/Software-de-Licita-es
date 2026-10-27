@@ -66,9 +66,25 @@ def _item(numero, descricao, unidade=None, quantidade=None, valor=None, lote=Non
 
 # ─── PNCP ────────────────────────────────────────────────────────────────────
 
+# Arquivos do PNCP vem nomeados <cnpj>_<ano>_<sequencial>_<n>_<nome> (tambem nos links da Effecti)
+RE_NOME_PNCP = re.compile(r"(?<!\d)(\d{14})_(20\d\d)_0*(\d{1,6})_\d{1,3}_")
+
+
 def ids_no_link(link):
     m = RE_LINK_PNCP.search(link or "")
     return (m.group(1), m.group(2), m.group(3)) if m else None
+
+
+def ids_nos_textos(*textos):
+    """Codigo da compra no PNCP a partir do link ou do nome/URL de um anexo."""
+    for t in textos:
+        ids = ids_no_link(t)
+        if ids:
+            return ids
+        m = RE_NOME_PNCP.search(t or "")
+        if m:
+            return (m.group(1), m.group(2), m.group(3))
+    return None
 
 
 def itens_pncp(cnpj, ano, seq):
@@ -567,10 +583,10 @@ def itens_dos_arquivos(arquivos, limite=8):
 
 
 def buscar_itens(link="", orgao="", numero="", uf=None, data=None, objeto="", municipio=None,
-                 arquivos=()):
+                 arquivos=(), extras=()):
     """Devolve (itens, fonte). fonte: 'PNCP' | '<nome do arquivo>' | None.
     arquivos: [(nome, caminho)] ja baixados/anexados ao processo."""
-    ids = ids_no_link(link)
+    ids = ids_nos_textos(link, *[n for n, _c in arquivos], *extras)
     if not ids:
         ids = buscar_compra_pncp(orgao, numero, uf, data, objeto, municipio)
     if ids:

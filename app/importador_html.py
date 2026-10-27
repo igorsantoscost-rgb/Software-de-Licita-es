@@ -398,7 +398,8 @@ def analisar_html(conteudo, destino, municipios=None, agora=None):
             return buscar_itens(link=lic["link"], orgao=lic["orgao"], numero=lic["numero"],
                                 uf=lic["uf"], data=lic["data_final"], objeto=lic["objeto"],
                                 municipio=p.get("municipio"),
-                                arquivos=[(n, c) for n, c, _t in lic["baixados"]])
+                                arquivos=[(n, c) for n, c, _t in lic["baixados"]],
+                                extras=[a["url"] for a in lic["anexos"]] + [a["nome"] for a in lic["anexos"]])
         except Exception:
             return [], None
 
