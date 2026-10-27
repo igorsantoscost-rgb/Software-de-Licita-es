@@ -384,7 +384,7 @@ def _rotulo_coluna(txt):
         return "descricao"
     if c.startswith(("quant", "qtd", "qtde", "qde")) or c in ("qt",):
         return "quantidade"
-    if c.startswith(("unid", "und", "medida")) or c in ("un", "ud", "um", "u"):
+    if c.startswith(("unid", "und", "medida")) or c in ("un", "ud", "um", "u", "u m"):
         return "unidade"
     if c.startswith("item") or c in ("n", "no", "nº", "seq", "ord"):
         return "item"
@@ -401,9 +401,10 @@ VOCAB_CABECALHO = {
     "produto", "produtos", "servico", "servicos", "unit", "unitario", "unitaria", "total", "r", "rs",
     "catmat", "catser", "codigo", "cod", "medida", "estimado", "estimada", "medio", "media", "maximo",
     "de", "do", "da", "dos", "das", "e", "o", "a", "item", "itens", "valor", "preco", "referencia",
-    "especificacao", "especificacoes", "detalhada", "tecnica", "quantidade", "qtd", "unidade", "und",
-    "fornecimento", "anual", "mensal", "estimativa", "cotado", "ref", "marca", "modelo", "siga", "br",
-    "fornecimento", "minima", "maxima", "por", "em", "un", "x",
+    "especificacao", "especificacoes", "detalhada", "tecnica", "quantidade", "qtd", "qtde", "unidade",
+    "und", "fornecimento", "anual", "mensal", "estimativa", "cotado", "ref", "marca", "modelo", "siga",
+    "br", "minima", "maxima", "por", "em", "un", "x", "u", "m", "um", "sesi", "senai", "registrada",
+    "registrado", "global", "lote", "grupo", "descricao", "estima", "do", "unitari", "esti", "ado",
 }
 
 
@@ -420,82 +421,173 @@ def _linhas_pdf(palavras):
     return linhas
 
 
+PALAVRAS_FORTES_CABECALHO = {
+    "qtd", "qtde", "quant", "quantidade", "sesi", "senai", "total", "unitario", "unitari", "unit",
+    "estimado", "estimada", "estima", "valor", "preco", "medida", "catmat", "catser", "codigo", "cod",
+    "u", "um", "un", "und", "unid", "unidade", "rs", "item", "descricao", "especificacao", "marca",
+    "modelo", "lote", "grupo", "produto", "medio", "media", "maximo", "registrada", "registrado",
+}
+
+
+def _linha_de_cabecalho(linha, principal=False):
+    """Linha so com palavras de cabecalho (sem numeros). As linhas extras de um
+    cabecalho de varias linhas precisam ter alguma palavra tipica de coluna."""
+    if any(re.search(r"\d", w["t"]) for w in linha):
+        return False
+    normas = [_norm(w["t"]) for w in linha]
+    conhecidas = sum(1 for n, w in zip(normas, linha) if n in VOCAB_CABECALHO or _rotulo_coluna(w["t"]) != "outra")
+    if conhecidas * 2 < len(linha):
+        return False
+    return principal or any(p in PALAVRAS_FORTES_CABECALHO for n in normas for p in n.split())
+
+
+def _colunas_do_cabecalho(linhas_cab):
+    """Junta as palavras de um cabecalho de uma ou varias linhas em colunas
+    (pela posicao horizontal) e da nome a cada coluna."""
+    palavras = sorted((w for l in linhas_cab for w in l), key=lambda w: w["x0"])
+    grupos = []
+    for w in palavras:
+        g = next((g for g in grupos if w["x0"] <= g["x1"] + 3 and w["x1"] >= g["x0"] - 3), None)
+        if g:
+            g["x0"], g["x1"] = min(g["x0"], w["x0"]), max(g["x1"], w["x1"])
+            g["p"].append(w)
+        else:
+            grupos.append({"x0": w["x0"], "x1": w["x1"], "p": [w]})
+    grupos.sort(key=lambda g: g["x0"])
+    colunas = []
+    for g in grupos:
+        txt = _norm(" ".join(w["t"] for w in sorted(g["p"], key=lambda w: (w["yc"], w["x0"]))))
+        junto = txt.replace(" ", "")
+        if re.search(r"descri|especifica|discrimina|produto|objeto", junto):
+            r = "descricao"
+        elif re.search(r"qtd|quant|qtde", junto):
+            r = "quantidade"
+        elif re.search(r"valor|preco|vlr", junto):
+            r = "valor_total" if "total" in junto and not re.search(r"unit", junto) else "valor"
+        elif re.search(r"unid|und|medida", junto) or txt in ("u m", "um", "un", "ud"):
+            r = "unidade"
+        elif re.search(r"^item|^n$|^no$|^seq", txt):
+            r = "item"
+        elif re.search(r"^lote|^grupo", txt):
+            r = "lote"
+        elif "marca" in txt:
+            r = "marca"
+        else:
+            r = "outra"
+        colunas.append({"rotulo": r, "x0": g["x0"], "x1": g["x1"], "txt": junto})
+    # varias colunas de quantidade (ex.: SESI | SENAI | TOTAL): vale a TOTAL, ou a ultima
+    qtds = [c for c in colunas if c["rotulo"] == "quantidade"]
+    if len(qtds) > 1:
+        fica = next((c for c in qtds if "total" in c["txt"]), qtds[-1])
+        for c in qtds:
+            if c is not fica:
+                c["rotulo"] = "outra"
+    vals = [c for c in colunas if c["rotulo"] == "valor"]
+    for c in vals[1:]:
+        c["rotulo"] = "valor_total"
+    return colunas
+
+
 def _montar_linhas_da_tabela(blocos):
     """blocos: linhas da tabela (dicts com 'cols', 'ancora', 'y').
-    Junta as linhas de descricao ao item certo, tanto quando o numero do item
-    esta no topo da celula quanto quando esta centralizado na altura dela."""
-    itens = []
+    Liga cada linha ao item certo: se o numero do item fica no topo da celula,
+    as linhas seguintes sao dele; se fica centralizado (ha descricao antes do
+    primeiro numero), cada linha vai para o numero mais proximo na vertical."""
     ancoras = [i for i, b in enumerate(blocos) if b["ancora"]]
-    inicio = 0
-    for k, ia in enumerate(ancoras):
-        proxima = ancoras[k + 1] if k + 1 < len(ancoras) else len(blocos)
-        acima = [i for i in range(inicio, ia) if blocos[i]["cols"].get("descricao")]
-        a = blocos[ia]
-        if acima:  # numero centralizado: mesma quantidade de linhas acima e abaixo
-            abaixo = [i for i in range(ia + 1, proxima) if blocos[i]["cols"].get("descricao")][:len(acima)]
-        else:      # numero no topo: tudo ate o proximo item
-            abaixo = [i for i in range(ia + 1, proxima) if blocos[i]["cols"].get("descricao")]
-        partes = acima + [ia] + abaixo
-        desc, unidade = [], list(a["cols"].get("unidade", []))
-        for i in partes:
-            desc.extend(blocos[i]["cols"].get("descricao", []))
-            if i != ia and not unidade:
-                unidade = list(blocos[i]["cols"].get("unidade", []))
-        a["desc"], a["unidade_txt"] = desc, " ".join(t for t in unidade if not re.fullmatch(r"[\d.,]+", t))
-        itens.append(a)
-        inicio = (abaixo[-1] + 1) if abaixo else ia + 1
+    if not ancoras:
+        return []
+    centralizado = any(blocos[i]["cols"].get("descricao") for i in range(0, ancoras[0]))
+    dono = {}
+    if centralizado:
+        # o numero fica no meio da celula: a celula vai da primeira linha antes
+        # dele ate a mesma distancia depois dele
+        inicio = 0
+        for k, a in enumerate(ancoras):
+            prox = ancoras[k + 1] if k + 1 < len(ancoras) else len(blocos)
+            acima = [i for i in range(inicio, a) if blocos[i]["cols"]]
+            topo = min((blocos[i]["y"] for i in acima if blocos[i]["cols"].get("descricao")), default=blocos[a]["y"])
+            limite = blocos[a]["y"] + (blocos[a]["y"] - topo) + 3
+            fim = a
+            for i in range(a + 1, prox):
+                if blocos[i]["y"] <= limite:
+                    fim = i
+            for i in range(inicio, fim + 1):
+                dono[i] = a
+            inicio = fim + 1
+    else:
+        for i in range(len(blocos)):
+            antes = [a for a in ancoras if a <= i]
+            if antes:
+                dono[i] = antes[-1]
+    itens = []
+    for a in ancoras:
+        linhas = sorted((i for i, d in dono.items() if d == a), key=lambda i: blocos[i]["y"])
+        desc, unidade, qtd, valor = [], [], blocos[a]["qtd"], None
+        for i in linhas:
+            cols = blocos[i]["cols"]
+            desc.extend(cols.get("descricao", []))
+            if not unidade:
+                unidade = [t for t in cols.get("unidade", []) if not re.fullmatch(r"[\d.,]+", t)]
+            if qtd is None:
+                qtd = next((q for q in (_float(t) for t in cols.get("quantidade", [])) if q is not None), None)
+            if valor is None:
+                valor = next((t for t in cols.get("valor", []) if re.search(r"\d,\d{2}", t)), None)
+        b = blocos[a]
+        itens.append({"numero": b["numero"], "desc": desc, "unidade_txt": " ".join(unidade),
+                      "qtd": qtd, "valor": valor, "lote": b["lote"]})
     return itens
 
 
 def itens_de_pdf(caminho):
-    """Acha a tabela de itens no PDF pela posicao das colunas do cabecalho."""
+    """Acha a tabela de itens no PDF pela posicao das colunas do cabecalho
+    (cabecalho de uma ou varias linhas)."""
     palavras = _palavras_pdf(caminho)
     if not palavras:
         return []
-    resultado, colunas, lote_atual, y_cab = [], None, None, None
+    linhas = _linhas_pdf(palavras)
+    resultado, colunas, lote_atual = [], None, None
     blocos = []
 
     def fechar():
         nonlocal blocos
         for a in _montar_linhas_da_tabela(blocos):
-            if a["desc"]:
+            if a["desc"] and a["qtd"] is not None:
                 resultado.append(_item(a["numero"], " ".join(a["desc"]), a["unidade_txt"],
                                        a["qtd"], a["valor"], a["lote"]))
         blocos = []
 
-    for linha in _linhas_pdf(palavras):
+    i = 0
+    while i < len(linhas):
+        linha = linhas[i]
         texto = " ".join(w["t"] for w in linha)
         rotulos = [_rotulo_coluna(w["t"]) for w in linha]
-        if "descricao" in rotulos and "quantidade" in rotulos:
-            fechar()
-            colunas = []
-            for w, r in zip(linha, rotulos):
-                if colunas and w["x0"] - colunas[-1]["x1"] < 6:
-                    colunas[-1]["x1"] = w["x1"]  # mesma celula ("VALOR UNIT.")
-                    continue
-                colunas.append({"rotulo": r, "x0": w["x0"], "x1": w["x1"]})
-            vistos = set()
-            for c in colunas:  # a segunda coluna "valor" e a do total
-                if c["rotulo"] == "valor" and "valor" in vistos:
-                    c["rotulo"] = "outra"
-                vistos.add(c["rotulo"])
-            y_cab = linha[0]["yc"]
-            continue
+        if "descricao" in rotulos and _linha_de_cabecalho(linha, principal=True):
+            # cabecalho pode ocupar varias linhas acima e abaixo desta
+            y0 = linha[0]["yc"]
+            ini, fim = i, i
+            while ini - 1 >= 0 and y0 - linhas[ini - 1][0]["yc"] < 30 and _linha_de_cabecalho(linhas[ini - 1]):
+                ini -= 1
+            while fim + 1 < len(linhas) and linhas[fim + 1][0]["yc"] - y0 < 30 and _linha_de_cabecalho(linhas[fim + 1]):
+                fim += 1
+            cand = _colunas_do_cabecalho(linhas[ini:fim + 1])
+            if any(c["rotulo"] == "quantidade" for c in cand) and any(c["rotulo"] == "descricao" for c in cand):
+                fechar()
+                colunas = cand
+                i = fim + 1
+                continue
         m = RE_LOTE.match(texto)
         if m and len(linha) <= 6:
             fechar()
             lote_atual = f"{m.group(1).capitalize()} {m.group(2)}"
+            i += 1
             continue
         if not colunas:
+            i += 1
             continue
         if _norm(texto).startswith(("total", "valor total", "subtotal")):
             fechar()
+            i += 1
             continue
-        # segunda/terceira linha do cabecalho ("PRODUTO", "UNIT. (R$)", "CATMAT")
-        if (y_cab is not None and linha[0]["yc"] - y_cab < 30
-                and all(_norm(w["t"]) in VOCAB_CABECALHO or not _norm(w["t"]) for w in linha)):
-            continue
-        y_cab = None
 
         def coluna_de(w):
             escolhida = colunas[0]
@@ -509,16 +601,21 @@ def itens_de_pdf(caminho):
             cols.setdefault(coluna_de(w), []).append(w["t"])
         primeira = linha[0]
         qtd = next((q for q in (_float(t) for t in cols.get("quantidade", [])) if q is not None), None)
-        ancora = bool(re.fullmatch(r"\d{1,4}(?:\.\d{1,3})?", primeira["t"])
-                      and coluna_de(primeira) in ("item", "lote", "outra") and qtd is not None)
+        col_primeira = coluna_de(primeira)
+        ancora = bool(re.fullmatch(r"0*\d{1,4}(?:\.\d{1,3})?", primeira["t"])
+                      and (col_primeira == "item" or (col_primeira in ("lote", "outra") and qtd is not None)))
         if blocos and not ancora and linha[0]["yc"] - blocos[-1]["y"] > 40:
-            # Longe da ultima linha (quebra de pagina, rodape): so continua a
-            # descricao se o texto estiver todo dentro da coluna de descricao
+            # Longe da ultima linha (quebra de pagina, rodape, fim da tabela)
             if set(cols) - {"descricao", "unidade"} or re.match(r"^p[aá]gina\s+\d", texto, re.I):
-                continue
-        valor = next((t for t in cols.get("valor", []) if re.search(r"\d,\d{2}", t)), None)
-        blocos.append({"cols": cols, "ancora": ancora, "y": linha[0]["yc"], "numero": primeira["t"],
-                       "qtd": qtd, "valor": valor, "lote": lote_atual})
+                if not any(re.search(r"\d,\d{2}", t) for t in cols.get("valor", [])):
+                    if linha[0]["yc"] - blocos[-1]["y"] > 120:
+                        fechar()
+                        colunas = None if not blocos else colunas
+                    i += 1
+                    continue
+        blocos.append({"cols": cols, "ancora": ancora, "y": linha[0]["yc"], "numero": primeira["t"].lstrip("0") or "0",
+                       "qtd": qtd, "lote": lote_atual})
+        i += 1
     fechar()
     return resultado
 
