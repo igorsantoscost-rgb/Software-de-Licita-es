@@ -236,6 +236,10 @@ def _resultados_busca_calendario(busca):
 @main_bp.route("/calendario")
 @login_required
 def calendario():
+    # O calendario abre sempre na visao semanal; a mensal so com mes/ano na URL
+    # (o botao "Mensal" ja manda os dois).
+    if "mes" not in request.args and "ano" not in request.args:
+        return redirect(url_for("main.calendario_semana", busca=request.args.get("busca") or None))
     mes = request.args.get("mes", type=int, default=date.today().month)
     ano = request.args.get("ano", type=int, default=date.today().year)
     if mes < 1: mes, ano = 12, ano - 1

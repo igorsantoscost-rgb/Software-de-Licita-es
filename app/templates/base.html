@@ -7,7 +7,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=costa12">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=costa13">
+  <script>try { if (localStorage.getItem('bidfy-menu') === 'recolhido') document.documentElement.classList.add('menu-recolhido'); } catch (e) {}</script>
   <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
 </head>
@@ -15,7 +16,7 @@
 {% if current_user.is_authenticated %}
 {% set ep = request.endpoint or '' %}
 {% macro item(endpoint, rotulo, icone, ativo=False) %}
-<a href="{{ url_for(endpoint) }}" class="menu-item {% if ativo %}ativo{% endif %}">
+<a href="{{ url_for(endpoint) }}" class="menu-item {% if ativo %}ativo{% endif %}" title="{{ rotulo }}">
   <svg viewBox="0 0 24 24" aria-hidden="true">{{ icone|safe }}</svg>
   <span>{{ rotulo }}</span>
 </a>
@@ -29,6 +30,10 @@
 </header>
 
 <aside class="menu-lateral" id="menu-lateral">
+  <button type="button" class="menu-recolher" aria-label="Esconder ou mostrar o menu" title="Esconder/mostrar menu"
+          onclick="var r=document.documentElement.classList.toggle('menu-recolhido');try{localStorage.setItem('bidfy-menu',r?'recolhido':'aberto')}catch(e){}">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+  </button>
   <a href="{{ url_for('main.painel') }}" class="menu-marca">
     <img src="{{ url_for('static', filename='img/bidfy-icone.png') }}" alt="" class="menu-marca-icone">
     <span class="menu-marca-texto">BID<span>FY</span></span>

@@ -1919,3 +1919,32 @@ body.com-menu .col-detalhe-principal .card:not(.card-info-compacto) h3 { color: 
 }
 .lead-meta > span.lead-sit { margin: 0; padding: 0 6px; font-size: .64rem; line-height: 1.6; }
 .lead-meta > span.lead-sit::before { content: none; }
+
+
+/* ── Conteúdo na largura toda da página ── */
+body.com-menu .container, body.com-menu .container.container-full { max-width: none; padding-left: 32px; padding-right: 32px; }
+
+/* ── Menu lateral recolhível (setinha) ── */
+.menu-recolher {
+  position: absolute; top: 24px; right: -13px; z-index: 210; width: 26px; height: 26px; border-radius: 50%;
+  border: 1px solid #c9d3c8; background: #fff; color: #153a29; display: grid; place-items: center; cursor: pointer; padding: 0;
+  box-shadow: 0 2px 6px rgba(21,58,41,.18);
+}
+.menu-recolher svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s ease; }
+.menu-recolher:hover { background: #e3ecdd; }
+.menu-lateral, body.com-menu { transition: width .2s ease, padding-left .2s ease; }
+@media (min-width: 961px) {
+  html.menu-recolhido body.com-menu { padding-left: 68px; }
+  html.menu-recolhido .menu-lateral { width: 68px; padding-left: 10px; padding-right: 10px; }
+  html.menu-recolhido .menu-recolher svg { transform: rotate(180deg); }
+  html.menu-recolhido .menu-marca { justify-content: center; padding-left: 0; padding-right: 0; }
+  html.menu-recolhido .menu-marca-texto,
+  html.menu-recolhido .menu-item span,
+  html.menu-recolhido .menu-grupo-titulo,
+  html.menu-recolhido .menu-usuario-info { display: none; }
+  html.menu-recolhido .menu-item { justify-content: center; padding-left: 0; padding-right: 0; }
+  html.menu-recolhido .menu-grupos { overflow-x: hidden; }
+  html.menu-recolhido .menu-grupos .menu-grupo-titulo + .menu-item { margin-top: 10px; }
+  html.menu-recolhido .menu-usuario { flex-direction: column; gap: 6px; padding-left: 0; padding-right: 0; }
+}
+@media (max-width: 960px) { .menu-recolher { display: none; } }
