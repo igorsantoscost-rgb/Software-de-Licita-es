@@ -40,10 +40,13 @@
     {{ item('main.calendario', 'Calendário', '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>', ep.startswith('main.calendario')) }}
     {% if not current_user.is_assessor() %}
     {{ item('fin.painel', 'Financeiro', '<rect x="2.5" y="6" width="19" height="13" rx="2"/><path d="M2.5 10.5h19M6.5 15h4"/>', ep.startswith('fin.')) }}
+    {% if current_user.cliente_id and current_user.cliente and current_user.cliente.prospectar_homologadas %}
+    {{ item('pros.leads', 'Leads indiretos', '<path d="M4 20h16"/><path d="M6 16l4-5 3 3 5-7"/><path d="M15 7h3v3"/>', ep.startswith('pros.')) }}
+    {% endif %}
     {% endif %}
     {% if current_user.is_assessor() %}
     {{ item('lic.nova', 'Nova licitação', '<path d="M12 5v14M5 12h14"/>', ep == 'lic.nova') }}
-    {{ item('pros.painel', 'Homologadas', '<path d="M4 20h16"/><path d="M6 16l4-5 3 3 5-7"/><path d="M15 7h3v3"/>', ep.startswith('pros.')) }}
+    {{ item('pros.painel', 'Leads indiretos', '<path d="M4 20h16"/><path d="M6 16l4-5 3 3 5-7"/><path d="M15 7h3v3"/>', ep.startswith('pros.')) }}
     {{ item('imp.enviar', 'Importar pacote', '<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>', ep.startswith('imp.')) }}
 
     <p class="menu-grupo-titulo">Gestão</p>

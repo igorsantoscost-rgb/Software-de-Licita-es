@@ -6,7 +6,7 @@ import io
 import json
 import os
 import threading
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 from flask import (Blueprint, render_template, redirect, url_for, request, flash,
                    abort, current_app, send_file)
@@ -48,19 +48,47 @@ def _gravar_status(dados):
         pass
 
 
-def _consulta():
-    ids = [c.id for c in _clientes()]
-    q = OportunidadeHomologada.query.filter(OportunidadeHomologada.cliente_id.in_(ids or [-1]))
-    cid = request.args.get("cliente_id", type=int)
-    if cid:
-        q = q.filter_by(cliente_id=cid)
+def _semana(padrao_ultima=False):
+    """Segunda-feira da semana escolhida em ?semana=AAAA-MM-DD (ou a ultima completa)."""
+    txt = request.args.get("semana")
+    if txt == "todas":
+        return None
+    if txt:
+        try:
+            d = datetime.strptime(txt, "%Y-%m-%d").date()
+            return d - timedelta(days=d.weekday())
+        except ValueError:
+            pass
+    if padrao_ultima:
+        from app.prospeccao import ultima_semana
+        return ultima_semana()[0]
+    return None
+
+
+def _consulta(cliente_fixo=None):
+    """Oportunidades com os filtros da tela. cliente_fixo = visao do cliente:
+    so as dele, sem descartadas, e por padrao a ultima semana completa."""
+    if cliente_fixo:
+        q = OportunidadeHomologada.query.filter(OportunidadeHomologada.cliente_id == cliente_fixo,
+                                                OportunidadeHomologada.situacao != "descartada")
+    else:
+        ids = [c.id for c in _clientes()]
+        q = OportunidadeHomologada.query.filter(OportunidadeHomologada.cliente_id.in_(ids or [-1]))
+        cid = request.args.get("cliente_id", type=int)
+        if cid:
+            q = q.filter_by(cliente_id=cid)
+    seg = _semana(padrao_ultima=bool(cliente_fixo))
+    if seg:
+        ini = datetime.combine(seg, datetime.min.time())
+        q = q.filter(OportunidadeHomologada.data_resultado >= ini,
+                     OportunidadeHomologada.data_resultado < ini + timedelta(days=7))
     uf = (request.args.get("uf") or "").upper()
     if uf:
         q = q.filter_by(uf=uf)
     uf_v = (request.args.get("uf_vencedor") or "").upper()
     if uf_v:
         q = q.filter_by(fornecedor_uf=uf_v)
-    sit = request.args.get("situacao") or "abertas"
+    sit = "todas" if cliente_fixo else (request.args.get("situacao") or "abertas")
     if sit == "abertas":
         q = q.filter(OportunidadeHomologada.situacao != "descartada")
     elif sit != "todas":
@@ -139,7 +167,53 @@ def painel():
                            total_itens=sum(len(g["itens"]) for g in grupos), pagina=pagina,
                            paginas=(total + POR_PAGINA - 1) // POR_PAGINA, ufs=ufs, situacoes=SITUACOES,
                            status=_status(), rodando=_trava.locked(), acompanhando=acompanhando, sem_uf=sem_uf,
-                           filtros=request.args, desde=__import__("app.prospeccao", fromlist=["DESDE"]).DESDE)
+                           filtros=request.args, desde=__import__("app.prospeccao", fromlist=["DESDE"]).DESDE,
+                           **_comum(None))
+
+
+def _comum(cliente_fixo):
+    from app.prospeccao import semanas_disponiveis
+    args = {k: v for k, v in request.args.items() if k != "pagina" and v}
+    return {"semanas": semanas_disponiveis(), "semana_sel": _semana(padrao_ultima=bool(cliente_fixo)),
+            "args": args, "visao_cliente": bool(cliente_fixo), "timedelta": timedelta}
+
+
+def _cliente_da_tela():
+    """Cliente logado; assessor pode pre-visualizar com ?ver_cliente=<id>."""
+    if current_user.is_assessor():
+        cid = request.args.get("ver_cliente", type=int)
+        if not cid or not current_user.pode_ver_cliente(cid):
+            abort(404)
+        return cid
+    if not current_user.cliente_id:
+        abort(403)
+    return current_user.cliente_id
+
+
+@pros_bp.route("/leads")
+@login_required
+def leads():
+    """LEADS INDIRETOS na visao do cliente: so as oportunidades dele."""
+    cid = _cliente_da_tela()
+    pagina = max(request.args.get("pagina", 1, type=int), 1)
+    grupos = _agrupar(_consulta(cliente_fixo=cid).limit(20000).all())
+    total = len(grupos)
+    from app.capag import UFS
+    return render_template("prospeccao.html", clientes=[], licitacoes=grupos[(pagina - 1) * POR_PAGINA: pagina * POR_PAGINA],
+                           total=total, total_itens=sum(len(g["itens"]) for g in grupos), pagina=pagina,
+                           paginas=(total + POR_PAGINA - 1) // POR_PAGINA,
+                           ufs=[sigla for sigla, _n in sorted(UFS)], situacoes=SITUACOES, status={}, rodando=False,
+                           acompanhando=0, sem_uf=0, filtros=request.args, cliente=Cliente.query.get(cid),
+                           desde=__import__("app.prospeccao", fromlist=["DESDE"]).DESDE, **_comum(cid))
+
+
+@pros_bp.route("/leads.xlsx")
+@login_required
+def leads_exportar():
+    cid = _cliente_da_tela()
+    seg = _semana(padrao_ultima=True)
+    nome = f"leads-indiretos-{seg:%Y-%m-%d}.xlsx" if seg else f"leads-indiretos-{date.today():%Y-%m-%d}.xlsx"
+    return _planilha(_consulta(cliente_fixo=cid), nome, visao_cliente=True)
 
 
 @pros_bp.route("/licitacao/situacao", methods=["POST"])
@@ -242,28 +316,43 @@ def situacao(id):
 def exportar():
     if not current_user.is_assessor():
         abort(403)
+    return _planilha(_consulta(), f"leads-indiretos-{date.today():%Y-%m-%d}.xlsx")
+
+
+def _planilha(consulta, nome, visao_cliente=False):
     from openpyxl import Workbook
+    from openpyxl.styles import Font
     wb = Workbook()
     ws = wb.active
-    ws.title = "Homologadas"
-    ws.append(["Cliente", "Resultado em", "Órgão", "UF", "Município", "Pregão", "Item", "Descrição",
-               "Unid.", "Qtd", "Valor unit. estimado", "Vencedor", "CNPJ vencedor", "Telefone", "E-mail",
-               "Cidade vencedor", "Qtd homologada", "Valor unit. homologado", "Valor total", "SRP",
-               "Ata vigente até", "Situação", "Observação", "Link PNCP"])
-    for op in _consulta().limit(5000):
-        ws.append([op.cliente.nome if op.cliente else "", op.data_resultado, op.orgao, op.uf, op.municipio,
-                   op.numero_compra, op.numero_item, op.descricao_item, op.unidade,
-                   float(op.quantidade) if op.quantidade is not None else None,
-                   float(op.valor_unitario_estimado) if op.valor_unitario_estimado is not None else None,
-                   op.fornecedor_nome, op.fornecedor_cnpj, op.fornecedor_telefone, op.fornecedor_email,
-                   f"{op.fornecedor_municipio or ''}/{op.fornecedor_uf or ''}".strip("/"),
-                   float(op.quantidade_homologada) if op.quantidade_homologada is not None else None,
-                   float(op.valor_unitario_homologado) if op.valor_unitario_homologado is not None else None,
-                   op.valor_total_homologado, "Sim" if op.srp else ("Não" if op.srp is False else ""),
-                   op.ata_vigencia_fim, op.situacao, op.observacao, op.link_pncp])
+    ws.title = "Leads indiretos"
+    cab = ["Resultado em", "Órgão", "UF", "Município", "Pregão", "Objeto", "Item", "Descrição",
+           "Unid.", "Qtd", "Valor unit. estimado", "Vencedor", "CNPJ vencedor", "Telefone", "E-mail",
+           "Cidade vencedor", "Qtd homologada", "Valor unit. homologado", "Valor total", "SRP",
+           "Ata vigente até", "Link PNCP"]
+    if not visao_cliente:
+        cab = ["Cliente"] + cab + ["Situação", "Observação"]
+    ws.append(cab)
+    for c in ws[1]:
+        c.font = Font(bold=True)
+    for op in consulta.limit(10000):
+        linha = [op.data_resultado, op.orgao, op.uf, op.municipio,
+                 op.numero_compra, op.objeto, op.numero_item, op.descricao_item, op.unidade,
+                 float(op.quantidade) if op.quantidade is not None else None,
+                 float(op.valor_unitario_estimado) if op.valor_unitario_estimado is not None else None,
+                 op.fornecedor_nome, op.fornecedor_cnpj, op.fornecedor_telefone, op.fornecedor_email,
+                 f"{op.fornecedor_municipio or ''}/{op.fornecedor_uf or ''}".strip("/"),
+                 float(op.quantidade_homologada) if op.quantidade_homologada is not None else None,
+                 float(op.valor_unitario_homologado) if op.valor_unitario_homologado is not None else None,
+                 op.valor_total_homologado, "Sim" if op.srp else ("Não" if op.srp is False else ""),
+                 op.ata_vigencia_fim, op.link_pncp]
+        if not visao_cliente:
+            linha = [op.cliente.nome if op.cliente else ""] + linha + [op.situacao, op.observacao]
+        ws.append(linha)
+    for col, larg in zip("ABCDEFGHIJKLMNOPQRSTUVWXYZ", [12, 40, 5, 18, 12, 50, 6, 60, 8, 10, 14, 40, 18, 16, 28, 20, 12, 14, 14, 6, 12, 50]):
+        ws.column_dimensions[col].width = larg
+    ws.freeze_panes = "A2"
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
-    return send_file(buf, as_attachment=True,
-                     download_name=f"homologadas-{date.today():%Y-%m-%d}.xlsx",
+    return send_file(buf, as_attachment=True, download_name=nome,
                      mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")

@@ -1,19 +1,36 @@
 {% extends "base.html" %}
-{% block titulo %}Prospecção — Homologadas{% endblock %}
+{% block titulo %}Leads indiretos{% endblock %}
 {% block conteudo %}
+{% set ep = request.endpoint %}
+{% macro semana_txt(d) %}{{ d.strftime('%d/%m') }} a {{ (d + timedelta(days=6)).strftime('%d/%m/%Y') }}{% endmacro %}
 
 <div class="page-header">
-  <h2>Prospecção de homologadas</h2>
+  <h2>Leads indiretos{% if visao_cliente and cliente and current_user.is_assessor() %} — {{ cliente.nome }} <small class="muted-sm">(visão do cliente)</small>{% endif %}</h2>
   <div style="display:flex; gap:8px; flex-wrap:wrap;">
-    <a href="{{ url_for('pros.exportar', cliente_id=filtros.cliente_id, uf=filtros.uf, uf_vencedor=filtros.uf_vencedor, situacao=filtros.situacao, ata=filtros.ata, q=filtros.q) }}" class="btn">⤓ Exportar Excel</a>
+    {% if visao_cliente %}
+    <a href="{{ url_for('pros.leads_exportar', **args) }}" class="btn btn-primary">⤓ Baixar Excel</a>
+    {% else %}
+    {% if filtros.cliente_id %}<a href="{{ url_for('pros.leads', ver_cliente=filtros.cliente_id) }}" class="btn">👁 Ver como o cliente</a>{% endif %}
+    <a href="{{ url_for('pros.exportar', **args) }}" class="btn">⤓ Exportar Excel</a>
     <form method="POST" action="{{ url_for('pros.rodar') }}" class="form-inline">
       <button type="submit" class="btn btn-primary" {% if rodando %}disabled{% endif %}>
         {{ '⏳ Buscando…' if rodando else '↻ Buscar agora' }}
       </button>
     </form>
+    {% endif %}
   </div>
 </div>
 
+{% if visao_cliente %}
+<div class="card">
+  <p class="muted-sm" style="margin:0;">
+    {% if semana_sel %}Relatório das licitações <strong>homologadas de {{ semana_txt(semana_sel) }}</strong>{% else %}Todas as licitações homologadas{% endif %}
+    com produtos do seu ramo. As <strong>empresas vencedoras</strong> são potenciais compradoras: elas precisam entregar ao órgão
+    e podem comprar de você. Quando é registro de preços, mostramos também a <strong>validade da ata</strong>.
+    A lista é atualizada toda segunda-feira às 8h e você recebe o resumo por e-mail.
+  </p>
+</div>
+{% else %}
 <div class="card">
   <p class="muted-sm" style="margin:0 0 10px;">
     Toda segunda-feira às 8h o Bidfy procura no <strong>PNCP</strong> pregões com itens <strong>homologados a partir de {{ desde.strftime('%d/%m/%Y') }}</strong> que combinam com as
@@ -41,12 +58,21 @@
   </div>
   <p class="muted-sm" style="margin:8px 0 0;">Clique no cliente para ligar/desligar. As palavras-chave são as do cadastro do cliente.</p>
 </div>
+{% endif %}
 
-<form method="GET" action="{{ url_for('pros.painel') }}" class="busca-form" style="flex-wrap:wrap;">
+<form method="GET" action="{{ url_for(ep) }}" class="busca-form" style="flex-wrap:wrap;">
+  {% if visao_cliente and filtros.ver_cliente %}<input type="hidden" name="ver_cliente" value="{{ filtros.ver_cliente }}">{% endif %}
+  <select name="semana" class="select" style="max-width:220px;" title="Semana em que a licitação foi homologada">
+    {% if not visao_cliente %}<option value="">Todas as semanas</option>{% endif %}
+    {% for d in semanas %}<option value="{{ d.strftime('%Y-%m-%d') }}" {% if semana_sel == d %}selected{% endif %}>Semana {{ semana_txt(d) }}</option>{% endfor %}
+    {% if visao_cliente %}<option value="todas" {% if filtros.semana == 'todas' %}selected{% endif %}>Todas as semanas</option>{% endif %}
+  </select>
+  {% if not visao_cliente %}
   <select name="cliente_id" class="select" style="max-width:240px;">
     <option value="">Todos os clientes</option>
     {% for c in clientes %}<option value="{{ c.id }}" {% if filtros.cliente_id == c.id|string %}selected{% endif %}>{{ c.nome }}</option>{% endfor %}
   </select>
+  {% endif %}
   <select name="uf" class="select" style="max-width:150px;" title="Estado do órgão que comprou">
     <option value="">UF do órgão</option>
     {% for u in ufs %}<option value="{{ u }}" {% if filtros.uf == u %}selected{% endif %}>{{ u }}</option>{% endfor %}
@@ -55,17 +81,19 @@
     <option value="">UF do vencedor</option>
     {% for u in ufs %}<option value="{{ u }}" {% if filtros.uf_vencedor == u %}selected{% endif %}>{{ u }}</option>{% endfor %}
   </select>
+  {% if not visao_cliente %}
   <select name="situacao" class="select" style="max-width:240px;">
     {% for v, r in situacoes %}<option value="{{ v }}" {% if (filtros.situacao or 'abertas') == v %}selected{% endif %}>{{ r }}</option>{% endfor %}
   </select>
+  {% endif %}
   <label class="muted-sm" style="display:flex;align-items:center;gap:4px;">
     <input type="checkbox" name="ata" value="1" {% if filtros.ata == '1' %}checked{% endif %}> Só ata vigente
   </label>
-  <input type="search" name="q" value="{{ filtros.q or '' }}" class="busca-input" placeholder="Item, vencedor, CNPJ, órgão…">
+  <input type="search" name="q" value="{{ filtros.q or '' }}" class="busca-input" placeholder="{{ 'Produto, vencedor, órgão…' if visao_cliente else 'Item, vencedor, CNPJ, órgão…' }}">
   <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
   <span class="muted-sm busca-contagem">{{ total }} licitação(ões) · {{ total_itens }} item(ns)</span>
 </form>
-{% if sem_uf %}
+{% if sem_uf and not visao_cliente %}
 <form method="POST" action="{{ url_for('pros.completar_ufs_agora') }}" class="filtros">
   <span class="muted-sm">{{ sem_uf }} oportunidade(s) ainda sem UF do órgão.</span>
   <button type="submit" class="btn btn-sm">Completar UFs</button>
@@ -91,12 +119,12 @@
       <tr class="{% if g.situacao == 'descartada' %}import-linha-off{% endif %}">
         <td style="white-space:nowrap;">
           {{ g.data.strftime('%d/%m/%Y') if g.data else '—' }}
-          {% if g.situacao == 'nova' %}<br><span class="badge" style="background:#dcfce7;color:#14532d;">nova</span>
+          {% if visao_cliente %}{% elif g.situacao == 'nova' %}<br><span class="badge" style="background:#dcfce7;color:#14532d;">nova</span>
           {% elif g.situacao == 'contatada' %}<br><span class="badge" style="background:#dbeafe;color:#1e3a8a;">contatada</span>{% endif %}
         </td>
         <td style="min-width:280px;">
           <strong>{{ op.orgao or '—' }}</strong>{% if op.uf %} <span class="muted-sm">{{ op.municipio ~ '/' if op.municipio }}{{ op.uf }}</span>{% endif %}
-          <span class="muted-sm import-sub">{% if op.numero_compra %}Pregão {{ op.numero_compra }}{% else %}Compra {{ op.sequencial }}/{{ op.ano }}{% endif %}{% if op.cliente %} · {{ op.cliente.nome }}{% endif %}</span>
+          <span class="muted-sm import-sub">{% if op.numero_compra %}Pregão {{ op.numero_compra }}{% else %}Compra {{ op.sequencial }}/{{ op.ano }}{% endif %}{% if op.cliente and not visao_cliente %} · {{ op.cliente.nome }}{% endif %}</span>
           {% if op.objeto %}<span class="import-objeto" title="{{ op.objeto }}">{{ op.objeto[:180] }}{% if op.objeto|length > 180 %}…{% endif %}</span>{% endif %}
           <details style="margin-top:4px;">
             <summary class="muted-sm" style="cursor:pointer;">ver {{ g.itens|length }} item(ns)</summary>
@@ -138,6 +166,7 @@
         </td>
         <td style="white-space:nowrap;">
           <a href="{{ op.link_pncp }}" target="_blank" rel="noopener" class="btn btn-sm" title="Abrir no PNCP">PNCP ↗</a>
+          {% if not visao_cliente %}
           <details class="pacote-excluir">
             <summary class="btn btn-sm">⋯</summary>
             <form method="POST" action="{{ url_for('pros.situacao_licitacao') }}" class="pacote-excluir-form">
@@ -153,6 +182,7 @@
             </form>
           </details>
           {% if g.observacao %}<span class="muted-sm import-sub" title="{{ g.observacao }}">📝 {{ g.observacao[:40] }}</span>{% endif %}
+          {% endif %}
         </td>
       </tr>
       {% endfor %}
@@ -162,13 +192,14 @@
 {% if paginas > 1 %}
 <div class="filtros">
   {% for p in range(1, paginas + 1) %}
-  <a href="{{ url_for('pros.painel', pagina=p, cliente_id=filtros.cliente_id, uf=filtros.uf, uf_vencedor=filtros.uf_vencedor, situacao=filtros.situacao, ata=filtros.ata, q=filtros.q) }}" class="filtro-pill {% if p == pagina %}ativo{% endif %}">{{ p }}</a>
+  <a href="{{ url_for(ep, pagina=p, **args) }}" class="filtro-pill {% if p == pagina %}ativo{% endif %}">{{ p }}</a>
   {% endfor %}
 </div>
 {% endif %}
 {% else %}
 <div class="card"><p class="muted" style="margin:0;">
-  {% if clientes|selectattr('prospectar_homologadas')|list %}Nenhuma oportunidade com esses filtros ainda. Clique em <strong>Buscar agora</strong> para a primeira busca.
+  {% if visao_cliente %}Nenhuma licitação homologada {% if semana_sel %}na semana de {{ semana_txt(semana_sel) }}{% else %}ainda{% endif %} com esses filtros. Escolha outra semana acima.
+  {% elif clientes|selectattr('prospectar_homologadas')|list %}Nenhuma oportunidade com esses filtros ainda. Clique em <strong>Buscar agora</strong> para a primeira busca.
   {% else %}Ligue a prospecção de pelo menos um cliente acima e clique em <strong>Buscar agora</strong>.{% endif %}
 </p></div>
 {% endif %}

@@ -400,55 +400,94 @@ def rodar_prospeccao(enviar_email=True, log=print):
     except Exception:
         db.session.rollback()
 
-    avisados = enviar_avisos() if enviar_email else 0
+    avisados = enviar_relatorio_semanal() if enviar_email else 0
     if avisados:
-        log(f"Prospecção: e-mail enviado para {avisados} cliente(s).")
+        log(f"Prospecção: relatório de leads enviado para {avisados} cliente(s).")
     return {"clientes": len(clientes), "buscados": buscados, "verificados": verificados, "novas": novas}
 
 
 # ─── e-mail diario ───────────────────────────────────────────────────────────
 
-def enviar_avisos():
-    """Um e-mail por cliente com as oportunidades ainda nao avisadas."""
-    from app.email_service import _enviar, _template_base, _emails_assessores_do_cliente, BASE_URL
+def ultima_semana(hoje=None):
+    """Segunda e domingo da ultima semana completa (seg-dom) antes de hoje."""
+    from app.models import agora_brasilia
+    hoje = hoje or agora_brasilia().date()
+    seg = hoje - timedelta(days=hoje.weekday() + 7)
+    return seg, seg + timedelta(days=6)
+
+
+def semanas_disponiveis(hoje=None):
+    """Semanas completas (segunda-feira de cada uma) desde DESDE, a mais recente primeiro."""
+    seg, _ = ultima_semana(hoje)
+    inicio = DESDE.date() - timedelta(days=DESDE.weekday())
+    semanas = []
+    while seg >= inicio and len(semanas) < 60:
+        semanas.append(seg)
+        seg -= timedelta(days=7)
+    return semanas
+
+
+def agrupar_por_licitacao(ops):
+    """{(cnpj, ano, seq): [ops]} mantendo a ordem de chegada."""
+    grupos = {}
+    for op in ops:
+        grupos.setdefault((op.cnpj_orgao, op.ano, op.sequencial), []).append(op)
+    return grupos
+
+
+def enviar_relatorio_semanal(hoje=None):
+    """RELATORIO DE LEADS - LICITACOES: um e-mail por cliente com as licitacoes
+    homologadas na ultima semana completa (objeto, vencedor e telefone)."""
+    from app.email_service import _enviar, _template_base, _emails_do_cliente, BASE_URL
+    seg, dom = ultima_semana(hoje)
+    ini, fim = datetime.combine(seg, datetime.min.time()), datetime.combine(dom + timedelta(days=1), datetime.min.time())
     enviados = 0
-    clientes = (db.session.query(OportunidadeHomologada.cliente_id)
-                .filter(OportunidadeHomologada.avisada_em.is_(None)).distinct().all())
-    for (cid,) in clientes:
-        cliente = Cliente.query.get(cid)
+    for cliente in Cliente.query.filter_by(prospectar_homologadas=True).all():
         ops = (OportunidadeHomologada.query
-               .filter_by(cliente_id=cid, avisada_em=None)
-               .order_by(OportunidadeHomologada.data_resultado.desc().nullslast()).all())
-        if not cliente or not ops:
+               .filter(OportunidadeHomologada.cliente_id == cliente.id,
+                       OportunidadeHomologada.situacao != "descartada",
+                       OportunidadeHomologada.data_resultado >= ini,
+                       OportunidadeHomologada.data_resultado < fim)
+               .order_by(OportunidadeHomologada.data_resultado.desc(), OportunidadeHomologada.numero_item).all())
+        destinos = _emails_do_cliente(cliente)
+        if not ops or not destinos:
             continue
+        grupos = agrupar_por_licitacao(ops)
+        td = "padding:8px;border-bottom:1px solid #eee;vertical-align:top"
         linhas = []
-        for op in ops[:40]:
-            total = op.valor_total_homologado
+        for itens in list(grupos.values())[:60]:
+            op = itens[0]
+            objeto = (op.objeto or op.descricao_item or "")[:220]
+            local = f"{op.orgao or ''}{' — ' + (op.municipio + '/' if op.municipio else '') + op.uf if op.uf else ''}"
+            venc, vistos = [], set()
+            for it in itens:
+                chave = it.fornecedor_cnpj or it.fornecedor_nome
+                if chave in vistos:
+                    continue
+                vistos.add(chave)
+                venc.append((it.fornecedor_nome or it.fornecedor_cnpj or "—", it.fornecedor_telefone))
+            nomes = "<br>".join(n[:60] for n, _t in venc[:4]) + (f"<br><small>+ {len(venc) - 4}</small>" if len(venc) > 4 else "")
+            fones = "<br>".join((t or "—") for _n, t in venc[:4])
             linhas.append(
-                "<tr>"
-                f"<td style='padding:6px;border-bottom:1px solid #eee'>{(op.orgao or '')[:60]}"
-                f"{' / ' + op.uf if op.uf else ''}<br><small>{(op.descricao_item or '')[:110]}</small></td>"
-                f"<td style='padding:6px;border-bottom:1px solid #eee'>{(op.fornecedor_nome or op.fornecedor_cnpj)[:50]}"
-                f"{'<br><small>' + op.fornecedor_telefone + '</small>' if op.fornecedor_telefone else ''}</td>"
-                f"<td style='padding:6px;border-bottom:1px solid #eee;white-space:nowrap'>"
-                f"{_brl(total) if total else _brl(op.valor_unitario_homologado)}"
-                f"{'<br><small>ata até ' + op.ata_vigencia_fim.strftime('%d/%m/%Y') + '</small>' if op.ata_vigente else ''}</td>"
-                "</tr>")
-        extra = f"<p>E mais {len(ops) - 40} na tela.</p>" if len(ops) > 40 else ""
+                f"<tr><td style='{td}'><strong>{objeto}</strong><br><small>{local}"
+                f"{' · Pregão ' + op.numero_compra if op.numero_compra else ''} · {len(itens)} item(ns)</small></td>"
+                f"<td style='{td}'>{nomes}</td><td style='{td};white-space:nowrap'>{fones}</td></tr>")
+        extra = f"<p>E mais {len(grupos) - 60} licitação(ões) no Bidfy.</p>" if len(grupos) > 60 else ""
         html = _template_base(
-            f"<h2 style='color:#14532d;margin-top:0'>Licitações homologadas — {cliente.nome}</h2>"
-            f"<p>{len(ops)} item(ns) homologado(s) novo(s) com as palavras-chave do cliente.</p>"
+            "<h2 style='color:#14532d;margin-top:0'>RELATÓRIO DE LEADS - LICITAÇÕES</h2>"
+            f"<p>{cliente.nome}, estas são as licitações homologadas de <strong>{seg:%d/%m/%Y} a {dom:%d/%m/%Y}</strong> "
+            f"com produtos do seu ramo: {len(grupos)} licitação(ões), {len(ops)} item(ns). "
+            "As empresas vencedoras são potenciais compradoras dos seus produtos.</p>"
             "<table style='width:100%;border-collapse:collapse;font-size:13px'>"
-            "<tr><th align='left'>Órgão / item</th><th align='left'>Vencedor</th><th align='left'>Valor</th></tr>"
+            "<tr><th align='left'>Licitação / objeto</th><th align='left'>Vencedor</th><th align='left'>Telefone</th></tr>"
             + "".join(linhas) + "</table>" + extra +
-            f"<p><a href='{BASE_URL}/prospeccao/?cliente_id={cid}'>Abrir no Bidfy</a></p>")
-        if _enviar(_emails_assessores_do_cliente(cliente),
-                   f"Bidfy: {len(ops)} homologada(s) nova(s) — {cliente.nome}", html):
+            f"<p><a href='{BASE_URL}/prospeccao/leads?semana={seg:%Y-%m-%d}'>Ver o relatório completo e baixar o Excel no Bidfy</a></p>")
+        if _enviar(destinos, "RELATÓRIO DE LEADS - LICITAÇÕES", html):
             enviados += 1
-        agora = datetime.utcnow()
-        for op in ops:
-            op.avisada_em = agora
-        db.session.commit()
+            agora = datetime.utcnow()
+            for op in ops:
+                op.avisada_em = op.avisada_em or agora
+            db.session.commit()
     return enviados
 
 
