@@ -1979,3 +1979,18 @@ body.com-menu .container, body.com-menu .container.container-full { max-width: n
 .col-detalhe-principal .tabela-itens .col-desc,
 .col-detalhe-principal .tabela-itens .item-desc { overflow-wrap: anywhere; word-break: break-word; }
 .col-detalhe-principal .tabela-itens th.col-num, .col-detalhe-principal .tabela-itens td.col-num { text-align: left; }
+
+/* Tabela de itens do detalhe: titulos centralizados e dados alinhados embaixo deles */
+.col-detalhe-principal .tabela-itens th,
+.col-detalhe-principal .tabela-itens th.col-num { text-align: center; vertical-align: bottom; }
+.col-detalhe-principal .tabela-itens th.col-desc,
+.col-detalhe-principal .tabela-itens td.col-desc { text-align: left; }
+.col-detalhe-principal .tabela-itens td.col-item,
+.col-detalhe-principal .tabela-itens td.col-lote,
+.col-detalhe-principal .tabela-itens td.col-num,
+.col-detalhe-principal .tabela-itens td.col-resultado { text-align: center; vertical-align: middle; }
+.col-detalhe-principal .tabela-itens td.col-num .unidade { display: block; }
+.col-detalhe-principal .tabela-itens td:last-child,
+.col-detalhe-principal .tabela-itens th:last-child { padding-right: 14px !important; padding-left: 8px; white-space: nowrap; text-align: right; }
+.col-detalhe-principal .tabela-itens th:first-child,
+.col-detalhe-principal .tabela-itens td:first-child { padding-left: 12px !important; }

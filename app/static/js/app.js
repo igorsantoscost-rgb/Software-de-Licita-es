@@ -1,3 +1,7 @@
+// Janelas (modais) ficam direto no <body>: dentro do conteudo (que tem animacao
+// de entrada) a janela abria no meio da pagina em vez do meio da tela.
+document.querySelectorAll('.modal').forEach(m => document.body.appendChild(m));
+
 // Modal editar item
 document.querySelectorAll('.btn-editar-item').forEach(btn => {
   btn.addEventListener('click', () => {
