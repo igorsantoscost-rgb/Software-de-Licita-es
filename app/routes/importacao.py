@@ -243,6 +243,62 @@ def processando(id):
     return redirect(url_for("imp.enviar"))
 
 
+def _participacao_e_capag(p):
+    """Preenche na proposta a nota CAPAG e a participacao ME/EPP."""
+    from app.participacao import classificar
+    from app.importador_pacote import texto_inicio
+    try:
+        p["capag_nota"] = (consultar_capag(p.get("esfera"), p.get("uf"), p.get("municipio")) or {}).get("nota")
+    except Exception:
+        p["capag_nota"] = None
+    textos = [p.get("objeto") or ""]
+    for a in p.get("arquivos") or []:
+        if a.get("tipo") in ("edital", "termo_referencia") and os.path.exists(a.get("caminho") or ""):
+            try:
+                textos.append(texto_inicio(a["caminho"], max_chars=20000))
+            except Exception:
+                pass
+    p["participacao_me"], p["participacao_fonte"] = classificar(p.get("itens"), *textos)
+
+
+def _motivos_fora_do_perfil(cliente, p):
+    """Por que o cliente nao participa desta licitacao (lista vazia = participa)."""
+    motivos = []
+    if not cliente:
+        return motivos
+    nota = (p.get("capag_nota") or "").upper()
+    if nota and nota in cliente.lista_capag_bloqueadas:
+        motivos.append(f"CAPAG {nota}")
+    if cliente.bloquear_exclusiva_me and p.get("participacao_me") == "exclusiva":
+        motivos.append("exclusiva ME/EPP")
+    return motivos
+
+
+def _aplicar_restricoes(p, classificador_resultado, mapa_clientes):
+    """Cliente sugerido fora do perfil (CAPAG/ME-EPP): troca por outro cliente
+    que combine com os itens ou desmarca a licitacao, com o motivo."""
+    cid = p.get("cliente_sugerido")
+    motivos = _motivos_fora_do_perfil(mapa_clientes.get(cid), p)
+    if not motivos:
+        return
+    nome = mapa_clientes[cid].nome
+    alternativo = None
+    if p.get("origem_cliente") == "itens":
+        for r in (classificador_resultado or {}).get("ranking") or []:
+            if (r["cliente_id"] != cid and r.get("itens") and not r.get("so_grupo_misto")
+                    and not _motivos_fora_do_perfil(mapa_clientes.get(r["cliente_id"]), p)):
+                alternativo = r
+                break
+    texto = " e ".join(motivos)
+    if alternativo:
+        p["cliente_sugerido"] = alternativo["cliente_id"]
+        p["avisos"].insert(0, f"Fora do perfil de {nome} ({texto}): sugeri {alternativo['nome']}.")
+    else:
+        p["selecionada"] = False
+        p["fora_do_perfil"] = texto
+        p["avisos"].insert(0, f"Fora do perfil de {nome}: {texto}. Desmarquei.")
+
+
 def _analisar_e_conferir(pacote, cliente_forcado, clientes, usuario_id):
     """Le o pacote guardado (HTML da Effecti ou ZIP), monta as propostas e
     deixa a conferencia pronta. Devolve a mensagem de erro, ou None se deu certo."""
@@ -275,6 +331,7 @@ def _analisar_e_conferir(pacote, cliente_forcado, clientes, usuario_id):
                 else "O ZIP não tem nenhuma pasta de processo dentro.")
 
     classificador = _classificador(clientes)
+    mapa_clientes = {c.id: c for c in clientes}
     for p in analise["propostas"]:
         # Sem itens (a Effecti nem sempre traz), compara as palavras-chave com o objeto
         itens_classif = p.get("itens")
@@ -318,6 +375,9 @@ def _analisar_e_conferir(pacote, cliente_forcado, clientes, usuario_id):
                 p["avisos"].insert(0, f"Nenhuma palavra-chave de cliente {onde}: escolha o cliente.")
             elif resultado["empate"]:
                 p["avisos"].insert(0, "Empate entre clientes: confira o cliente sugerido.")
+        _participacao_e_capag(p)
+        if p["cliente_sugerido"]:
+            _aplicar_restricoes(p, resultado, mapa_clientes)
         p["ja_cadastrada"] = None
         if p["cliente_sugerido"]:
             existente = _ja_cadastrada(p["cliente_sugerido"], p)
@@ -493,6 +553,7 @@ def _criar_licitacao(cliente_id, p):
         esfera=p.get("esfera"),
         uf=p.get("uf"),
         municipio=p.get("municipio"),
+        participacao_me=p.get("participacao_me"),
     )
     db.session.add(lic)
     db.session.flush()  # precisa do id para a pasta de arquivos

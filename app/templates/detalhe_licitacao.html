@@ -107,6 +107,10 @@
             {% else %}<small class="muted">(CAPAG não encontrada)</small>{% endif %}
           {% else %}—{% endif %}
         </span>
+        {% if lic.participacao_me %}
+        <span class="info-label">ME/EPP</span>
+        <span>{{ {'exclusiva': 'Exclusiva ME/EPP', 'mista': 'Mista (parte exclusiva ME/EPP)', 'ampla': 'Ampla concorrência'}[lic.participacao_me] or lic.participacao_me }}</span>
+        {% endif %}
         {% if lic.link_edital %}
         <span class="info-label">Edital</span>
         <span><a href="{{ lic.link_edital }}" target="_blank">Abrir edital ↗</a></span>

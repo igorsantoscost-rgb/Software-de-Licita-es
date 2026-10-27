@@ -102,6 +102,18 @@
       <small class="muted">Valor fixo cobrado mensalmente na fatura do cliente.</small>
     </div>
 
+    <div class="campo">
+      <label>Restrições de participação</label>
+      <small class="muted">Na importação, licitações que caem nessas regras não são marcadas para este cliente (aparecem desmarcadas, com o motivo).</small>
+      <div class="restricoes-cliente">
+        <span class="muted-sm">Não participa com CAPAG:</span>
+        {% for nota in ['A+', 'A', 'B+', 'B', 'C', 'D'] %}
+        <label class="restricao-opcao"><input type="checkbox" name="capag_bloqueadas" value="{{ nota }}" {% if nota in cliente.lista_capag_bloqueadas %}checked{% endif %}> {{ nota }}</label>
+        {% endfor %}
+      </div>
+      <label class="restricao-opcao"><input type="checkbox" name="bloquear_exclusiva_me" value="1" {% if cliente.bloquear_exclusiva_me %}checked{% endif %}> Não participa de licitações exclusivas para ME/EPP (as mistas continuam)</label>
+    </div>
+
     <div class="form-btns">
       <a href="{{ url_for('main.clientes') }}" class="btn">Cancelar</a>
       <button type="submit" class="btn btn-primary">Salvar</button>

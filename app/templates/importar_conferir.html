@@ -99,6 +99,12 @@
             </span>
             {% endif %}
             {% if p.objeto %}<span class="import-objeto" title="{{ p.objeto }}">{{ p.objeto[:140] }}{% if p.objeto|length > 140 %}…{% endif %}</span>{% endif %}
+            {% if p.capag_nota or p.participacao_me %}
+            <span class="muted-sm import-sub">
+              {% if p.capag_nota %}<span class="capag-mini capag-nota-{{ p.capag_nota|replace('+','mais')|lower }}">CAPAG {{ p.capag_nota }}</span>{% endif %}
+              {% if p.participacao_me %}<span class="import-me import-me-{{ p.participacao_me }}" title="Pelos {{ p.participacao_fonte }}">{{ {'exclusiva': 'Exclusiva ME/EPP', 'mista': 'Mista ME/EPP', 'ampla': 'Ampla concorrência'}[p.participacao_me] }}</span>{% endif %}
+            </span>
+            {% endif %}
             {% for a in p.avisos %}
             <span class="import-aviso">⚠ {{ a }}</span>
             {% endfor %}

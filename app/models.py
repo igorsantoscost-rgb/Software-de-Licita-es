@@ -81,6 +81,13 @@ class Cliente(db.Model):
     taxa_consultoria = db.Column(db.Numeric(10, 2), nullable=True, default=1621.00)  # Taxa mensal
     cor = db.Column(db.String(7), nullable=True)  # Cor de identificacao (hex) no calendario/painel
     prospectar_homologadas = db.Column(db.Boolean, nullable=True, default=False)  # busca diaria no PNCP
+    # Restricoes de participacao (conferidas na importacao)
+    capag_bloqueadas = db.Column(db.String(30), nullable=True)   # ex.: "C,D" -> nao participa
+    bloquear_exclusiva_me = db.Column(db.Boolean, nullable=True, default=False)  # nao participa de exclusiva ME/EPP
+
+    @property
+    def lista_capag_bloqueadas(self):
+        return [n.strip().upper() for n in (self.capag_bloqueadas or "").split(",") if n.strip()]
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
     usuarios = db.relationship("User", backref="cliente", lazy=True, foreign_keys=[User.cliente_id])
     licitacoes = db.relationship("Licitacao", backref="cliente", lazy=True)
@@ -166,6 +173,7 @@ class Licitacao(db.Model):
     capag_local = db.Column(db.String(160), nullable=True)  # ex: "Belo Horizonte/MG" ou "Minas Gerais"
     capag_referencia = db.Column(db.String(80), nullable=True)
     capag_consultado_em = db.Column(db.DateTime, nullable=True)
+    participacao_me = db.Column(db.String(20), nullable=True)  # exclusiva | mista | ampla (ME/EPP)
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
     atualizado_em = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

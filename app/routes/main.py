@@ -439,6 +439,9 @@ def editar_cliente(id):
         cliente.email_contato = request.form.get("email_contato", "").strip()
         cliente.email_financeiro = request.form.get("email_financeiro", "").strip()
         cliente.cor = request.form.get("cor", "").strip() or None
+        cliente.capag_bloqueadas = ",".join(n for n in request.form.getlist("capag_bloqueadas")
+                                            if n in ("A+", "A", "B+", "B", "C", "D")) or None
+        cliente.bloquear_exclusiva_me = request.form.get("bloquear_exclusiva_me") == "1"
         taxa_str = request.form.get("taxa_consultoria", "").strip().replace(",", ".")
         if taxa_str:
             try:

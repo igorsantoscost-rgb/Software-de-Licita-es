@@ -52,8 +52,9 @@ def _qtd(v):
     return int(round(f)) if f is not None else None
 
 
-def _item(numero, descricao, unidade=None, quantidade=None, valor=None, lote=None):
+def _item(numero, descricao, unidade=None, quantidade=None, valor=None, lote=None, beneficio=None):
     return {
+        "beneficio": beneficio,
         "numero_item": (str(numero).strip() if numero not in (None, "") else "")[:20] or None,
         "lote_grupo": (str(lote).strip() if lote else "")[:100] or None,
         "descricao": padronizar_frase(re.sub(r"\s+([,.;:)])", r"\1", " ".join(str(descricao or "").split())))[:500]
@@ -113,9 +114,14 @@ def itens_pncp(cnpj, ano, seq):
             if len(compl) > len(desc) and compl.strip():
                 desc = f"{desc} — {compl}" if desc and _norm(desc) not in _norm(compl) else compl
             grupo = it.get("numeroGrupo") or it.get("grupo") or it.get("numeroLote")
+            from app.participacao import BENEFICIO_PNCP
+            try:
+                beneficio = BENEFICIO_PNCP.get(int(it.get("tipoBeneficioId") or it.get("tipoBeneficio") or 0))
+            except (TypeError, ValueError):
+                beneficio = None
             itens.append(_item(it.get("numeroItem"), desc, it.get("unidadeMedida"),
                                it.get("quantidade"), it.get("valorUnitarioEstimado"),
-                               f"Grupo {grupo}" if grupo not in (None, "", 0) else None))
+                               f"Grupo {grupo}" if grupo not in (None, "", 0) else None, beneficio))
         if len(lote) < 500:
             break
         pagina += 1
