@@ -162,6 +162,41 @@ def resultados_item(cnpj, ano, seq, numero_item):
     return dados
 
 
+def _local_orgao(cnpj, cache):
+    """UF e cidade do orgao pelo CNPJ (quando o PNCP nao informa)."""
+    chave = "orgao:" + cnpj
+    if chave not in cache:
+        cache[chave] = contato_fornecedor(cnpj)
+    return cache[chave] or {}
+
+
+def completar_ufs(limite=400):
+    """Preenche UF/cidade das oportunidades que ficaram sem (versoes antigas)."""
+    cache, feitas = {}, 0
+    sem = (OportunidadeHomologada.query.filter(OportunidadeHomologada.uf.is_(None))
+           .limit(limite).all())
+    for op in sem:
+        c = CompraMonitorada.query.filter_by(cnpj=op.cnpj_orgao, ano=op.ano, sequencial=op.sequencial).first()
+        uf, mun = (c.uf, c.municipio) if c else (None, None)
+        if not uf:
+            lugar = _local_orgao(op.cnpj_orgao, cache)
+            uf, mun = lugar.get("uf") or None, mun or lugar.get("municipio") or None
+        if uf:
+            op.uf, op.municipio = uf, op.municipio or mun
+            feitas += 1
+        if not op.fornecedor_uf and op.fornecedor_cnpj and len(op.fornecedor_cnpj) == 14:
+            ct = cache.get(op.fornecedor_cnpj)
+            if ct is None:
+                ct = cache[op.fornecedor_cnpj] = contato_fornecedor(op.fornecedor_cnpj)
+            if ct:
+                op.fornecedor_uf = op.fornecedor_uf or ct.get("uf") or None
+                op.fornecedor_municipio = op.fornecedor_municipio or ct.get("municipio") or None
+                op.fornecedor_telefone = op.fornecedor_telefone or ct.get("telefone") or None
+                op.fornecedor_email = op.fornecedor_email or ct.get("email") or None
+    db.session.commit()
+    return feitas
+
+
 def contato_fornecedor(cnpj):
     """Razao social, UF, cidade, telefone e e-mail do vencedor (BrasilAPI)."""
     d = re.sub(r"\D", "", cnpj or "")
@@ -258,12 +293,17 @@ def processar_compra(compra, clientes, contatos_cache, contador_contatos):
                 ct = contatos_cache.get(forn) or {}
                 orgao = (cab.get("orgaoEntidade") or {}) if cab else {}
                 unidade = (cab.get("unidadeOrgao") or {}) if cab else {}
+                uf_orgao = (unidade.get("ufSigla") or compra.uf or "")[:2] or None
+                mun_orgao = (unidade.get("municipioNome") or compra.municipio or "")[:150] or None
+                if not uf_orgao:
+                    lugar = _local_orgao(cnpj, contatos_cache)
+                    uf_orgao, mun_orgao = lugar.get("uf") or None, mun_orgao or lugar.get("municipio") or None
                 op = OportunidadeHomologada(
                     cliente_id=cliente.id, cnpj_orgao=cnpj, ano=ano, sequencial=seq,
                     numero_item=int(numero),
                     orgao=(orgao.get("razaoSocial") or compra.titulo or "")[:300],
-                    uf=(unidade.get("ufSigla") or "")[:2] or None,
-                    municipio=(unidade.get("municipioNome") or "")[:150] or None,
+                    uf=uf_orgao,
+                    municipio=mun_orgao,
                     numero_compra=(f"{cab.get('numeroCompra')}/{cab.get('anoCompra')}"
                                    if cab and cab.get("numeroCompra") else None),
                     modalidade=(cab.get("modalidadeNome") or "")[:80] if cab else None,
@@ -325,8 +365,10 @@ def rodar_prospeccao(enviar_email=True, log=print):
                             cnpj_orgao=ids[0], ano=ids[1], sequencial=ids[2]).update(
                             {"ata_vigencia_fim": fim_ata.date()}, synchronize_session=False)
                 continue
+            uf_busca = (it.get("uf") or "").upper()[:2] or None
             db.session.add(CompraMonitorada(cnpj=ids[0], ano=ids[1], sequencial=ids[2],
                                             titulo=(it.get("orgao_nome") or it.get("title") or "")[:300],
+                                            uf=uf_busca, municipio=(it.get("municipio_nome") or "")[:150] or None,
                                             ata_vigencia_fim=fim_ata.date() if fim_ata else None))
             conhecidos.add(ids)
             buscados += 1
@@ -353,6 +395,10 @@ def rodar_prospeccao(enviar_email=True, log=print):
             db.session.commit()
         verificados += 1
     log(f"Prospecção: {verificados} pregão(ões) verificado(s), {novas} oportunidade(s) nova(s).")
+    try:
+        completar_ufs()
+    except Exception:
+        db.session.rollback()
 
     avisados = enviar_avisos() if enviar_email else 0
     if avisados:

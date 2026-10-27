@@ -649,6 +649,8 @@ class CompraMonitorada(db.Model):
     ano = db.Column(db.Integer, nullable=False)
     sequencial = db.Column(db.Integer, nullable=False)
     titulo = db.Column(db.String(300), nullable=True)
+    uf = db.Column(db.String(2), nullable=True)
+    municipio = db.Column(db.String(150), nullable=True)
     ata_vigencia_fim = db.Column(db.Date, nullable=True)
     primeira_vez = db.Column(db.DateTime, default=datetime.utcnow)
     ultima_verificacao = db.Column(db.DateTime, nullable=True)

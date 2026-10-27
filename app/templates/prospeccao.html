@@ -5,7 +5,7 @@
 <div class="page-header">
   <h2>Prospecção de homologadas</h2>
   <div style="display:flex; gap:8px; flex-wrap:wrap;">
-    <a href="{{ url_for('pros.exportar', cliente_id=filtros.cliente_id, uf=filtros.uf, situacao=filtros.situacao, ata=filtros.ata, q=filtros.q) }}" class="btn">⤓ Exportar Excel</a>
+    <a href="{{ url_for('pros.exportar', cliente_id=filtros.cliente_id, uf=filtros.uf, uf_vencedor=filtros.uf_vencedor, situacao=filtros.situacao, ata=filtros.ata, q=filtros.q) }}" class="btn">⤓ Exportar Excel</a>
     <form method="POST" action="{{ url_for('pros.rodar') }}" class="form-inline">
       <button type="submit" class="btn btn-primary" {% if rodando %}disabled{% endif %}>
         {{ '⏳ Buscando…' if rodando else '↻ Buscar agora' }}
@@ -47,9 +47,13 @@
     <option value="">Todos os clientes</option>
     {% for c in clientes %}<option value="{{ c.id }}" {% if filtros.cliente_id == c.id|string %}selected{% endif %}>{{ c.nome }}</option>{% endfor %}
   </select>
-  <select name="uf" class="select" style="max-width:110px;">
-    <option value="">UF</option>
+  <select name="uf" class="select" style="max-width:150px;" title="Estado do órgão que comprou">
+    <option value="">UF do órgão</option>
     {% for u in ufs %}<option value="{{ u }}" {% if filtros.uf == u %}selected{% endif %}>{{ u }}</option>{% endfor %}
+  </select>
+  <select name="uf_vencedor" class="select" style="max-width:160px;" title="Estado da empresa que venceu">
+    <option value="">UF do vencedor</option>
+    {% for u in ufs %}<option value="{{ u }}" {% if filtros.uf_vencedor == u %}selected{% endif %}>{{ u }}</option>{% endfor %}
   </select>
   <select name="situacao" class="select" style="max-width:240px;">
     {% for v, r in situacoes %}<option value="{{ v }}" {% if (filtros.situacao or 'abertas') == v %}selected{% endif %}>{{ r }}</option>{% endfor %}
@@ -61,6 +65,12 @@
   <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
   <span class="muted-sm busca-contagem">{{ total }} item(ns)</span>
 </form>
+{% if sem_uf %}
+<form method="POST" action="{{ url_for('pros.completar_ufs_agora') }}" class="filtros">
+  <span class="muted-sm">{{ sem_uf }} oportunidade(s) ainda sem UF do órgão.</span>
+  <button type="submit" class="btn btn-sm">Completar UFs</button>
+</form>
+{% endif %}
 
 {% if ops %}
 <div class="tabela-wrap">
@@ -134,7 +144,7 @@
 {% if paginas > 1 %}
 <div class="filtros">
   {% for p in range(1, paginas + 1) %}
-  <a href="{{ url_for('pros.painel', pagina=p, cliente_id=filtros.cliente_id, uf=filtros.uf, situacao=filtros.situacao, ata=filtros.ata, q=filtros.q) }}" class="filtro-pill {% if p == pagina %}ativo{% endif %}">{{ p }}</a>
+  <a href="{{ url_for('pros.painel', pagina=p, cliente_id=filtros.cliente_id, uf=filtros.uf, uf_vencedor=filtros.uf_vencedor, situacao=filtros.situacao, ata=filtros.ata, q=filtros.q) }}" class="filtro-pill {% if p == pagina %}ativo{% endif %}">{{ p }}</a>
   {% endfor %}
 </div>
 {% endif %}

@@ -184,6 +184,8 @@ def _migrar_prospeccao():
     try:
         with db.engine.connect() as conn:
             conn.execute(text("ALTER TABLE clientes ADD COLUMN IF NOT EXISTS prospectar_homologadas BOOLEAN DEFAULT FALSE"))
+            conn.execute(text("ALTER TABLE compras_monitoradas ADD COLUMN IF NOT EXISTS uf VARCHAR(2)"))
+            conn.execute(text("ALTER TABLE compras_monitoradas ADD COLUMN IF NOT EXISTS municipio VARCHAR(150)"))
             conn.commit()
     except Exception:
         db.session.rollback()

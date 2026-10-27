@@ -57,6 +57,9 @@ def _consulta():
     uf = (request.args.get("uf") or "").upper()
     if uf:
         q = q.filter_by(uf=uf)
+    uf_v = (request.args.get("uf_vencedor") or "").upper()
+    if uf_v:
+        q = q.filter_by(fornecedor_uf=uf_v)
     sit = request.args.get("situacao") or "abertas"
     if sit == "abertas":
         q = q.filter(OportunidadeHomologada.situacao != "descartada")
@@ -85,11 +88,13 @@ def painel():
     q = _consulta()
     total = q.count()
     ops = q.offset((pagina - 1) * 100).limit(100).all()
-    ufs = sorted({u for (u,) in db.session.query(OportunidadeHomologada.uf).distinct() if u})
+    from app.capag import UFS
+    ufs = [sigla for sigla, _nome in sorted(UFS)]
     acompanhando = CompraMonitorada.query.filter_by(concluida=False).count()
+    sem_uf = OportunidadeHomologada.query.filter(OportunidadeHomologada.uf.is_(None)).count()
     return render_template("prospeccao.html", clientes=clientes, ops=ops, total=total, pagina=pagina,
                            paginas=(total + 99) // 100, ufs=ufs, situacoes=SITUACOES,
-                           status=_status(), rodando=_trava.locked(), acompanhando=acompanhando,
+                           status=_status(), rodando=_trava.locked(), acompanhando=acompanhando, sem_uf=sem_uf,
                            filtros=request.args, desde=__import__("app.prospeccao", fromlist=["DESDE"]).DESDE)
 
 
@@ -134,6 +139,17 @@ def rodar():
     threading.Thread(target=tarefa, daemon=True).start()
     flash("Busca iniciada. A primeira pode levar de 10 a 30 minutos; as oportunidades aparecem aqui conforme forem achadas.", "ok")
     return redirect(url_for("pros.painel"))
+
+
+@pros_bp.route("/completar-ufs", methods=["POST"])
+@login_required
+def completar_ufs_agora():
+    if not current_user.is_assessor():
+        abort(403)
+    from app.prospeccao import completar_ufs
+    n = completar_ufs(limite=150)
+    flash(f"UF preenchida em {n} oportunidade(s)." + (" Clique de novo para continuar." if n >= 100 else ""), "ok")
+    return redirect(request.referrer or url_for("pros.painel"))
 
 
 @pros_bp.route("/<int:id>/situacao", methods=["POST"])
