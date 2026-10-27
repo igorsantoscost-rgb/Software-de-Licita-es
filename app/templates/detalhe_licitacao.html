@@ -347,7 +347,7 @@
   <div class="col-detalhe-docs">
 
     <!-- Documentos -->
-    <div class="card">
+    <div class="card card-docs">
       <h3>Documentos</h3>
       {% set docs_processo = lic.documentos|selectattr('categoria', 'equalto', 'processo')|list %}
       {% if docs_processo %}
@@ -416,7 +416,7 @@
   <div class="col-detalhe-comentarios">
 
     <!-- Comentarios -->
-    <div class="card">
+    <div class="card card-coment">
       <h3>Comentários</h3>
       <form method="POST" action="{{ url_for('lic.comentar', id=lic.id) }}" class="form-comentario">
         <textarea name="texto" rows="2" placeholder="Escreva um comentário..." required></textarea>
@@ -461,7 +461,7 @@
     </div>
 
     <!-- Documentos de Apoio (cliente) -->
-    <div class="card">
+    <div class="card card-apoio">
       <h3>Documentos de apoio</h3>
       <p class="muted-sm">Tabelas de preço, notas fiscais de referência, e-mails e outros materiais para auxiliar na precificação e gestão do contrato.</p>
 
@@ -940,4 +940,25 @@ document.querySelectorAll('form').forEach(function (f) {
 })();
 </script>
 {% endif %}
+<script>
+/* Documentos com poucos arquivos: o card fica da altura de Informacoes e o
+   card de Parametros da disputa cresce para baixo dele. Com muitos documentos
+   (card mais alto que Informacoes), fica o layout normal. */
+(function () {
+  var grade = document.querySelector('.grid-detalhe');
+  if (!grade) return;
+  var info = grade.querySelector('.card-info-compacto');
+  var docs = grade.querySelector('.card-docs');
+  if (!info || !docs) return;
+  function ajustar() {
+    grade.classList.remove('docs-compacto');
+    if (window.innerWidth <= 1300) return;
+    if (docs.offsetHeight <= info.offsetHeight + 4) grade.classList.add('docs-compacto');
+  }
+  ajustar();
+  var t;
+  window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(ajustar, 150); });
+  window.addEventListener('load', ajustar);
+})();
+</script>
 {% endblock %}

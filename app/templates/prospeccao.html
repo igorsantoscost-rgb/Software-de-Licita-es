@@ -5,16 +5,19 @@
 {% macro semana_txt(d) %}{{ d.strftime('%d/%m') }} a {{ (d + timedelta(days=6)).strftime('%d/%m/%Y') }}{% endmacro %}
 
 <div class="page-header">
-  <h2>Leads indiretos{% if visao_cliente and cliente and current_user.is_assessor() %} — {{ cliente.nome }} <small class="muted-sm">(visão do cliente)</small>{% endif %}</h2>
+  <div>
+    <h2>Leads indiretos{% if visao_cliente and cliente and current_user.is_assessor() %} <small class="muted-sm">(visão do cliente)</small>{% endif %}</h2>
+    <p class="leads-sub">{% if semana_sel %}Semana de {{ semana_txt(semana_sel) }}{% else %}Todas as semanas{% endif %}{% if cliente %} · {{ cliente.nome }}{% endif %}</p>
+  </div>
   <div style="display:flex; gap:8px; flex-wrap:wrap;">
     {% if visao_cliente %}
-    <a href="{{ url_for('pros.leads_exportar', **args) }}" class="btn btn-primary">⤓ Baixar Excel</a>
+    <a href="{{ url_for('pros.leads_exportar', **args) }}" class="btn btn-primary">Baixar Excel</a>
     {% else %}
-    {% if filtros.cliente_id %}<a href="{{ url_for('pros.leads', ver_cliente=filtros.cliente_id) }}" class="btn">👁 Ver como o cliente</a>{% endif %}
-    <a href="{{ url_for('pros.exportar', **args) }}" class="btn">⤓ Exportar Excel</a>
+    {% if filtros.cliente_id %}<a href="{{ url_for('pros.leads', ver_cliente=filtros.cliente_id) }}" class="btn">Ver como o cliente</a>{% endif %}
+    <a href="{{ url_for('pros.exportar', **args) }}" class="btn">Exportar Excel</a>
     <form method="POST" action="{{ url_for('pros.rodar') }}" class="form-inline">
       <button type="submit" class="btn btn-primary" {% if rodando %}disabled{% endif %}>
-        {{ '⏳ Buscando…' if rodando else '↻ Buscar agora' }}
+        {{ 'Buscando…' if rodando else 'Buscar agora' }}
       </button>
     </form>
     {% endif %}
@@ -60,6 +63,13 @@
 </div>
 {% endif %}
 
+<div class="leads-kpis">
+  <div class="leads-kpi"><p>Licitações</p><strong>{{ kpi.licitacoes }}</strong></div>
+  <div class="leads-kpi"><p>Itens homologados</p><strong>{{ kpi.itens }}</strong></div>
+  <div class="leads-kpi"><p>Valor homologado</p><strong>{{ kpi.valor|brl }}</strong></div>
+  <div class="leads-kpi"><p>Empresas vencedoras</p><strong>{{ kpi.vencedores }}</strong></div>
+</div>
+
 <form method="GET" action="{{ url_for(ep) }}" class="busca-form" style="flex-wrap:wrap;">
   {% if visao_cliente and filtros.ver_cliente %}<input type="hidden" name="ver_cliente" value="{{ filtros.ver_cliente }}">{% endif %}
   <select name="semana" class="select" style="max-width:220px;" title="Semana em que a licitação foi homologada">
@@ -101,72 +111,53 @@
 {% endif %}
 
 {% if licitacoes %}
-<div class="tabela-wrap">
-  <table class="tabela leads-tabela">
-    <colgroup>
-      <col style="width:104px"><col><col style="width:30%"><col style="width:64px"><col style="width:130px"><col style="width:110px"><col style="width:{{ 70 if visao_cliente else 118 }}px">
-    </colgroup>
-    <thead>
-      <tr>
-        <th>Resultado</th>
-        <th>Licitação</th>
-        <th>Vencedor(es)</th>
-        <th class="num">Itens</th>
-        <th class="num">Total homolog.</th>
-        <th>Ata</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for g in licitacoes %}{% set op = g.primeiro %}
-      <tr class="lead-linha {% if g.situacao == 'descartada' %}import-linha-off{% endif %}">
-        <td>
-          <span class="lead-data">{{ g.data.strftime('%d/%m/%Y') if g.data else '—' }}</span>
+<div class="leads-lista">
+  {% for g in licitacoes %}{% set op = g.primeiro %}
+  <article class="lead-card {% if g.situacao == 'descartada' %}import-linha-off{% endif %}">
+    <div class="lead-corpo">
+      <div>
+        <div class="lead-titulo">
+          <span class="lead-orgao">{{ op.orgao or '—' }}</span>
+          {% if op.municipio or op.uf %}<span class="lead-local">{{ op.municipio ~ '/' if op.municipio }}{{ op.uf or '' }}</span>{% endif %}
+        </div>
+        <div class="lead-meta">
+          <span>{% if op.numero_compra %}Pregão {{ op.numero_compra }}{% else %}Compra {{ op.sequencial }}/{{ op.ano }}{% endif %}</span>
           {% if not visao_cliente %}<span class="lead-sit lead-sit-{{ g.situacao }}">{{ g.situacao }}</span>{% endif %}
-        </td>
-        <td>
-          <div class="lead-orgao">{{ op.orgao or '—' }}</div>
+          {% if op.cliente and not visao_cliente %}<span>{{ op.cliente.nome }}</span>{% endif %}
+        </div>
+        {% if op.objeto %}<p class="lead-objeto" title="{{ op.objeto }}">{{ op.objeto }}</p>{% endif %}
+        <button type="button" class="lead-ver" aria-expanded="false" onclick="var c=this.closest('.lead-card').querySelector('.lead-itens-caixa');var a=c.hidden;c.hidden=!a;this.setAttribute('aria-expanded',a);">
+          <span class="lead-ver-seta">▸</span> Ver {{ g.itens|length }} item{{ 's' if g.itens|length > 1 }}
+        </button>
+      </div>
+      <div class="lead-vencedores">
+        <p class="lead-rotulo">Vencedor{{ 'es' if g.vencedores|length > 1 }}</p>
+        {% for nome, v in g.vencedores[:3] %}{% set f = v.op %}
+        <div class="lead-venc">
+          <div class="lead-venc-nome">{{ nome or '—' }}{% if g.vencedores|length > 1 %} <span class="lead-venc-qtd">{{ v.itens }} item{{ 's' if v.itens > 1 }}</span>{% endif %}</div>
           <div class="lead-meta">
-            {% if op.municipio or op.uf %}<span>{{ op.municipio ~ '/' if op.municipio }}{{ op.uf or '' }}</span>{% endif %}
-            <span>{% if op.numero_compra %}Pregão {{ op.numero_compra }}{% else %}Compra {{ op.sequencial }}/{{ op.ano }}{% endif %}</span>
-            {% if op.cliente and not visao_cliente %}<span>{{ op.cliente.nome }}</span>{% endif %}
+            {% if f.fornecedor_cnpj %}<span>{{ f.fornecedor_cnpj }}</span>{% endif %}
+            {% if f.fornecedor_uf %}<span>{{ f.fornecedor_municipio ~ '/' if f.fornecedor_municipio }}{{ f.fornecedor_uf }}</span>{% endif %}
           </div>
-          {% if op.objeto %}<p class="lead-objeto" title="{{ op.objeto }}">{{ op.objeto }}</p>{% endif %}
-          <button type="button" class="lead-ver" aria-expanded="false" onclick="var r=this.closest('tr').nextElementSibling;var a=r.hidden;r.hidden=!a;this.setAttribute('aria-expanded',a);">
-            <span class="lead-ver-seta">▸</span> {{ g.itens|length }} item{{ 's' if g.itens|length > 1 }} homologado{{ 's' if g.itens|length > 1 }}
-          </button>
-        </td>
-        <td>
-          {% for nome, v in g.vencedores[:3] %}{% set f = v.op %}
-          <div class="lead-venc">
-            <div class="lead-venc-nome">{{ nome or '—' }} <span class="lead-venc-qtd">{{ v.itens }} item{{ 's' if v.itens > 1 }}</span></div>
-            <div class="lead-meta">
-              {% if f.fornecedor_cnpj %}<span>{{ f.fornecedor_cnpj }}</span>{% endif %}
-              {% if f.fornecedor_uf %}<span>{{ f.fornecedor_municipio ~ '/' if f.fornecedor_municipio }}{{ f.fornecedor_uf }}</span>{% endif %}
-            </div>
-            {% if f.fornecedor_telefone or f.fornecedor_email %}
-            <div class="lead-contato">
-              {% if f.fornecedor_telefone %}<span>☎ {{ f.fornecedor_telefone }}</span>{% endif %}
-              {% if f.fornecedor_email %}<a href="mailto:{{ f.fornecedor_email }}">{{ f.fornecedor_email|lower }}</a>{% endif %}
-            </div>
-            {% endif %}
+          {% if f.fornecedor_telefone or f.fornecedor_email %}
+          <div class="lead-contato">
+            {% if f.fornecedor_telefone %}<span>{{ f.fornecedor_telefone }}</span>{% endif %}
+            {% if f.fornecedor_email %}<a href="mailto:{{ f.fornecedor_email }}">{{ f.fornecedor_email|lower }}</a>{% endif %}
           </div>
-          {% endfor %}
-          {% if g.vencedores|length > 3 %}<div class="lead-meta">+ {{ g.vencedores|length - 3 }} outro(s) vencedor(es) — veja nos itens</div>{% endif %}
-        </td>
-        <td class="num">{{ g.itens|length }}</td>
-        <td class="num lead-valor">{{ g.total|brl }}</td>
-        <td>
-          {% if g.ata_vigente %}<span class="lead-ata lead-ata-ok">até {{ g.ata.strftime('%d/%m/%Y') }}</span>
-          {% elif g.ata %}<span class="lead-ata">venceu {{ g.ata.strftime('%d/%m/%Y') }}</span>
-          {% elif g.srp %}<span class="lead-ata">SRP</span>
-          {% else %}<span class="lead-ata">—</span>{% endif %}
-        </td>
-        <td class="lead-acoes">
-          <a href="{{ op.link_pncp }}" target="_blank" rel="noopener" class="btn btn-sm" title="Abrir no PNCP">PNCP ↗</a>
+          {% endif %}
+        </div>
+        {% endfor %}
+        {% if g.vencedores|length > 3 %}<div class="lead-meta">+ {{ g.vencedores|length - 3 }} outro(s) — veja nos itens</div>{% endif %}
+      </div>
+      <div class="lead-lado">
+        <p class="lead-rotulo">Homologado em {{ g.data.strftime('%d/%m') if g.data else '—' }}</p>
+        <p class="lead-total">{{ g.total|brl }}</p>
+        <span class="lead-ata">{% if g.ata_vigente %}Ata vigente até {{ g.ata.strftime('%d/%m/%Y') }}{% elif g.ata %}Ata venceu em {{ g.ata.strftime('%d/%m/%Y') }}{% elif g.srp %}Registro de preços{% else %}Sem ata{% endif %}</span>
+        <div class="lead-botoes">
+          <a href="{{ op.link_pncp }}" target="_blank" rel="noopener" class="btn btn-sm" title="Abrir no PNCP">PNCP</a>
           {% if not visao_cliente %}
           <details class="pacote-excluir lead-menu">
-            <summary class="btn btn-sm" title="Situação e observação">⋯</summary>
+            <summary class="btn btn-sm">Marcar</summary>
             <form method="POST" action="{{ url_for('pros.situacao_licitacao') }}" class="pacote-excluir-form lead-form">
               <input type="hidden" name="cliente_id" value="{{ op.cliente_id }}">
               <input type="hidden" name="cnpj" value="{{ op.cnpj_orgao }}">
@@ -183,33 +174,32 @@
               <button type="submit" class="btn btn-primary">Salvar</button>
             </form>
           </details>
-          {% if g.observacao %}<div class="lead-obs" title="{{ g.observacao }}">📝 {{ g.observacao }}</div>{% endif %}
           {% endif %}
-        </td>
-      </tr>
-      <tr class="lead-itens" hidden>
-        <td></td>
-        <td colspan="6">
-          <table class="tabela tabela-sm lead-itens-tabela">
-            <thead><tr><th>Item</th><th>Descrição</th><th>Vencedor</th><th class="num">Qtd</th><th class="num">Unit. homolog.</th><th class="num">Total</th></tr></thead>
-            <tbody>
-              {% for it in g.itens %}
-              <tr>
-                <td>{{ it.numero_item }}</td>
-                <td><span title="{{ it.descricao_item }}">{{ (it.descricao_item or '')[:220] }}{% if (it.descricao_item or '')|length > 220 %}…{% endif %}</span>{% if it.palavras and not visao_cliente %}<div class="lead-meta">casou com: <em>{{ it.palavras }}</em></div>{% endif %}</td>
-                <td>{{ it.fornecedor_nome or '—' }}</td>
-                <td class="num">{{ '{:,.0f}'.format(it.quantidade_homologada or it.quantidade or 0).replace(',', '.') if (it.quantidade_homologada or it.quantidade) else '—' }}{% if it.unidade %} <span class="lead-meta-inline">{{ it.unidade }}</span>{% endif %}</td>
-                <td class="num">{{ it.valor_unitario_homologado|brl }}{% if it.valor_unitario_estimado %}<div class="lead-meta">est. {{ it.valor_unitario_estimado|brl }}</div>{% endif %}</td>
-                <td class="num">{{ it.valor_total_homologado|brl }}</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+        </div>
+        {% if g.observacao and not visao_cliente %}<div class="lead-obs" title="{{ g.observacao }}">{{ g.observacao }}</div>{% endif %}
+      </div>
+    </div>
+    <div class="lead-itens-caixa" hidden>
+      <div class="tabela-wrap">
+        <table class="tabela tabela-sm lead-itens-tabela">
+          <thead><tr><th>Item</th><th>Descrição</th><th>Vencedor</th><th class="num">Qtd</th><th class="num">Unit. homolog.</th><th class="num">Total</th></tr></thead>
+          <tbody>
+            {% for it in g.itens %}
+            <tr>
+              <td>{{ it.numero_item }}</td>
+              <td><span title="{{ it.descricao_item }}">{{ (it.descricao_item or '')[:220] }}{% if (it.descricao_item or '')|length > 220 %}…{% endif %}</span>{% if it.palavras and not visao_cliente %}<div class="lead-meta">casou com: <em>{{ it.palavras }}</em></div>{% endif %}</td>
+              <td>{{ it.fornecedor_nome or '—' }}</td>
+              <td class="num">{{ '{:,.0f}'.format(it.quantidade_homologada or it.quantidade or 0).replace(',', '.') if (it.quantidade_homologada or it.quantidade) else '—' }}{% if it.unidade %} <span class="lead-meta-inline">{{ it.unidade }}</span>{% endif %}</td>
+              <td class="num">{{ it.valor_unitario_homologado|brl }}{% if it.valor_unitario_estimado %}<div class="lead-meta">est. {{ it.valor_unitario_estimado|brl }}</div>{% endif %}</td>
+              <td class="num">{{ it.valor_total_homologado|brl }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </article>
+  {% endfor %}
 </div>
 {% if paginas > 1 %}
 <div class="filtros">
@@ -228,7 +218,7 @@
 
 <style>
 .prosp-clientes { display:flex; flex-wrap:wrap; gap:6px; }
-.prosp-clientes .filtro-pill { cursor:pointer; border:1px solid #d3e4d8; background:#eef6f0; border-radius:16px; padding:4px 12px; font:inherit; font-size:.85rem; }
+.prosp-clientes .filtro-pill { cursor:pointer; border:1px solid #c9d3c8; background:#fff; border-radius:4px; padding:4px 12px; font:inherit; font-size:.85rem; }
 .prosp-clientes .filtro-pill.ativo { background: var(--degrade-verde, #14532d); color:#fff; border-color:transparent; }
 </style>
 {% endblock %}

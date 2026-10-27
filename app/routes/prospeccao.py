@@ -164,12 +164,22 @@ def painel():
     acompanhando = CompraMonitorada.query.filter_by(concluida=False).count()
     sem_uf = OportunidadeHomologada.query.filter(OportunidadeHomologada.uf.is_(None)).count()
     sem_objeto = OportunidadeHomologada.query.filter(OportunidadeHomologada.objeto.is_(None)).count()
-    return render_template("prospeccao.html", clientes=clientes, licitacoes=licitacoes, sem_objeto=sem_objeto, total=total,
+    return render_template("prospeccao.html", clientes=clientes, licitacoes=licitacoes, sem_objeto=sem_objeto,
+                           kpi=_kpis(grupos), total=total,
                            total_itens=sum(len(g["itens"]) for g in grupos), pagina=pagina,
                            paginas=(total + POR_PAGINA - 1) // POR_PAGINA, ufs=ufs, situacoes=SITUACOES,
                            status=_status(), rodando=_trava.locked(), acompanhando=acompanhando, sem_uf=sem_uf,
                            filtros=request.args, desde=__import__("app.prospeccao", fromlist=["DESDE"]).DESDE,
                            **_comum(None))
+
+
+def _kpis(grupos):
+    venc = set()
+    for g in grupos:
+        for it in g["itens"]:
+            venc.add(it.fornecedor_cnpj or it.fornecedor_nome)
+    return {"licitacoes": len(grupos), "itens": sum(len(g["itens"]) for g in grupos),
+            "valor": sum(g["total"] for g in grupos), "vencedores": len(venc)}
 
 
 def _comum(cliente_fixo):
@@ -200,7 +210,7 @@ def leads():
     grupos = _agrupar(_consulta(cliente_fixo=cid).limit(20000).all())
     total = len(grupos)
     from app.capag import UFS
-    return render_template("prospeccao.html", clientes=[], licitacoes=grupos[(pagina - 1) * POR_PAGINA: pagina * POR_PAGINA],
+    return render_template("prospeccao.html", clientes=[], kpi=_kpis(grupos), licitacoes=grupos[(pagina - 1) * POR_PAGINA: pagina * POR_PAGINA],
                            total=total, total_itens=sum(len(g["itens"]) for g in grupos), pagina=pagina,
                            paginas=(total + POR_PAGINA - 1) // POR_PAGINA,
                            ufs=[sigla for sigla, _n in sorted(UFS)], situacoes=SITUACOES, status={}, rodando=False,
