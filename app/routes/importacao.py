@@ -343,6 +343,12 @@ def _analisar_e_conferir(pacote, cliente_forcado, clientes, usuario_id):
         p["classificacao"] = resultado
         p["grupo_misto"] = []
         do_perfil = None if cliente_forcado else _cliente_do_perfil(p.get("perfil"), clientes)
+        if do_perfil:
+            # O perfil da Effecti so desempata: vale apenas se as palavras-chave
+            # do cliente do perfil aparecem nos itens/objeto
+            r_perfil = next((r for r in resultado["ranking"] if r["cliente_id"] == do_perfil), None)
+            if not r_perfil or not r_perfil.get("itens") or r_perfil.get("so_grupo_misto"):
+                do_perfil = None
         if cliente_forcado or do_perfil:
             p["cliente_sugerido"] = cliente_forcado or do_perfil
             p["origem_cliente"] = "escolhido" if cliente_forcado else "perfil"
@@ -372,7 +378,9 @@ def _analisar_e_conferir(pacote, cliente_forcado, clientes, usuario_id):
                                       "Não dá para disputar só a parte do cliente. Desmarquei.")
             elif not resultado["cliente_id"]:
                 onde = "no objeto" if p["classificou_por"] == "objeto" else "nos itens"
-                p["avisos"].insert(0, f"Nenhuma palavra-chave de cliente {onde}: escolha o cliente.")
+                p["selecionada"] = False
+                p["sem_cliente"] = True
+                p["avisos"].insert(0, f"Nenhuma palavra-chave de cliente {onde}. Desmarquei; se quiser, escolha o cliente e marque.")
             elif resultado["empate"]:
                 p["avisos"].insert(0, "Empate entre clientes: confira o cliente sugerido.")
         _participacao_e_capag(p)
@@ -606,6 +614,9 @@ def _motivo_desmarcada(p):
         return "Repetida no pacote", f"Repetida de \"{p['duplicada_de']}\"."
     if p.get("situacao_data") == "passada":
         return "Disputa já passou", "A data da disputa já passou."
+    if p.get("sem_cliente"):
+        return "Sem palavra-chave de cliente", next((x for x in avisos if x.startswith("Nenhuma palavra-chave")),
+                                                     "Nenhuma palavra-chave de cliente.").split(". Desmarquei")[0] + "."
     misto = next((a for a in avisos if a.startswith("Grupo misto")), None)
     if misto:
         return "Grupo misto", misto.replace(" Desmarquei.", "")
