@@ -1767,3 +1767,55 @@ input.campo-travado { background: #f1f5f9 !important; color: #64748b; cursor: no
 .grupo-misto-linha { margin-top: 4px; line-height: 1.35; }
 .aviso-grupo-misto { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; border-radius: 10px; padding: 10px 14px; margin: 10px 0; line-height: 1.45; }
 .tabela-itens tr.item-fora-ramo td { background: #fffbeb; }
+
+
+/* ── Leads indiretos: leitura das linhas ── */
+.leads-tabela { table-layout: fixed; font-size: .86rem; }
+.leads-tabela th, .leads-tabela > tbody > tr > td { padding: 14px 14px; vertical-align: top; }
+.leads-tabela .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.leads-tabela > tbody > tr.lead-linha > td { border-bottom: 1px solid #e8eee8; }
+.leads-tabela > tbody > tr.lead-linha:hover { background: #fafcfa; }
+.lead-data { display: block; font-weight: 600; color: var(--texto); font-variant-numeric: tabular-nums; }
+.lead-sit { display: inline-block; margin-top: 6px; padding: 1px 8px; border-radius: 4px; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; background: #eef2ee; color: var(--texto-suave); }
+.lead-sit-nova { background: #e3ecdd; color: var(--floresta); }
+.lead-sit-contatada { background: #e2ebf3; color: var(--tinta-2); }
+.lead-sit-descartada { background: #f3e9e7; color: #8a3b30; }
+.lead-orgao { font-weight: 700; color: var(--tinta); line-height: 1.3; }
+.lead-meta { display: flex; flex-wrap: wrap; gap: 0 6px; margin-top: 3px; font-size: .76rem; color: var(--texto-suave); line-height: 1.4; }
+.lead-meta > span + span::before { content: "·"; margin-right: 6px; color: #b5c2b8; }
+.lead-meta-inline { font-size: .74rem; color: var(--texto-suave); }
+.lead-objeto { margin: 8px 0 0; font-size: .8rem; line-height: 1.45; color: #3c4a42; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.lead-ver { margin-top: 8px; padding: 0; border: 0; background: none; font: inherit; font-size: .78rem; font-weight: 600; color: var(--musgo); cursor: pointer; }
+.lead-ver:hover { text-decoration: underline; }
+.lead-ver-seta { display: inline-block; transition: transform .15s; }
+.lead-ver[aria-expanded="true"] .lead-ver-seta { transform: rotate(90deg); }
+.lead-venc + .lead-venc { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e1e8e2; }
+.lead-venc-nome { font-weight: 700; color: var(--texto); line-height: 1.3; overflow-wrap: anywhere; }
+.lead-venc-qtd { font-weight: 500; font-size: .74rem; color: var(--texto-suave); white-space: nowrap; }
+.lead-contato { display: flex; flex-wrap: wrap; gap: 2px 12px; margin-top: 3px; font-size: .78rem; color: #2f3d35; }
+.lead-contato a { color: var(--musgo); overflow-wrap: anywhere; }
+.lead-valor { font-weight: 700; color: var(--tinta); }
+.lead-ata { font-size: .78rem; color: var(--texto-suave); white-space: nowrap; }
+.lead-ata-ok { color: var(--floresta); font-weight: 700; }
+.lead-acoes { white-space: nowrap; text-align: right; }
+.lead-acoes .btn-sm { padding: 5px 10px; }
+.lead-obs { margin-top: 6px; font-size: .74rem; color: var(--texto-suave); white-space: normal; text-align: left; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.lead-itens > td { background: #f7faf7; padding-top: 0 !important; border-bottom: 1px solid #e8eee8; }
+.lead-itens-tabela { background: #fff; border: 1px solid var(--borda); border-radius: 10px; overflow: hidden; }
+.lead-itens-tabela td { vertical-align: top; }
+/* menu dos tres pontinhos */
+.lead-menu .lead-form { width: 300px; padding: 14px; gap: 12px; }
+.lead-form label { display: flex; flex-direction: column; gap: 5px; font-size: .74rem; font-weight: 700; color: var(--texto-suave); text-transform: uppercase; letter-spacing: .04em; }
+.lead-form .select, .lead-form textarea { width: 100%; padding: 8px 10px; border: 1px solid #cfd9cf; border-radius: 8px; font: inherit; font-size: .86rem; font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--texto); background: #fff; }
+.lead-form textarea { resize: vertical; min-height: 72px; line-height: 1.4; }
+.lead-form .select:focus, .lead-form textarea:focus { outline: none; border-color: var(--musgo); box-shadow: 0 0 0 3px rgba(169,196,155,.45); }
+.lead-form .btn { width: 100%; justify-content: center; }
+.tabela-wrap:has(.lead-menu[open]) { overflow: visible; }
+
+/* ── Login: painel ocupa a altura toda ── */
+.login-body { min-height: 100vh; min-height: 100dvh; grid-template-rows: minmax(100vh, auto); }
+.login-painel { min-height: 100vh; min-height: 100dvh; }
+@media (max-width: 860px) {
+  .login-body { grid-template-rows: auto 1fr; }
+  .login-painel { min-height: 260px; }
+}
