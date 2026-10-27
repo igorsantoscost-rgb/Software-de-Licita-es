@@ -43,6 +43,7 @@
     {% endif %}
     {% if current_user.is_assessor() %}
     {{ item('lic.nova', 'Nova licitação', '<path d="M12 5v14M5 12h14"/>', ep == 'lic.nova') }}
+    {{ item('pros.painel', 'Homologadas', '<path d="M4 20h16"/><path d="M6 16l4-5 3 3 5-7"/><path d="M15 7h3v3"/>', ep.startswith('pros.')) }}
     {{ item('imp.enviar', 'Importar pacote', '<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>', ep.startswith('imp.')) }}
 
     <p class="menu-grupo-titulo">Gestão</p>

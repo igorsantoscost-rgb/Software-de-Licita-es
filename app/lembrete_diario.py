@@ -57,6 +57,13 @@ def main():
         except Exception as e:
             print(f"Backup diario: falhou ({e})")
 
+        # 7. Prospeccao de licitacoes homologadas no PNCP (clientes com a opcao ligada)
+        try:
+            from app.prospeccao import rodar_prospeccao
+            rodar_prospeccao(enviar_email=True)
+        except Exception as e:
+            print(f"Prospeccao: falhou ({e})")
+
         print("=== Concluido ===")
 
 

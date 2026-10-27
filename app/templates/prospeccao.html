@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block titulo %}Prospecção — Homologadas{% endblock %}
+{% block conteudo %}
+
+<div class="page-header">
+  <h2>Prospecção de homologadas</h2>
+  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+    <a href="{{ url_for('pros.exportar', cliente_id=filtros.cliente_id, uf=filtros.uf, situacao=filtros.situacao, ata=filtros.ata, q=filtros.q) }}" class="btn">⤓ Exportar Excel</a>
+    <form method="POST" action="{{ url_for('pros.rodar') }}" class="form-inline">
+      <button type="submit" class="btn btn-primary" {% if rodando %}disabled{% endif %}>
+        {{ '⏳ Buscando…' if rodando else '↻ Buscar agora' }}
+      </button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <p class="muted-sm" style="margin:0 0 10px;">
+    Todo dia às 8h o Bidfy procura no <strong>PNCP</strong> pregões com itens <strong>homologados</strong> que combinam com as
+    palavras-chave de cada cliente com a prospecção ligada. Para cada item mostra o <strong>vencedor</strong> (para venda indireta)
+    e, quando é registro de preços, a <strong>validade da ata</strong> (para carona). Pregões ainda sem resultado
+    são acompanhados até homologar ({{ acompanhando }} em acompanhamento agora).
+  </p>
+  <p class="muted-sm" style="margin:0 0 10px;">
+    {% if rodando %}⏳ Busca em andamento{% if status.inicio %} desde {{ status.inicio }}{% endif %} — atualize a página daqui a pouco.
+    {% elif status.fim %}Última busca manual: {{ status.fim }}
+      {% if status.erro %} · <span style="color:#991b1b">falhou: {{ status.erro }}</span>
+      {% else %} · {{ status.verificados or 0 }} pregão(ões) verificado(s), {{ status.novas or 0 }} oportunidade(s) nova(s){% endif %}
+    {% endif %}
+  </p>
+  <div class="prosp-clientes">
+    {% for c in clientes %}
+    <form method="POST" action="{{ url_for('pros.ligar', id=c.id) }}" class="form-inline">
+      <button type="submit" class="filtro-pill {% if c.prospectar_homologadas %}ativo{% endif %}"
+              title="{{ c.palavras_chave|map(attribute='palavra')|join(', ') or 'Sem palavras-chave cadastradas' }}">
+        {{ '✓' if c.prospectar_homologadas else '+' }} {{ c.nome }}
+        <small>({{ c.palavras_chave|length }} palavra{{ 's' if c.palavras_chave|length != 1 }})</small>
+      </button>
+    </form>
+    {% endfor %}
+  </div>
+  <p class="muted-sm" style="margin:8px 0 0;">Clique no cliente para ligar/desligar. As palavras-chave são as do cadastro do cliente.</p>
+</div>
+
+<form method="GET" action="{{ url_for('pros.painel') }}" class="busca-form" style="flex-wrap:wrap;">
+  <select name="cliente_id" class="select" style="max-width:240px;">
+    <option value="">Todos os clientes</option>
+    {% for c in clientes %}<option value="{{ c.id }}" {% if filtros.cliente_id == c.id|string %}selected{% endif %}>{{ c.nome }}</option>{% endfor %}
+  </select>
+  <select name="uf" class="select" style="max-width:110px;">
+    <option value="">UF</option>
+    {% for u in ufs %}<option value="{{ u }}" {% if filtros.uf == u %}selected{% endif %}>{{ u }}</option>{% endfor %}
+  </select>
+  <select name="situacao" class="select" style="max-width:240px;">
+    {% for v, r in situacoes %}<option value="{{ v }}" {% if (filtros.situacao or 'abertas') == v %}selected{% endif %}>{{ r }}</option>{% endfor %}
+  </select>
+  <label class="muted-sm" style="display:flex;align-items:center;gap:4px;">
+    <input type="checkbox" name="ata" value="1" {% if filtros.ata == '1' %}checked{% endif %}> Só ata vigente
+  </label>
+  <input type="search" name="q" value="{{ filtros.q or '' }}" class="busca-input" placeholder="Item, vencedor, CNPJ, órgão…">
+  <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
+  <span class="muted-sm busca-contagem">{{ total }} item(ns)</span>
+</form>
+
+{% if ops %}
+<div class="tabela-wrap">
+  <table class="tabela tabela-sm">
+    <thead>
+      <tr>
+        <th>Resultado</th>
+        <th>Órgão / item</th>
+        <th>Vencedor</th>
+        <th style="text-align:right;">Qtd</th>
+        <th style="text-align:right;">Unit. homolog.</th>
+        <th style="text-align:right;">Total</th>
+        <th>Ata</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for op in ops %}
+      <tr class="{% if op.situacao == 'descartada' %}import-linha-off{% endif %}">
+        <td style="white-space:nowrap;">
+          {{ op.data_resultado.strftime('%d/%m/%Y') if op.data_resultado else '—' }}
+          {% if op.situacao == 'nova' %}<br><span class="badge" style="background:#dcfce7;color:#14532d;">nova</span>
+          {% elif op.situacao == 'contatada' %}<br><span class="badge" style="background:#dbeafe;color:#1e3a8a;">contatada</span>{% endif %}
+        </td>
+        <td style="min-width:260px;">
+          <strong>{{ op.orgao or '—' }}</strong>{% if op.uf %} <span class="muted-sm">{{ op.municipio ~ '/' if op.municipio }}{{ op.uf }}</span>{% endif %}
+          <span class="muted-sm import-sub">{% if op.numero_compra %}Pregão {{ op.numero_compra }} · {% endif %}Item {{ op.numero_item }}{% if op.cliente %} · {{ op.cliente.nome }}{% endif %}</span>
+          <span class="import-objeto" title="{{ op.descricao_item }}">{{ (op.descricao_item or '')[:160] }}{% if (op.descricao_item or '')|length > 160 %}…{% endif %}</span>
+          {% if op.palavras %}<span class="muted-sm import-sub">Palavras: <em>{{ op.palavras }}</em></span>{% endif %}
+        </td>
+        <td style="min-width:200px;">
+          <strong>{{ op.fornecedor_nome or '—' }}</strong>
+          <span class="muted-sm import-sub">{{ op.fornecedor_cnpj }}{% if op.fornecedor_uf %} · {{ op.fornecedor_municipio ~ '/' if op.fornecedor_municipio }}{{ op.fornecedor_uf }}{% endif %}</span>
+          {% if op.fornecedor_telefone %}<span class="muted-sm import-sub">☎ {{ op.fornecedor_telefone }}</span>{% endif %}
+          {% if op.fornecedor_email %}<span class="muted-sm import-sub">✉ <a href="mailto:{{ op.fornecedor_email }}">{{ op.fornecedor_email }}</a></span>{% endif %}
+        </td>
+        <td style="text-align:right;white-space:nowrap;">
+          {{ '{:,.0f}'.format(op.quantidade_homologada or op.quantidade or 0).replace(',', '.') if (op.quantidade_homologada or op.quantidade) else '—' }}
+          {% if op.unidade %}<br><span class="muted-sm">{{ op.unidade }}</span>{% endif %}
+        </td>
+        <td style="text-align:right;white-space:nowrap;">
+          {{ op.valor_unitario_homologado|brl }}
+          {% if op.valor_unitario_estimado %}<br><span class="muted-sm" title="Valor estimado no edital">est. {{ op.valor_unitario_estimado|brl }}</span>{% endif %}
+        </td>
+        <td style="text-align:right;white-space:nowrap;">{{ op.valor_total_homologado|brl }}</td>
+        <td style="white-space:nowrap;">
+          {% if op.ata_vigente %}<span class="badge" style="background:#dcfce7;color:#14532d;">até {{ op.ata_vigencia_fim.strftime('%d/%m/%Y') }}</span>
+          {% elif op.ata_vigencia_fim %}<span class="muted-sm">venceu {{ op.ata_vigencia_fim.strftime('%d/%m/%Y') }}</span>
+          {% elif op.srp %}<span class="muted-sm">SRP</span>
+          {% else %}<span class="muted-sm">—</span>{% endif %}
+        </td>
+        <td style="white-space:nowrap;">
+          <a href="{{ op.link_pncp }}" target="_blank" rel="noopener" class="btn btn-sm" title="Abrir no PNCP">PNCP ↗</a>
+          <details class="pacote-excluir">
+            <summary class="btn btn-sm">⋯</summary>
+            <form method="POST" action="{{ url_for('pros.situacao', id=op.id) }}" class="pacote-excluir-form">
+              <select name="situacao" class="select">
+                {% for v in ['nova', 'vista', 'contatada', 'descartada'] %}<option value="{{ v }}" {% if op.situacao == v %}selected{% endif %}>{{ v|capitalize }}</option>{% endfor %}
+              </select>
+              <textarea name="observacao" rows="2" class="input" placeholder="Observação (ex.: falei com fulano)">{{ op.observacao or '' }}</textarea>
+              <button type="submit" class="btn btn-sm btn-primary">Salvar</button>
+            </form>
+          </details>
+          {% if op.observacao %}<span class="muted-sm import-sub" title="{{ op.observacao }}">📝 {{ op.observacao[:40] }}</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if paginas > 1 %}
+<div class="filtros">
+  {% for p in range(1, paginas + 1) %}
+  <a href="{{ url_for('pros.painel', pagina=p, cliente_id=filtros.cliente_id, uf=filtros.uf, situacao=filtros.situacao, ata=filtros.ata, q=filtros.q) }}" class="filtro-pill {% if p == pagina %}ativo{% endif %}">{{ p }}</a>
+  {% endfor %}
+</div>
+{% endif %}
+{% else %}
+<div class="card"><p class="muted" style="margin:0;">
+  {% if clientes|selectattr('prospectar_homologadas')|list %}Nenhuma oportunidade com esses filtros ainda. Clique em <strong>Buscar agora</strong> para a primeira busca.
+  {% else %}Ligue a prospecção de pelo menos um cliente acima e clique em <strong>Buscar agora</strong>.{% endif %}
+</p></div>
+{% endif %}
+
+<style>
+.prosp-clientes { display:flex; flex-wrap:wrap; gap:6px; }
+.prosp-clientes .filtro-pill { cursor:pointer; border:1px solid #d3e4d8; background:#eef6f0; border-radius:16px; padding:4px 12px; font:inherit; font-size:.85rem; }
+.prosp-clientes .filtro-pill.ativo { background: var(--degrade-verde, #14532d); color:#fff; border-color:transparent; }
+</style>
+{% endblock %}

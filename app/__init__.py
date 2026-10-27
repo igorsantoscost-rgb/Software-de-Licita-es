@@ -60,6 +60,9 @@ def create_app():
     from app.routes.admin import admin_bp
     app.register_blueprint(admin_bp)
 
+    from app.routes.prospeccao import pros_bp
+    app.register_blueprint(pros_bp)
+
     @app.before_request
     def _backup_do_dia():
         # Gera o backup diario (em segundo plano) na primeira visita de cada dia
@@ -154,6 +157,7 @@ def create_app():
         _migrar_coluna_tipo_documento()
         _migrar_faturas()
         _migrar_quadro_societario()
+        _migrar_prospeccao()
         _seed_admin(app)
         _seed_capag_estados()
         _padronizar_textos_importados()
@@ -171,6 +175,17 @@ def create_app_for_cli():
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     db.init_app(app)
     return app
+
+
+def _migrar_prospeccao():
+    """Cliente: liga/desliga a prospeccao diaria de homologadas no PNCP."""
+    from sqlalchemy import text
+    try:
+        with db.engine.connect() as conn:
+            conn.execute(text("ALTER TABLE clientes ADD COLUMN IF NOT EXISTS prospectar_homologadas BOOLEAN DEFAULT FALSE"))
+            conn.commit()
+    except Exception:
+        db.session.rollback()
 
 
 def _migrar_quadro_societario():

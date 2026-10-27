@@ -80,6 +80,7 @@ class Cliente(db.Model):
     email_financeiro = db.Column(db.String(150), nullable=True)  # Boletos
     taxa_consultoria = db.Column(db.Numeric(10, 2), nullable=True, default=1621.00)  # Taxa mensal
     cor = db.Column(db.String(7), nullable=True)  # Cor de identificacao (hex) no calendario/painel
+    prospectar_homologadas = db.Column(db.Boolean, nullable=True, default=False)  # busca diaria no PNCP
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
     usuarios = db.relationship("User", backref="cliente", lazy=True, foreign_keys=[User.cliente_id])
     licitacoes = db.relationship("Licitacao", backref="cliente", lazy=True)
@@ -634,3 +635,80 @@ class ItemLixeira(db.Model):
     excluido_em = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
     usuario = db.relationship("User")
+
+
+# ─── Prospeccao de licitacoes homologadas (PNCP) ─────────────────────────────
+
+class CompraMonitorada(db.Model):
+    """Pregao do PNCP achado pelas palavras-chave dos clientes e acompanhado
+    ate os itens de interesse terem resultado (homologacao)."""
+    __tablename__ = "compras_monitoradas"
+    __table_args__ = (db.UniqueConstraint("cnpj", "ano", "sequencial", name="uq_compra_monitorada"),)
+    id = db.Column(db.Integer, primary_key=True)
+    cnpj = db.Column(db.String(14), nullable=False)
+    ano = db.Column(db.Integer, nullable=False)
+    sequencial = db.Column(db.Integer, nullable=False)
+    titulo = db.Column(db.String(300), nullable=True)
+    ata_vigencia_fim = db.Column(db.Date, nullable=True)
+    primeira_vez = db.Column(db.DateTime, default=datetime.utcnow)
+    ultima_verificacao = db.Column(db.DateTime, nullable=True)
+    concluida = db.Column(db.Boolean, default=False, nullable=False, index=True)
+    erro = db.Column(db.String(300), nullable=True)
+
+
+class OportunidadeHomologada(db.Model):
+    """Item de pregao homologado que combina com as palavras-chave do cliente:
+    mostra o vencedor (venda indireta) e a ata, se for registro de precos (carona)."""
+    __tablename__ = "oportunidades_homologadas"
+    __table_args__ = (db.UniqueConstraint("cliente_id", "cnpj_orgao", "ano", "sequencial", "numero_item",
+                                          "fornecedor_cnpj", name="uq_oportunidade_homologada"),)
+    id = db.Column(db.Integer, primary_key=True)
+    cliente_id = db.Column(db.Integer, db.ForeignKey("clientes.id"), nullable=False, index=True)
+    cnpj_orgao = db.Column(db.String(14), nullable=False)
+    ano = db.Column(db.Integer, nullable=False)
+    sequencial = db.Column(db.Integer, nullable=False)
+    numero_item = db.Column(db.Integer, nullable=False)
+    orgao = db.Column(db.String(300), nullable=True)
+    uf = db.Column(db.String(2), nullable=True, index=True)
+    municipio = db.Column(db.String(150), nullable=True)
+    numero_compra = db.Column(db.String(60), nullable=True)
+    modalidade = db.Column(db.String(80), nullable=True)
+    objeto = db.Column(db.Text, nullable=True)
+    srp = db.Column(db.Boolean, nullable=True)
+    ata_vigencia_fim = db.Column(db.Date, nullable=True)
+    descricao_item = db.Column(db.Text, nullable=True)
+    unidade = db.Column(db.String(60), nullable=True)
+    quantidade = db.Column(db.Numeric(16, 4), nullable=True)
+    valor_unitario_estimado = db.Column(db.Numeric(16, 4), nullable=True)
+    fornecedor_cnpj = db.Column(db.String(20), nullable=False, default="")
+    fornecedor_nome = db.Column(db.String(300), nullable=True)
+    fornecedor_uf = db.Column(db.String(2), nullable=True)
+    fornecedor_municipio = db.Column(db.String(150), nullable=True)
+    fornecedor_telefone = db.Column(db.String(80), nullable=True)
+    fornecedor_email = db.Column(db.String(200), nullable=True)
+    quantidade_homologada = db.Column(db.Numeric(16, 4), nullable=True)
+    valor_unitario_homologado = db.Column(db.Numeric(16, 4), nullable=True)
+    data_resultado = db.Column(db.DateTime, nullable=True, index=True)
+    palavras = db.Column(db.String(300), nullable=True)
+    encontrada_em = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    avisada_em = db.Column(db.DateTime, nullable=True)
+    situacao = db.Column(db.String(20), nullable=False, default="nova", index=True)  # nova | vista | contatada | descartada
+    observacao = db.Column(db.Text, nullable=True)
+
+    cliente = db.relationship("Cliente")
+
+    @property
+    def valor_total_homologado(self):
+        if self.valor_unitario_homologado is None:
+            return None
+        q = self.quantidade_homologada if self.quantidade_homologada is not None else self.quantidade
+        return float(self.valor_unitario_homologado) * float(q or 0) if q else None
+
+    @property
+    def link_pncp(self):
+        return f"https://pncp.gov.br/app/editais/{self.cnpj_orgao}/{self.ano}/{self.sequencial}"
+
+    @property
+    def ata_vigente(self):
+        from datetime import date
+        return bool(self.ata_vigencia_fim and self.ata_vigencia_fim >= date.today())
