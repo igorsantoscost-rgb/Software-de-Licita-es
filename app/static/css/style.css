@@ -1963,3 +1963,14 @@ body.com-menu .container, body.com-menu .container.container-full { max-width: n
 .resultado-motivo { padding: 6px 12px; border: 1px solid #e0e5dd; border-radius: 4px; background: #fafbf9; font-size: .86rem; }
 .resultado-motivo strong { color: #153a29; margin-right: 4px; }
 .resultado-cat { display: inline-block; padding: 1px 7px; border-radius: 4px; background: #f3ece0; color: #7a5212; font-size: .72rem; font-weight: 700; }
+
+/* Detalhe: a tabela de itens nunca passa por baixo do card de Documentos */
+.grid-detalhe #parametros-disputa { min-width: 0; overflow: hidden; }
+.col-detalhe-principal .tabela-itens-wrap,
+.grid-detalhe #parametros-disputa .tabela-itens-wrap { overflow-x: auto; max-width: 100%; }
+.col-detalhe-principal .tabela-itens .col-desc { min-width: 160px; }
+.col-detalhe-principal .tabela-itens .tag-grupo-misto { display: inline-block; margin-bottom: 2px; }
+.col-detalhe-principal .tabela-itens th, .col-detalhe-principal .tabela-itens th.col-num { white-space: normal; line-height: 1.2; }
+.col-detalhe-principal .tabela-itens .col-desc { min-width: 140px; }
+.col-detalhe-principal .tabela-itens td.col-lote, .col-detalhe-principal .tabela-itens th.col-lote { white-space: normal; max-width: 70px; }
+.col-detalhe-principal .tabela-itens .col-desc { min-width: 110px; } .col-detalhe-principal .tabela-itens td.col-resultado { min-width: 0; }

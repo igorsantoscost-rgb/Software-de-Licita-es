@@ -205,7 +205,7 @@
           <tr>
             <th class="col-sel"><input type="checkbox" id="sel-todos-itens" title="Selecionar todos"></th>
             <th class="col-item">Item</th>
-            {% if tem_lote %}<th>Lote/Grupo</th>{% endif %}
+            {% if tem_lote %}<th class="col-lote">Lote/ Grupo</th>{% endif %}
             <th class="col-desc">Descrição</th>
             {% if tem_marca %}<th>Marca</th>{% endif %}
             <th class="col-num">Qtd</th>
@@ -221,7 +221,7 @@
           <tr{% if item.id in itens_fora_ramo %} class="item-fora-ramo"{% endif %}>
             <td class="col-sel"><input type="checkbox" name="item_ids" value="{{ item.id }}" form="form-excluir-itens" class="sel-item"></td>
             <td class="col-item">{{ item.numero_item or '—' }}</td>
-            {% if tem_lote %}<td>{{ item.lote_grupo or '—' }}</td>{% endif %}
+            {% if tem_lote %}<td class="col-lote">{{ item.lote_grupo or '—' }}</td>{% endif %}
             <td class="col-desc">{% if item.id in itens_fora_ramo %}<span class="tag-grupo-misto" title="Item do grupo fora das palavras-chave do cliente">fora do ramo</span>{% endif %}<div class="item-desc" title="Clique para ver a descrição inteira" onclick="this.classList.toggle('item-desc-aberta')">{{ item.descricao }}</div></td>
             {% if tem_marca %}<td>{{ item.marca or '—' }}</td>{% endif %}
             <td class="col-num col-qtd">{{ item.quantidade or '—' }}{% if item.unidade %}<small class="unidade" title="{{ item.unidade }}">{{ item.unidade }}</small>{% endif %}</td>
