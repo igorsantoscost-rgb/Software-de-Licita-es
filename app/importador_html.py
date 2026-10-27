@@ -25,6 +25,7 @@ from app.capag import UFS_VALIDAS, normalizar
 from app.importador_pacote import (analisar_processo, mapear_portal, detectar_portal_no_texto,
                                    marcar_duplicadas, _limpar, _para_float)
 from app.texto import padronizar_frase
+from app.itens_externos import buscar_itens
 
 # Downloads
 MAX_POR_ARQUIVO = 150 * 1024 * 1024   # 150 MB
@@ -387,10 +388,32 @@ def analisar_html(conteudo, destino, municipios=None, agora=None):
             p["avisos"].append(f"{len(lic['falhas'])} anexo(s) não baixaram — veja os links abaixo e anexe à mão.")
         if not lic["anexos"]:
             p["avisos"].append("A Effecti não trouxe nenhum anexo.")
-        if lic["itens"]:
-            p["avisos"].append(f"A Effecti traz só os {len(lic['itens'])} item(ns) que bateram na busca — "
-                               "confira a lista completa no edital.")
         propostas.append(p)
+
+    # A Effecti so traz os itens que bateram na busca: a lista completa vem do
+    # PNCP ou da planilha anexada (em paralelo, porque cada busca leva alguns segundos)
+    def _itens(par):
+        lic, p = par
+        try:
+            return buscar_itens(link=lic["link"], orgao=lic["orgao"], numero=lic["numero"],
+                                uf=lic["uf"], data=lic["data_final"], objeto=lic["objeto"],
+                                municipio=p.get("municipio"),
+                                arquivos=[(n, c) for n, c, _t in lic["baixados"]])
+        except Exception:
+            return [], None
+
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        resultados = list(pool.map(_itens, zip(licitacoes, propostas)))
+    for (lic, p), (itens, fonte) in zip(zip(licitacoes, propostas), resultados):
+        p["fonte_itens"] = fonte
+        if itens:
+            p["itens"] = itens
+            p["avisos"].append(f"{len(itens)} item(ns) lidos do {fonte}.")
+        elif lic["itens"]:
+            p["avisos"].append(f"Não achei a lista completa de itens (PNCP/planilha). A Effecti trouxe só "
+                               f"{len(lic['itens'])} item(ns) — complete pelo TR.")
+        else:
+            p["avisos"].append("Não achei os itens no PNCP nem em planilha — preencha pelo TR.")
 
     marcar_duplicadas(propostas, preferir=lambda p: (p.get("portal") or "") != "PNCP"
                       and "pncp.gov.br" not in (p.get("link_edital") or ""))

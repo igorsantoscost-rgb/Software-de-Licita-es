@@ -132,6 +132,13 @@
             <button type="submit" class="btn-link-reabrir" onclick="return confirm('Reabrir a proposta? Os valores mínimos do cliente voltam a poder ser alterados.')">Reabrir</button>
           </form>
           {% endif %}
+        {% endif %}
+        {% if current_user.is_assessor() and not travada %}
+          <form method="POST" action="{{ url_for('lic.buscar_itens_edital', id=lic.id) }}" class="form-inline">
+            <button type="submit" class="btn btn-sm" title="Busca a lista de itens no PNCP (ou na planilha anexada) e preenche item, descrição, unidade, quantidade e valor estimado">⤓ Buscar itens do edital</button>
+          </form>
+        {% endif %}
+        {% if travada %}
         {% elif current_user.is_assessor() and lic.itens %}
           <form method="POST" action="{{ url_for('lic.proposta_cadastrada', id=lic.id) }}" class="form-inline">
             <button type="submit" class="btn btn-sm btn-proposta-cadastrada" onclick="return confirm('Confirmar que a proposta foi cadastrada no portal? Os valores mínimos e as marcas do cliente ficarão travados.')">📨 Proposta cadastrada</button>
