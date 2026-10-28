@@ -1955,7 +1955,29 @@ body.com-menu .container, body.com-menu .container.container-full { max-width: n
 .restricoes-cliente { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin: 6px 0; }
 .restricao-opcao { display: inline-flex !important; align-items: center; gap: 6px; font-weight: 500 !important; font-size: .88rem; }
 .restricao-opcao input { width: auto !important; }
-.restricao-valor { width: 140px !important; }
+.restricao-valor { width: 160px !important; padding: 6px 10px; border: 1px solid var(--borda); border-radius: 8px; font: inherit; }
+/* Filtros de participacao (cadastro do cliente) */
+.filtro-bloco { padding: 16px 0; border-top: 1px solid var(--borda); }
+.filtro-bloco:first-of-type { border-top: 0; }
+.filtro-bloco h4 { font-size: .95rem; font-weight: 700; color: var(--floresta); margin-bottom: 2px; }
+.filtro-bloco > .muted-sm { display: block; margin-bottom: 10px; }
+.filtro-vazio { margin: 4px 0 12px; }
+.filtro-regras { border-top: 1px solid var(--borda); }
+.esfera-linha { display: grid; grid-template-columns: 130px 1fr; gap: 6px 14px; align-items: start; padding: 10px 0; border-bottom: 1px dashed var(--borda); }
+.esfera-linha:last-child { border-bottom: 0; }
+.esfera-nome { font-weight: 700 !important; padding-top: 2px; }
+.esfera-abrangencia { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; }
+.esfera-nao { display: none; grid-column: 2; padding-top: 3px; }
+.esfera-linha.sem-participar .esfera-abrangencia { display: none; }
+.esfera-linha.sem-participar .esfera-nao { display: block; }
+.uf-grade { display: none; flex-basis: 100%; flex-wrap: wrap; gap: 5px; }
+.esfera-linha.so-estados .uf-grade { display: flex; }
+.uf-chip { cursor: pointer; }
+.uf-chip input { position: absolute; opacity: 0; width: 0 !important; height: 0; }
+.uf-chip span { display: inline-block; min-width: 38px; text-align: center; padding: 3px 0; border-radius: 6px; font-size: .78rem; font-weight: 600; border: 1px solid var(--borda); background: #fff; color: var(--texto-suave); }
+.uf-chip input:checked + span { background: var(--floresta); border-color: var(--floresta); color: #fff; }
+.uf-chip input:focus-visible + span { outline: 2px solid var(--latao); outline-offset: 1px; }
+@media (max-width: 600px) { .esfera-linha { grid-template-columns: 1fr; } .esfera-nao { grid-column: 1; } }
 .import-me { display: inline-block; padding: 0 6px; border-radius: 4px; font-size: .72rem; font-weight: 700; background: #eef2ee; color: #3a473f; }
 .import-me-exclusiva { background: #fbeee0; color: #8a4b12; }
 .import-me-mista { background: #e2ebf3; color: #0e2c47; }

@@ -85,7 +85,8 @@ def _base_municipios():
 
 
 def _classificador(clientes):
-    return Classificador([(c.id, c.nome, [p.palavra for p in c.palavras_chave]) for c in clientes])
+    return Classificador([(c.id, c.nome, [p.palavra for p in c.palavras_chave],
+                           [p.palavra for p in c.palavras_exclusao]) for c in clientes])
 
 
 def _cliente_do_perfil(perfil, clientes):
@@ -290,7 +291,33 @@ def _motivos_fora_do_perfil(cliente, p):
     valor = _valor_da_licitacao(p)
     if minimo and valor is not None and valor < minimo:
         motivos.append(f"valor estimado {_reais(valor)}, abaixo do mínimo de {_reais(minimo)}")
+    esfera = p.get("esfera")
+    regra = cliente.esferas.get(esfera) if esfera else None
+    if regra:
+        uf = p.get("uf") or p.get("uf_orgao")
+        if not regra["participa"]:
+            motivos.append(f"não participa de licitação {ROTULO_ESFERA[esfera]}")
+        elif regra["ufs"] and uf and uf not in regra["ufs"]:
+            motivos.append(f"{ROTULO_ESFERA[esfera]} em {uf} (só participa em {', '.join(regra['ufs'])})")
     return motivos
+
+
+ROTULO_ESFERA = {"federal": "federal", "estadual": "estadual", "municipal": "municipal"}
+
+
+def _pendencias(cliente, p):
+    """Regras do cliente que nao deu para conferir (falta dado na licitacao)."""
+    falta = []
+    if cliente.valor_minimo_estimado and _valor_da_licitacao(p) is None:
+        falta.append(f"valor estimado não identificado (mínimo de {_reais(float(cliente.valor_minimo_estimado))})")
+    if cliente.tem_regra_esfera:
+        esfera = p.get("esfera")
+        regra = cliente.esferas.get(esfera) if esfera else None
+        if not esfera:
+            falta.append("esfera não identificada (o cliente tem regra de esfera/estado)")
+        elif regra and regra["participa"] and regra["ufs"] and not (p.get("uf") or p.get("uf_orgao")):
+            falta.append(f"estado não identificado ({ROTULO_ESFERA[esfera]} só em {', '.join(regra['ufs'])})")
+    return falta
 
 
 def _aplicar_restricoes(p, classificador_resultado, mapa_clientes):
@@ -300,9 +327,9 @@ def _aplicar_restricoes(p, classificador_resultado, mapa_clientes):
     cliente = mapa_clientes.get(cid)
     motivos = _motivos_fora_do_perfil(cliente, p)
     if not motivos:
-        if cliente and cliente.valor_minimo_estimado and _valor_da_licitacao(p) is None:
-            p["avisos"].insert(0, f"Valor estimado não identificado: confira se passa do mínimo de "
-                                  f"{_reais(float(cliente.valor_minimo_estimado))} de {cliente.nome}.")
+        falta = _pendencias(cliente, p) if cliente else []
+        if falta:
+            p["avisos"].insert(0, f"Confira o perfil de {cliente.nome}: " + "; ".join(falta) + ".")
         return
     nome = mapa_clientes[cid].nome
     alternativo = None

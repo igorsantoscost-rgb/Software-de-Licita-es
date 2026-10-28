@@ -313,6 +313,17 @@ def _combina(pares, texto, complemento=""):
     return achou
 
 
+def _excluido_prosp(cliente, descricao):
+    """Item com palavra de exclusao do cliente (em qualquer parte da descricao)."""
+    from app.classificador_cliente import padroes_exclusao, _excluido, _normalizar
+    if cliente.id not in _EXCL_CACHE:
+        _EXCL_CACHE[cliente.id] = padroes_exclusao(cliente)
+    return _excluido(_EXCL_CACHE[cliente.id], _normalizar(descricao))
+
+
+_EXCL_CACHE = {}
+
+
 # ─── processamento de um pregao ──────────────────────────────────────────────
 
 def _num(v):
@@ -336,7 +347,8 @@ def processar_compra(compra, clientes, contatos_cache, contador_contatos):
     novas, pendentes, interesse = 0, 0, 0
     for it in itens:
         texto = f"{it.get('descricao') or ''} {it.get('informacaoComplementar') or ''}"
-        alvo = [(c, _combina(pares, it.get('descricao') or '', it.get('informacaoComplementar') or ''))
+        alvo = [(c, [] if _excluido_prosp(c, it.get('descricao') or '') else
+                 _combina(pares, it.get('descricao') or '', it.get('informacaoComplementar') or ''))
                 for c, pares in clientes]
         alvo = [(c, ps) for c, ps in alvo if ps]
         if not alvo:
@@ -416,6 +428,7 @@ def rodar_prospeccao(enviar_email=True, log=print):
     """Rodada completa: busca, verifica os pregoes e avisa por e-mail.
     Devolve dict com os totais."""
     inicio = time.time()
+    _EXCL_CACHE.clear()
     clientes = _padroes_clientes()
     if not clientes:
         log("Prospecção: nenhum cliente com prospecção ligada e palavras-chave.")

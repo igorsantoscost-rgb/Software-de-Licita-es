@@ -11,6 +11,8 @@ Regras:
   "cama hospitalar" acha "camas hospitalares");
 - vence o cliente com mais itens encontrados; no empate, o que soma mais
   valor estimado nesses itens;
+- PALAVRAS DE EXCLUSAO: item com alguma delas em qualquer parte da
+  descricao nao conta para o cliente (nem se tiver palavra de inclusao);
 - GRUPO MISTO: quando os itens do cliente estao num grupo/lote junto com
   itens que nao tem nenhuma palavra-chave dele (ex.: meias + uniformes),
   ele nao pode disputar so a parte dele. Esses itens nao contam como
@@ -81,7 +83,21 @@ def _campo(item, nome):
     return item.get(nome) if isinstance(item, dict) else getattr(item, nome, None)
 
 
-def grupos_mistos(padroes, itens):
+def _excluido(excl, item_ou_texto):
+    """True se a descricao (inteira) tem alguma palavra de exclusao."""
+    if not excl:
+        return False
+    txt = item_ou_texto if isinstance(item_ou_texto, str) else _normalizar(
+        f"{_campo(item_ou_texto, 'descricao') or ''}")
+    return any(rx.search(txt) for rx in excl)
+
+
+def padroes_exclusao(cliente):
+    palavras = [p.palavra for p in (getattr(cliente, "palavras_exclusao", None) or [])] if cliente else []
+    return [rx for rx in (_padrao(p) for p in palavras) if rx]
+
+
+def grupos_mistos(padroes, itens, excl=None):
     """Grupos/lotes que tem item do cliente E item fora das palavras-chave dele.
 
     padroes: lista de regex do cliente. itens: dicts (importacao) ou
@@ -96,7 +112,7 @@ def grupos_mistos(padroes, itens):
             continue  # item sem grupo e disputado sozinho
         g = grupos.setdefault(chave, {"grupo": grupo, "itens": []})
         txt = _nome_item(_campo(item, "descricao"))
-        g["itens"].append((item, any(rx.search(txt) for rx in padroes)))
+        g["itens"].append((item, any(rx.search(txt) for rx in padroes) and not _excluido(excl, item)))
 
     mistos = []
     for g in grupos.values():
@@ -124,9 +140,10 @@ class Classificador:
     """Monta uma vez os padroes de todos os clientes e classifica cada proposta."""
 
     def __init__(self, clientes):
-        # clientes: lista de (id, nome, [palavras])
+        # clientes: lista de (id, nome, [palavras]) ou (id, nome, [palavras], [exclusoes])
         self.clientes = []
-        for cid, nome, palavras in clientes:
+        self.exclusoes = {}
+        for cid, nome, palavras, *resto in clientes:
             padroes = []
             for palavra in palavras:
                 rx = _padrao(palavra)
@@ -134,6 +151,7 @@ class Classificador:
                     padroes.append((palavra, rx))
             if padroes:
                 self.clientes.append((cid, nome, padroes))
+                self.exclusoes[cid] = [rx for rx in (_padrao(p) for p in (resto[0] if resto else [])) if rx]
 
     @property
     def vazio(self):
@@ -158,13 +176,16 @@ class Classificador:
                     valor = float(item.get("valor_estimado") or 0) * float(item.get("quantidade") or 1)
                 except (TypeError, ValueError):
                     pass
-                textos.append((txt, valor, _chave_grupo(item.get("lote_grupo"))))
+                textos.append((txt, valor, _chave_grupo(item.get("lote_grupo")), _normalizar(item.get("descricao"))))
 
         ranking = []
         for cid, nome, padroes in self.clientes:
             n_itens, valor, achadas = 0, 0.0, []
             grupos_hit = []
-            for txt, v, grupo in textos:
+            excl = self.exclusoes.get(cid)
+            for txt, v, grupo, inteiro in textos:
+                if _excluido(excl, inteiro):
+                    continue
                 hit = False
                 for palavra, rx in padroes:
                     if rx.search(txt):
@@ -176,7 +197,7 @@ class Classificador:
                     valor += v
                     grupos_hit.append(grupo)
             if n_itens:
-                mistos = grupos_mistos([rx for _, rx in padroes], itens)
+                mistos = grupos_mistos([rx for _, rx in padroes], itens, excl)
                 chaves_mistas = {m["chave"] for m in mistos}
                 aproveitaveis = sum(1 for g in grupos_hit if not g or g not in chaves_mistas)
                 ranking.append({"cliente_id": cid, "nome": nome, "itens": n_itens,
@@ -203,7 +224,7 @@ class Classificador:
         """Grupos mistos de um cliente especifico (cliente escolhido no envio)."""
         for cid, _nome, padroes in self.clientes:
             if cid == cliente_id:
-                return grupos_mistos([rx for _, rx in padroes], itens)
+                return grupos_mistos([rx for _, rx in padroes], itens, self.exclusoes.get(cid))
         return []
 
 
@@ -214,11 +235,12 @@ def itens_do_cliente(cliente, itens):
     padroes, palavras = _padroes_do_cliente(cliente)
     if not padroes:
         return list(itens), [], palavras
+    excl = padroes_exclusao(cliente)
     combina = []
     grupos_do_cliente = set()
     for item in itens:
         txt = _normalizar(f"{item.descricao or ''} {item.lote_grupo or ''}")
-        ok = any(rx.search(txt) for rx in padroes)
+        ok = any(rx.search(txt) for rx in padroes) and not _excluido(excl, item)
         combina.append(ok)
         if ok and _chave_grupo(item.lote_grupo):
             grupos_do_cliente.add(_chave_grupo(item.lote_grupo))
@@ -241,12 +263,13 @@ def grupos_mistos_licitacao(cliente, itens):
     padroes, _ = _padroes_do_cliente(cliente)
     if not padroes:
         return [], set()
-    mistos = grupos_mistos(padroes, itens)
+    excl = padroes_exclusao(cliente)
+    mistos = grupos_mistos(padroes, itens, excl)
     chaves = {m["chave"] for m in mistos}
     fora = set()
     for item in itens:
         if _chave_grupo(item.lote_grupo) in chaves:
             txt = _normalizar(item.descricao)
-            if not any(rx.search(txt) for rx in padroes):
+            if not any(rx.search(txt) for rx in padroes) or _excluido(excl, txt):
                 fora.add(item.id)
     return mistos, fora

@@ -422,7 +422,7 @@ def editar_cliente(id):
         nome = request.form.get("nome", "").strip()
         if not nome:
             flash("O nome da empresa é obrigatório.", "erro")
-            return render_template("form_cliente_editar.html", cliente=cliente, ufs=UFS)
+            return render_template("form_cliente_editar.html", cliente=cliente, ufs=UFS, ufs_brasil=_ufs_brasil())
         cliente.nome = nome
         cliente.cnpj = request.form.get("cnpj", "").strip()
         cliente.rua = request.form.get("rua", "").strip()
@@ -439,10 +439,6 @@ def editar_cliente(id):
         cliente.email_contato = request.form.get("email_contato", "").strip()
         cliente.email_financeiro = request.form.get("email_financeiro", "").strip()
         cliente.cor = request.form.get("cor", "").strip() or None
-        cliente.capag_bloqueadas = ",".join(n for n in request.form.getlist("capag_bloqueadas")
-                                            if n in ("A+", "A", "B+", "B", "C", "D")) or None
-        cliente.bloquear_exclusiva_me = request.form.get("bloquear_exclusiva_me") == "1"
-        cliente.valor_minimo_estimado = _valor_reais(request.form.get("valor_minimo_estimado"))
         taxa_str = request.form.get("taxa_consultoria", "").strip().replace(",", ".")
         if taxa_str:
             try:
@@ -452,7 +448,12 @@ def editar_cliente(id):
         db.session.commit()
         flash("Cliente atualizado.", "ok")
         return redirect(url_for("main.clientes"))
-    return render_template("form_cliente_editar.html", cliente=cliente, ufs=UFS)
+    return render_template("form_cliente_editar.html", cliente=cliente, ufs=UFS, ufs_brasil=_ufs_brasil())
+
+
+def _ufs_brasil():
+    from app.models import UFS_BRASIL
+    return sorted(UFS_BRASIL)
 
 
 @main_bp.route("/clientes/<int:id>/palavras-chave/adicionar", methods=["POST"])
@@ -462,17 +463,49 @@ def adicionar_palavra_chave(id):
         return redirect(url_for("main.painel"))
     cliente = Cliente.query.get_or_404(id)
     texto = request.form.get("palavra", "").strip()
+    tipo = "exclusao" if request.form.get("tipo") == "exclusao" else "inclusao"
     if texto:
         # Permite colar varias palavras separadas por virgula de uma vez
         novas = [p.strip() for p in texto.split(",") if p.strip()]
-        existentes = {p.palavra.lower() for p in cliente.palavras_chave}
+        lista = cliente.palavras_exclusao if tipo == "exclusao" else cliente.palavras_chave
+        existentes = {p.palavra.lower() for p in lista}
         for p in novas:
             if p.lower() not in existentes:
-                db.session.add(PalavraChaveCliente(cliente_id=cliente.id, palavra=p))
+                db.session.add(PalavraChaveCliente(cliente_id=cliente.id, palavra=p[:150], tipo=tipo))
                 existentes.add(p.lower())
         db.session.commit()
-        flash("Palavra(s)-chave adicionada(s).", "ok")
-    return redirect(url_for("main.editar_cliente", id=id))
+        flash("Palavra(s) de exclusão adicionada(s)." if tipo == "exclusao"
+              else "Palavra(s)-chave adicionada(s).", "ok")
+    return redirect(url_for("main.editar_cliente", id=id, _anchor="filtros"))
+
+
+@main_bp.route("/clientes/<int:id>/filtros", methods=["POST"])
+@login_required
+def salvar_filtros_cliente(id):
+    """Regras de participacao: esferas/estados, ME/EPP, CAPAG e valor minimo."""
+    import json
+    from app.models import ESFERAS, UFS_BRASIL
+    if not current_user.is_assessor():
+        return redirect(url_for("main.painel"))
+    cliente = Cliente.query.get_or_404(id)
+    regras = {}
+    for e in ESFERAS:
+        participa = request.form.get(f"{e}_participa") == "1"
+        ufs = []
+        if participa and request.form.get(f"{e}_abrangencia") == "estados":
+            ufs = sorted(u for u in request.form.getlist(f"{e}_ufs") if u in UFS_BRASIL)
+            if not ufs:
+                flash(f"Escolha ao menos um estado para a esfera {e} (ou marque Todo o Brasil). "
+                      "Deixei essa esfera em todo o Brasil.", "erro")
+        regras[e] = {"participa": participa, "ufs": ufs}
+    cliente.regras_esfera = json.dumps(regras)
+    cliente.bloquear_exclusiva_me = request.form.get("bloquear_exclusiva_me") == "1"
+    cliente.capag_bloqueadas = ",".join(n for n in request.form.getlist("capag_bloqueadas")
+                                        if n in ("A+", "A", "B+", "B", "C", "D")) or None
+    cliente.valor_minimo_estimado = _valor_reais(request.form.get("valor_minimo_estimado"))
+    db.session.commit()
+    flash("Filtros de participação salvos.", "ok")
+    return redirect(url_for("main.editar_cliente", id=id, _anchor="filtros"))
 
 
 @main_bp.route("/clientes/palavras-chave/<int:palavra_id>/excluir", methods=["POST"])
@@ -484,8 +517,8 @@ def excluir_palavra_chave(palavra_id):
     cliente_id = palavra.cliente_id
     db.session.delete(palavra)
     db.session.commit()
-    flash("Palavra-chave removida.", "ok")
-    return redirect(url_for("main.editar_cliente", id=cliente_id))
+    flash("Palavra removida.", "ok")
+    return redirect(url_for("main.editar_cliente", id=cliente_id, _anchor="filtros"))
 
 
 # ─── Gestão de Assessores (só master) ────────────────────────────────────────

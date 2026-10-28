@@ -58,6 +58,11 @@ class User(UserMixin, db.Model):
         return self.cliente_id == cliente_id
 
 
+ESFERAS = ("federal", "estadual", "municipal")
+UFS_BRASIL = ("AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA",
+              "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO")
+
+
 class Cliente(db.Model):
     __tablename__ = "clientes"
     id = db.Column(db.Integer, primary_key=True)
@@ -85,15 +90,45 @@ class Cliente(db.Model):
     capag_bloqueadas = db.Column(db.String(30), nullable=True)   # ex.: "C,D" -> nao participa
     bloquear_exclusiva_me = db.Column(db.Boolean, nullable=True, default=False)  # nao participa de exclusiva ME/EPP
     valor_minimo_estimado = db.Column(db.Numeric(14, 2), nullable=True)  # abaixo disso nao participa
+    # Esferas e estados de atuacao (JSON): {"municipal": {"participa": true, "ufs": ["MG"]}, ...}
+    # ufs vazia = todo o Brasil. Esfera ausente = participa em todo o Brasil.
+    regras_esfera = db.Column(db.Text, nullable=True)
 
     @property
     def lista_capag_bloqueadas(self):
         return [n.strip().upper() for n in (self.capag_bloqueadas or "").split(",") if n.strip()]
+
+    @property
+    def esferas(self):
+        """{"federal"|"estadual"|"municipal": {"participa": bool, "ufs": [..]}} sempre completo."""
+        import json
+        try:
+            dados = json.loads(self.regras_esfera or "{}")
+        except ValueError:
+            dados = {}
+        saida = {}
+        for e in ESFERAS:
+            r = dados.get(e) or {}
+            saida[e] = {"participa": r.get("participa", True) is not False,
+                        "ufs": sorted({u for u in (r.get("ufs") or []) if u in UFS_BRASIL})}
+        return saida
+
+    @property
+    def tem_regra_esfera(self):
+        return any(not r["participa"] or r["ufs"] for r in self.esferas.values())
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
     usuarios = db.relationship("User", backref="cliente", lazy=True, foreign_keys=[User.cliente_id])
     licitacoes = db.relationship("Licitacao", backref="cliente", lazy=True)
-    palavras_chave = db.relationship("PalavraChaveCliente", backref="cliente", lazy=True,
-                                     cascade="all, delete-orphan", order_by="PalavraChaveCliente.palavra")
+    # Inclusao: o item precisa ter uma delas. Exclusao: item com uma delas nao conta.
+    palavras_chave = db.relationship(
+        "PalavraChaveCliente", backref="cliente", lazy=True, cascade="all, delete-orphan",
+        primaryjoin="and_(Cliente.id == PalavraChaveCliente.cliente_id, "
+                    "or_(PalavraChaveCliente.tipo.is_(None), PalavraChaveCliente.tipo != 'exclusao'))",
+        order_by="PalavraChaveCliente.palavra")
+    palavras_exclusao = db.relationship(
+        "PalavraChaveCliente", lazy=True, viewonly=True,
+        primaryjoin="and_(Cliente.id == PalavraChaveCliente.cliente_id, PalavraChaveCliente.tipo == 'exclusao')",
+        order_by="PalavraChaveCliente.palavra")
 
 
 class PalavraChaveCliente(db.Model):
@@ -101,6 +136,7 @@ class PalavraChaveCliente(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     cliente_id = db.Column(db.Integer, db.ForeignKey("clientes.id"), nullable=False)
     palavra = db.Column(db.String(150), nullable=False)
+    tipo = db.Column(db.String(10), nullable=True, default="inclusao")  # inclusao | exclusao
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
 
 

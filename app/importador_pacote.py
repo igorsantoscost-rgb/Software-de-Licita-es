@@ -772,6 +772,7 @@ def analisar_processo(nome_pasta, arquivos, info, numero_bruto, uasg_pasta, orga
     elif not municipios and esfera in (None, "municipal") and candidatos:
         municipio = _titulo(candidatos[0])
         esfera = esfera or "municipal"
+    uf_orgao = uf
     if esfera == "federal":
         municipio, uf = None, None
     elif esfera == "estadual":
@@ -835,6 +836,7 @@ def analisar_processo(nome_pasta, arquivos, info, numero_bruto, uasg_pasta, orga
         "esfera": esfera,
         "uf": uf if esfera in ("municipal", "estadual") else None,
         "municipio": municipio if esfera == "municipal" else None,
+        "uf_orgao": uf_orgao,
         "itens": info.get("itens") or [],
         "arquivos": arquivos_saida,
         "avisos": avisos,

@@ -102,16 +102,99 @@
       <small class="muted">Valor fixo cobrado mensalmente na fatura do cliente.</small>
     </div>
 
-    <div class="campo">
-      <label>Restrições de participação</label>
-      <small class="muted">Na importação, licitações que caem nessas regras não são marcadas para este cliente (aparecem desmarcadas, com o motivo).</small>
+    <div class="form-btns">
+      <a href="{{ url_for('main.clientes') }}" class="btn">Cancelar</a>
+      <button type="submit" class="btn btn-primary">Salvar</button>
+    </div>
+  </form>
+</div>
+
+{% macro lista_palavras(palavras, vazio) %}
+  {% if palavras %}
+  <div class="palavras-chave-lista">
+    {% for p in palavras %}
+    <span class="filtro-pill palavra-chave-pill">
+      {{ p.palavra }}
+      <form method="POST" action="{{ url_for('main.excluir_palavra_chave', palavra_id=p.id) }}" class="form-inline">
+        <button type="submit" class="btn-excluir-mini" title="Remover" onclick="return confirm('Remover esta palavra?')">✕</button>
+      </form>
+    </span>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="muted-sm filtro-vazio">{{ vazio }}</p>
+  {% endif %}
+{% endmacro %}
+
+<div class="card card-form" id="filtros">
+  <h3>Filtros de participação</h3>
+  <p class="muted-sm">
+    A importação usa estes filtros para decidir se a licitação é deste cliente.
+    Quando alguma regra não é atendida, a licitação aparece desmarcada, com o motivo.
+  </p>
+
+  <div class="filtro-bloco">
+    <h4>Palavras-chave de inclusão</h4>
+    <p class="muted-sm">O item precisa ter uma destas palavras no nome para contar para o cliente.</p>
+    {{ lista_palavras(cliente.palavras_chave, "Nenhuma palavra de inclusão cadastrada.") }}
+    <form method="POST" action="{{ url_for('main.adicionar_palavra_chave', id=cliente.id) }}" class="form-add-palavra">
+      <input type="hidden" name="tipo" value="inclusao">
+      <div class="campo">
+        <input type="text" name="palavra" placeholder="Ex: uniforme, camiseta, jaqueta" required>
+        <small class="muted">Para adicionar várias de uma vez, separe por vírgula.</small>
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">+ Adicionar</button>
+    </form>
+  </div>
+
+  <div class="filtro-bloco">
+    <h4>Palavras-chave de exclusão</h4>
+    <p class="muted-sm">Item com alguma destas palavras em qualquer parte da descrição não conta para o cliente, mesmo que tenha palavra de inclusão.</p>
+    {{ lista_palavras(cliente.palavras_exclusao, "Nenhuma palavra de exclusão cadastrada.") }}
+    <form method="POST" action="{{ url_for('main.adicionar_palavra_chave', id=cliente.id) }}" class="form-add-palavra">
+      <input type="hidden" name="tipo" value="exclusao">
+      <div class="campo">
+        <input type="text" name="palavra" placeholder="Ex: infantil, hospitalar, acabamento" required>
+        <small class="muted">Para adicionar várias de uma vez, separe por vírgula.</small>
+      </div>
+      <button type="submit" class="btn btn-sm">+ Adicionar</button>
+    </form>
+  </div>
+
+  <form method="POST" action="{{ url_for('main.salvar_filtros_cliente', id=cliente.id) }}" class="filtro-regras">
+    <div class="filtro-bloco">
+      <h4>Esferas e estados de atuação</h4>
+      <p class="muted-sm">Escolha de quais esferas o cliente participa e, em cada uma, se vale para todo o Brasil ou só para alguns estados.</p>
+      {% set rotulos = {'federal': 'Federal', 'estadual': 'Estadual', 'municipal': 'Municipal'} %}
+      {% for e, regra in cliente.esferas.items() %}
+      <div class="esfera-linha" data-esfera="{{ e }}">
+        <label class="restricao-opcao esfera-nome">
+          <input type="checkbox" name="{{ e }}_participa" value="1" {% if regra.participa %}checked{% endif %} class="esfera-participa">
+          {{ rotulos[e] }}
+        </label>
+        <div class="esfera-abrangencia">
+          <label class="restricao-opcao"><input type="radio" name="{{ e }}_abrangencia" value="brasil" {% if not regra.ufs %}checked{% endif %}> Todo o Brasil</label>
+          <label class="restricao-opcao"><input type="radio" name="{{ e }}_abrangencia" value="estados" {% if regra.ufs %}checked{% endif %}> Só nestes estados</label>
+          <div class="uf-grade">
+            {% for uf in ufs_brasil %}
+            <label class="uf-chip"><input type="checkbox" name="{{ e }}_ufs" value="{{ uf }}" {% if uf in regra.ufs %}checked{% endif %}><span>{{ uf }}</span></label>
+            {% endfor %}
+          </div>
+        </div>
+        <span class="esfera-nao muted-sm">Não participa</span>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="filtro-bloco">
+      <h4>Outras regras</h4>
+      <label class="restricao-opcao"><input type="checkbox" name="bloquear_exclusiva_me" value="1" {% if cliente.bloquear_exclusiva_me %}checked{% endif %}> Não participa de licitações exclusivas para ME/EPP (as mistas continuam)</label>
       <div class="restricoes-cliente">
         <span class="muted-sm">Não participa com CAPAG:</span>
         {% for nota in ['A+', 'A', 'B+', 'B', 'C', 'D'] %}
         <label class="restricao-opcao"><input type="checkbox" name="capag_bloqueadas" value="{{ nota }}" {% if nota in cliente.lista_capag_bloqueadas %}checked{% endif %}> {{ nota }}</label>
         {% endfor %}
       </div>
-      <label class="restricao-opcao"><input type="checkbox" name="bloquear_exclusiva_me" value="1" {% if cliente.bloquear_exclusiva_me %}checked{% endif %}> Não participa de licitações exclusivas para ME/EPP (as mistas continuam)</label>
       <div class="restricoes-cliente">
         <span class="muted-sm">Valor estimado mínimo da licitação (R$):</span>
         <input type="text" name="valor_minimo_estimado" class="restricao-valor" inputmode="decimal"
@@ -120,41 +203,24 @@
     </div>
 
     <div class="form-btns">
-      <a href="{{ url_for('main.clientes') }}" class="btn">Cancelar</a>
-      <button type="submit" class="btn btn-primary">Salvar</button>
+      <button type="submit" class="btn btn-primary">Salvar filtros</button>
     </div>
   </form>
 </div>
 
-<div class="card card-form">
-  <h3>Palavras-chave de Interesse</h3>
-  <p class="muted-sm">
-    Itens de licitações cuja descrição contenha alguma dessas palavras serão destacados
-    automaticamente no Resumo da Oportunidade gerado por IA.
-  </p>
-
-  {% if cliente.palavras_chave %}
-  <div class="palavras-chave-lista">
-    {% for p in cliente.palavras_chave %}
-    <span class="filtro-pill palavra-chave-pill">
-      {{ p.palavra }}
-      <form method="POST" action="{{ url_for('main.excluir_palavra_chave', palavra_id=p.id) }}" class="form-inline">
-        <button type="submit" class="btn-excluir-mini" title="Remover" onclick="return confirm('Remover esta palavra-chave?')">✕</button>
-      </form>
-    </span>
-    {% endfor %}
-  </div>
-  {% else %}
-  <p class="muted">Nenhuma palavra-chave cadastrada ainda.</p>
-  {% endif %}
-
-  <form method="POST" action="{{ url_for('main.adicionar_palavra_chave', id=cliente.id) }}" class="form-add-palavra">
-    <div class="campo">
-      <input type="text" name="palavra" placeholder="Ex: uniforme, cama hospitalar, software" required>
-      <small class="muted">Para adicionar várias de uma vez, separe por vírgula e espaço. Ex: uniforme, cama hospitalar, software</small>
-    </div>
-    <button type="submit" class="btn btn-primary btn-sm">+ Adicionar</button>
-  </form>
-</div>
+<script>
+document.querySelectorAll('.esfera-linha').forEach(function (linha) {
+  var participa = linha.querySelector('.esfera-participa');
+  var radios = linha.querySelectorAll('input[type=radio]');
+  function atualizar() {
+    var estados = linha.querySelector('input[type=radio][value=estados]').checked;
+    linha.classList.toggle('sem-participar', !participa.checked);
+    linha.classList.toggle('so-estados', participa.checked && estados);
+  }
+  participa.addEventListener('change', atualizar);
+  radios.forEach(function (r) { r.addEventListener('change', atualizar); });
+  atualizar();
+});
+</script>
 
 {% endblock %}
