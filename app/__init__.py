@@ -165,6 +165,7 @@ def create_app():
         _corrigir_atas_prospeccao()
         _limpar_prospeccao_fora_do_nome()
         _restricoes_atacadao()
+        _valor_minimo_meridian()
 
     return app
 
@@ -191,6 +192,7 @@ def _migrar_prospeccao():
             conn.execute(text("ALTER TABLE oportunidades_homologadas ADD COLUMN IF NOT EXISTS valor_total_licitacao DOUBLE PRECISION"))
             conn.execute(text("ALTER TABLE clientes ADD COLUMN IF NOT EXISTS capag_bloqueadas VARCHAR(30)"))
             conn.execute(text("ALTER TABLE clientes ADD COLUMN IF NOT EXISTS bloquear_exclusiva_me BOOLEAN DEFAULT FALSE"))
+            conn.execute(text("ALTER TABLE clientes ADD COLUMN IF NOT EXISTS valor_minimo_estimado NUMERIC(14, 2)"))
             conn.execute(text("ALTER TABLE licitacoes ADD COLUMN IF NOT EXISTS participacao_me VARCHAR(20)"))
             conn.execute(text("ALTER TABLE pacotes_importados ADD COLUMN IF NOT EXISTS resumo TEXT"))
             conn.commit()
@@ -580,6 +582,23 @@ def _restricoes_atacadao():
         for c in Cliente.query.filter(Cliente.nome.ilike("%atacad%tintas%")).all():
             c.capag_bloqueadas = c.capag_bloqueadas or "C,D"
             c.bloquear_exclusiva_me = True
+        db.session.add(MigracaoAplicada(nome=nome))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+
+def _valor_minimo_meridian():
+    """Uma unica vez: a Meridian so participa de licitacao com valor estimado
+    a partir de R$ 20 mil (pedido do Igor). Depois e so editar no cadastro."""
+    from app.models import MigracaoAplicada, Cliente
+    nome = "valor_minimo_meridian_v1"
+    try:
+        if MigracaoAplicada.query.filter_by(nome=nome).first():
+            return
+        for c in Cliente.query.filter(Cliente.nome.ilike("%meridian%")).all():
+            if not c.valor_minimo_estimado:
+                c.valor_minimo_estimado = 20000
         db.session.add(MigracaoAplicada(nome=nome))
         db.session.commit()
     except Exception:

@@ -84,6 +84,7 @@ class Cliente(db.Model):
     # Restricoes de participacao (conferidas na importacao)
     capag_bloqueadas = db.Column(db.String(30), nullable=True)   # ex.: "C,D" -> nao participa
     bloquear_exclusiva_me = db.Column(db.Boolean, nullable=True, default=False)  # nao participa de exclusiva ME/EPP
+    valor_minimo_estimado = db.Column(db.Numeric(14, 2), nullable=True)  # abaixo disso nao participa
 
     @property
     def lista_capag_bloqueadas(self):

@@ -442,6 +442,7 @@ def editar_cliente(id):
         cliente.capag_bloqueadas = ",".join(n for n in request.form.getlist("capag_bloqueadas")
                                             if n in ("A+", "A", "B+", "B", "C", "D")) or None
         cliente.bloquear_exclusiva_me = request.form.get("bloquear_exclusiva_me") == "1"
+        cliente.valor_minimo_estimado = _valor_reais(request.form.get("valor_minimo_estimado"))
         taxa_str = request.form.get("taxa_consultoria", "").strip().replace(",", ".")
         if taxa_str:
             try:
@@ -629,3 +630,20 @@ def editar_acesso(id):
         flash("Acesso atualizado.", "ok")
         return redirect(url_for("main.gestao_acessos"))
     return render_template("form_acesso.html", usuario=usuario, clientes=clientes)
+
+
+def _valor_reais(txt):
+    """'20.000,00' / '20000' / 'R$ 20 mil' -> 20000.0; vazio ou zero -> None."""
+    t = (txt or "").strip().lower().replace("r$", "").replace(" ", "")
+    mult = 1
+    if t.endswith("mil"):
+        t, mult = t[:-3], 1000
+    if "," in t:
+        t = t.replace(".", "").replace(",", ".")
+    elif t.count(".") == 1 and len(t.split(".")[1]) == 3:
+        t = t.replace(".", "")  # 20.000 = vinte mil
+    try:
+        v = round(float(t) * mult, 2)
+    except ValueError:
+        return None
+    return v if v > 0 else None

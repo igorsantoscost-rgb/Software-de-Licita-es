@@ -1955,6 +1955,7 @@ body.com-menu .container, body.com-menu .container.container-full { max-width: n
 .restricoes-cliente { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin: 6px 0; }
 .restricao-opcao { display: inline-flex !important; align-items: center; gap: 6px; font-weight: 500 !important; font-size: .88rem; }
 .restricao-opcao input { width: auto !important; }
+.restricao-valor { width: 140px !important; }
 .import-me { display: inline-block; padding: 0 6px; border-radius: 4px; font-size: .72rem; font-weight: 700; background: #eef2ee; color: #3a473f; }
 .import-me-exclusiva { background: #fbeee0; color: #8a4b12; }
 .import-me-mista { background: #e2ebf3; color: #0e2c47; }

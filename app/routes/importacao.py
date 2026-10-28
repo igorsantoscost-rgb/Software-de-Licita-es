@@ -261,6 +261,21 @@ def _participacao_e_capag(p):
     p["participacao_me"], p["participacao_fonte"] = classificar(p.get("itens"), *textos)
 
 
+def _valor_da_licitacao(p):
+    """Valor estimado da licitacao: o do edital ou, se nao tiver, a soma dos
+    itens (quantidade x valor unitario). None se nao der para saber."""
+    if p.get("valor_estimado"):
+        return float(p["valor_estimado"])
+    itens = p.get("itens") or []
+    if not itens or any(not i.get("quantidade") or not i.get("valor_estimado") for i in itens):
+        return None
+    return round(sum(float(i["quantidade"]) * float(i["valor_estimado"]) for i in itens), 2)
+
+
+def _reais(v):
+    return "R$ " + f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
 def _motivos_fora_do_perfil(cliente, p):
     """Por que o cliente nao participa desta licitacao (lista vazia = participa)."""
     motivos = []
@@ -271,6 +286,10 @@ def _motivos_fora_do_perfil(cliente, p):
         motivos.append(f"CAPAG {nota}")
     if cliente.bloquear_exclusiva_me and p.get("participacao_me") == "exclusiva":
         motivos.append("exclusiva ME/EPP")
+    minimo = float(cliente.valor_minimo_estimado or 0)
+    valor = _valor_da_licitacao(p)
+    if minimo and valor is not None and valor < minimo:
+        motivos.append(f"valor estimado {_reais(valor)}, abaixo do mínimo de {_reais(minimo)}")
     return motivos
 
 
@@ -278,8 +297,12 @@ def _aplicar_restricoes(p, classificador_resultado, mapa_clientes):
     """Cliente sugerido fora do perfil (CAPAG/ME-EPP): troca por outro cliente
     que combine com os itens ou desmarca a licitacao, com o motivo."""
     cid = p.get("cliente_sugerido")
-    motivos = _motivos_fora_do_perfil(mapa_clientes.get(cid), p)
+    cliente = mapa_clientes.get(cid)
+    motivos = _motivos_fora_do_perfil(cliente, p)
     if not motivos:
+        if cliente and cliente.valor_minimo_estimado and _valor_da_licitacao(p) is None:
+            p["avisos"].insert(0, f"Valor estimado não identificado: confira se passa do mínimo de "
+                                  f"{_reais(float(cliente.valor_minimo_estimado))} de {cliente.nome}.")
         return
     nome = mapa_clientes[cid].nome
     alternativo = None

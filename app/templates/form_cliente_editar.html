@@ -112,6 +112,11 @@
         {% endfor %}
       </div>
       <label class="restricao-opcao"><input type="checkbox" name="bloquear_exclusiva_me" value="1" {% if cliente.bloquear_exclusiva_me %}checked{% endif %}> Não participa de licitações exclusivas para ME/EPP (as mistas continuam)</label>
+      <div class="restricoes-cliente">
+        <span class="muted-sm">Valor estimado mínimo da licitação (R$):</span>
+        <input type="text" name="valor_minimo_estimado" class="restricao-valor" inputmode="decimal"
+               value="{{ cliente.valor_minimo_estimado|brl if cliente.valor_minimo_estimado else '' }}" placeholder="sem mínimo">
+      </div>
     </div>
 
     <div class="form-btns">
