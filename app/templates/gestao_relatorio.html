@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=costa12">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/bidfy-simbolo.svg') }}">
   <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
 </head>
 <body class="com-menu relatorio-pagina">
@@ -22,8 +23,7 @@
 <div class="relatorio-folha" id="relatorio">
   <header class="relatorio-topo">
     <div class="relatorio-marca">
-      <img src="{{ url_for('static', filename='img/bidfy-icone.png') }}" alt="">
-      <span>BID<span>FY</span></span>
+      <img src="{{ url_for('static', filename='img/logo-bidfy-claro.svg') }}" alt="Bidfy">
     </div>
     <div class="relatorio-titulo">
       <h1>Relatório de gestão</h1>

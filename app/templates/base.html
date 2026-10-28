@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=costa16">
   <script>try { if (localStorage.getItem('bidfy-menu') === 'recolhido') document.documentElement.classList.add('menu-recolhido'); } catch (e) {}</script>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/bidfy-simbolo.svg') }}">
   <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
 </head>
@@ -26,7 +27,7 @@
   <button type="button" class="menu-botao" aria-label="Abrir menu" onclick="document.body.classList.toggle('menu-aberto')">
     <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
   </button>
-  <a href="{{ url_for('main.painel') }}" class="topo-mobile-marca">BID<span>FY</span></a>
+  <a href="{{ url_for('main.painel') }}" class="topo-mobile-marca"><img src="{{ url_for('static', filename='img/logo-bidfy-escuro.svg') }}" alt="Bidfy"></a>
 </header>
 
 <aside class="menu-lateral" id="menu-lateral">
@@ -35,8 +36,8 @@
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
   </button>
   <a href="{{ url_for('main.painel') }}" class="menu-marca">
-    <img src="{{ url_for('static', filename='img/bidfy-icone.png') }}" alt="" class="menu-marca-icone">
-    <span class="menu-marca-texto">BID<span>FY</span></span>
+    <img src="{{ url_for('static', filename='img/logo-bidfy-escuro.svg') }}" alt="Bidfy" class="menu-marca-logo">
+    <img src="{{ url_for('static', filename='img/bidfy-simbolo.svg') }}" alt="Bidfy" class="menu-marca-icone">
   </a>
 
   <nav class="menu-grupos">

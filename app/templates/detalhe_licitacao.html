@@ -59,6 +59,78 @@
   <!-- Coluna 1: informacoes + parametros da disputa -->
   <div class="col-detalhe-principal">
 
+    {# Acesso ao portal: critica so para o assessor; consulta de compra para o cliente #}
+    {% set c = consulta_portal %}
+    {% if lic.portal and current_user.is_assessor() and ((not acesso_portal and lic.status == 'agendada') or (c and c.status == 'pendente')) %}
+    <div class="aviso-portal {% if c and c.status == 'recusada' %}aviso-portal-recusa{% endif %}" id="acesso-portal">
+      {% if c and c.status == 'pendente' %}
+        <h4>⏳ Aguardando o cliente autorizar o acesso ao portal {{ lic.portal }}</h4>
+        <p>Consulta feita em {{ c.criado_em.strftime('%d/%m/%Y às %H:%M') }}{% if c.autor %} por {{ c.autor.nome }}{% endif %}.
+          Planos: {% for p in c.lista_planos %}{{ formas_pagamento[p.forma] }} {{ p.valor|brl }}{% if not loop.last %} · {% endif %}{% endfor %}.</p>
+        <form method="POST" action="{{ url_for('portais.cancelar_solicitacao', sid=c.id) }}" class="form-inline">
+          <button type="submit" class="btn btn-sm" onclick="return confirm('Cancelar a consulta ao cliente?')">Cancelar consulta</button>
+        </form>
+      {% else %}
+        {% if c and c.status == 'recusada' %}
+        <h4>✕ O cliente não autorizou a compra do acesso ao portal {{ lic.portal }}</h4>
+        <p>Resposta em {{ c.respondido_em.strftime('%d/%m/%Y às %H:%M') }}{% if c.respondente %} por {{ c.respondente.nome }}{% endif %}.{% if c.resposta_obs %} "{{ c.resposta_obs }}"{% endif %}</p>
+        {% endif %}
+        <details{% if request.args.get('consultar') %} open{% endif %}>
+          <summary class="aviso-portal-resumo"><h4 style="display:inline;">⚠ Cliente sem acesso ativo ao portal {{ lic.portal }}</h4>
+            <span class="muted-sm"> — clique para consultar o cliente sobre a compra do acesso</span></summary>
+          <form method="POST" action="{{ url_for('portais.solicitar_acesso', id=lic.id) }}" style="margin-top:10px;">
+            <p class="muted-sm">Preencha o valor dos planos que o portal oferece (deixe vazio o que não existir). O cliente escolhe um ou recusa.</p>
+            <div class="planos-linhas">
+              {% for k, rotulo in formas_pagamento.items() %}
+              <label class="plano-linha"><span>{{ rotulo }}</span>
+                <input type="hidden" name="plano_forma" value="{{ k }}">
+                <input type="text" name="plano_valor" inputmode="decimal" placeholder="R$ 0,00"></label>
+              {% endfor %}
+            </div>
+            <input type="text" name="observacao" maxlength="500" placeholder="Observação para o cliente (opcional)">
+            <div class="form-btns" style="justify-content:flex-start;margin-top:8px;">
+              <button type="submit" class="btn btn-primary btn-sm">Enviar consulta ao cliente</button>
+              <a href="{{ url_for('main.editar_cliente', id=lic.cliente_id, _anchor='portais') }}" class="btn btn-sm">O cliente já tem acesso: registrar</a>
+            </div>
+          </form>
+        </details>
+      {% endif %}
+    </div>
+    {% elif c and c.status == 'autorizada' and current_user.is_assessor() %}
+    <div class="aviso-portal aviso-portal-ok" id="acesso-portal">
+      <h4>✓ Cliente autorizou o acesso ao portal {{ c.portal }}: {{ c.rotulo_plano }} · {{ c.valor_escolhido|brl }}</h4>
+      <p>Em {{ c.respondido_em.strftime('%d/%m/%Y às %H:%M') }}{% if c.respondente %} por {{ c.respondente.nome }}{% endif %}. O acesso foi registrado na aba Portais do cliente e a cobrança segue para a fatura.
+        <a href="{{ url_for('main.editar_cliente', id=lic.cliente_id, _anchor='portais') }}">Conferir validade</a></p>
+    </div>
+    {% elif c and not current_user.is_assessor() %}
+      {% if c.status == 'pendente' %}
+      <div class="aviso-portal" id="acesso-portal">
+        <h4>Autorização de acesso ao portal {{ c.portal }}</h4>
+        <p>Para participar desta licitação, a consultoria precisa comprar o acesso ao portal <strong>{{ c.portal }}</strong>.
+           O valor entra na sua fatura mensal. Você autoriza? Escolha o plano:</p>
+        {% if c.observacao %}<p class="muted-sm">Observação da consultoria: {{ c.observacao }}</p>{% endif %}
+        <form method="POST" action="{{ url_for('portais.responder_solicitacao', sid=c.id) }}">
+          <div class="planos-linhas">
+            {% for p in c.lista_planos %}
+            <label class="plano-opcao"><input type="radio" name="escolha" value="{{ p.forma }}" required>
+              Autorizo — {{ formas_pagamento[p.forma] }}<strong>{{ p.valor|brl }}</strong></label>
+            {% endfor %}
+            <label class="plano-opcao"><input type="radio" name="escolha" value="recusar" required> Não autorizo a compra</label>
+          </div>
+          <input type="text" name="resposta_obs" maxlength="500" placeholder="Observação (opcional)">
+          <div class="form-btns" style="justify-content:flex-start;margin-top:8px;">
+            <button type="submit" class="btn btn-primary btn-sm">Enviar resposta</button>
+          </div>
+        </form>
+      </div>
+      {% elif c.status in ('autorizada', 'recusada') %}
+      <p class="muted-sm" id="acesso-portal" style="margin:0 0 12px;">
+        {% if c.status == 'autorizada' %}Você autorizou o acesso ao portal {{ c.portal }} ({{ c.rotulo_plano }}, {{ c.valor_escolhido|brl }})
+        {% else %}Você não autorizou a compra do acesso ao portal {{ c.portal }}{% endif %}
+        em {{ c.respondido_em.strftime('%d/%m/%Y às %H:%M') }}.</p>
+      {% endif %}
+    {% endif %}
+
     <!-- Info principal (com a nota CAPAG ao lado do ente) -->
     <div class="card card-info-compacto">
       <div class="card-info-topo">

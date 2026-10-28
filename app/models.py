@@ -1,6 +1,6 @@
 from app import db
 from flask_login import UserMixin
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from zoneinfo import ZoneInfo
 
 FUSO_BRASILIA = ZoneInfo("America/Sao_Paulo")
@@ -211,6 +211,7 @@ class Licitacao(db.Model):
     capag_referencia = db.Column(db.String(80), nullable=True)
     capag_consultado_em = db.Column(db.DateTime, nullable=True)
     participacao_me = db.Column(db.String(20), nullable=True)  # exclusiva | mista | ampla (ME/EPP)
+    cliente_avisado_em = db.Column(db.DateTime, nullable=True)  # entrou no resumo diario por e-mail
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
     atualizado_em = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -587,9 +588,21 @@ class Fatura(db.Model):
                              cascade="all, delete-orphan", order_by="ItemFatura.criado_em")
 
     @property
+    def itens_comissao(self):
+        return [i for i in self.itens if not i.acesso_portal_id]
+
+    @property
+    def itens_portais(self):
+        return [i for i in self.itens if i.acesso_portal_id]
+
+    @property
     def total_empenhos(self):
-        """Soma das comissoes (2%) dos empenhos."""
-        return sum(i.valor for i in self.itens if i.valor)
+        """Soma das comissoes (2%) dos empenhos e ajustes (sem os acessos a portais)."""
+        return sum(i.valor for i in self.itens_comissao if i.valor)
+
+    @property
+    def total_portais(self):
+        return sum(i.valor for i in self.itens_portais if i.valor)
 
     @property
     def total_valor_empenhado(self):
@@ -600,7 +613,7 @@ class Fatura(db.Model):
     def comissao_padrao(self):
         """True quando os itens sao so os 2% automaticos dos empenhos (sem ajuste manual)."""
         from decimal import Decimal
-        for i in self.itens:
+        for i in self.itens_comissao:
             if not i.empenho or i.empenho.valor_total is None:
                 return False
             esperado = (Decimal(str(i.empenho.valor_total)) * Decimal("0.02")).quantize(Decimal("0.01"))
@@ -610,7 +623,7 @@ class Fatura(db.Model):
 
     @property
     def total(self):
-        return (self.taxa_consultoria or 0) + (self.taxa_implantacao or 0) + self.total_empenhos
+        return (self.taxa_consultoria or 0) + (self.taxa_implantacao or 0) + self.total_empenhos + self.total_portais
 
     @property
     def nome_mes(self):
@@ -624,6 +637,7 @@ class ItemFatura(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     fatura_id = db.Column(db.Integer, db.ForeignKey("faturas.id"), nullable=False)
     empenho_id = db.Column(db.Integer, db.ForeignKey("empenhos.id"), nullable=True)
+    acesso_portal_id = db.Column(db.Integer, nullable=True)  # cobranca de acesso a portal (sem FK: o acesso pode ser excluido)
     descricao = db.Column(db.String(300), nullable=False)
     valor = db.Column(db.Numeric(10, 2), nullable=False)
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
@@ -769,3 +783,106 @@ class OportunidadeHomologada(db.Model):
     def ata_vigente(self):
         from datetime import date
         return bool(self.ata_vigencia_fim and self.ata_vigencia_fim >= date.today())
+
+
+# ─── Acesso do cliente aos portais de disputa ────────────────────────────────
+
+FORMAS_PAGAMENTO_PORTAL = {
+    "participacao": "Por participação",
+    "mensal": "Mensal",
+    "anual": "Anual",
+}
+
+# Status em que a licitacao conta como "participou" (cobra o acesso por participacao)
+STATUS_PARTICIPOU = ("em disputa", "em julgamento", "em habilitacao", "homologada", "encerrada")
+
+
+class AcessoPortal(db.Model):
+    """Portal em que o cliente ja tem cadastro. Se for pago, a consultoria paga e
+    a cobranca entra na fatura do cliente (anual: uma vez; mensal: todo mes;
+    por participacao: a cada licitacao disputada no portal)."""
+    __tablename__ = "acessos_portal"
+    id = db.Column(db.Integer, primary_key=True)
+    cliente_id = db.Column(db.Integer, db.ForeignKey("clientes.id"), nullable=False, index=True)
+    portal = db.Column(db.String(100), nullable=False)
+    pago = db.Column(db.Boolean, nullable=False, default=False)
+    forma_pagamento = db.Column(db.String(20), nullable=True)   # participacao | mensal | anual
+    valor = db.Column(db.Numeric(10, 2), nullable=True)
+    valido_ate = db.Column(db.Date, nullable=True)              # vazio = sem prazo
+    inicio = db.Column(db.Date, nullable=False, default=date.today)
+    observacao = db.Column(db.String(300), nullable=True)
+    solicitacao_id = db.Column(db.Integer, nullable=True)       # veio de uma autorizacao do cliente
+    criado_por = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+
+    cliente = db.relationship("Cliente", backref=db.backref("acessos_portal", lazy=True,
+                              order_by="AcessoPortal.portal", cascade="all, delete-orphan"))
+    autor = db.relationship("User", foreign_keys=[criado_por])
+
+    def ativo_em(self, dia=None):
+        dia = dia or date.today()
+        return self.inicio <= dia and (self.valido_ate is None or self.valido_ate >= dia)
+
+    @property
+    def ativo(self):
+        return self.valido_ate is None or self.valido_ate >= date.today()
+
+    @property
+    def rotulo_forma(self):
+        return FORMAS_PAGAMENTO_PORTAL.get(self.forma_pagamento or "", "")
+
+
+class CobrancaPortal(db.Model):
+    """Registro de cada cobranca de acesso lancada na fatura. Evita cobrar duas
+    vezes a mesma coisa, mesmo se o item for apagado da fatura depois.
+    chave: "anual" | "mensal:2026-10" | "lic:123"."""
+    __tablename__ = "cobrancas_portal"
+    id = db.Column(db.Integer, primary_key=True)
+    acesso_id = db.Column(db.Integer, nullable=False, index=True)
+    chave = db.Column(db.String(40), nullable=False)
+    fatura_id = db.Column(db.Integer, db.ForeignKey("faturas.id", ondelete="SET NULL"), nullable=True)
+    valor = db.Column(db.Numeric(10, 2), nullable=False)
+    descricao = db.Column(db.String(300), nullable=True)
+    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint("acesso_id", "chave", name="uq_cobranca_portal"),)
+
+
+class SolicitacaoAcessoPortal(db.Model):
+    """Pergunta ao cliente se autoriza comprar o acesso a um portal para uma
+    licitacao (o assessor informa os planos; o cliente escolhe um ou recusa)."""
+    __tablename__ = "solicitacoes_acesso_portal"
+    id = db.Column(db.Integer, primary_key=True)
+    licitacao_id = db.Column(db.Integer, db.ForeignKey("licitacoes.id", ondelete="SET NULL"), nullable=True, index=True)
+    cliente_id = db.Column(db.Integer, db.ForeignKey("clientes.id"), nullable=False, index=True)
+    portal = db.Column(db.String(100), nullable=False)
+    planos = db.Column(db.Text, nullable=False)        # JSON: [{"forma": "anual", "valor": 1200.0}, ...]
+    observacao = db.Column(db.String(500), nullable=True)
+    status = db.Column(db.String(20), nullable=False, default="pendente")  # pendente | autorizada | recusada | cancelada
+    criado_por = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+    plano_escolhido = db.Column(db.String(20), nullable=True)
+    valor_escolhido = db.Column(db.Numeric(10, 2), nullable=True)
+    resposta_obs = db.Column(db.String(500), nullable=True)
+    respondido_por = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    respondido_em = db.Column(db.DateTime, nullable=True)
+    acesso_id = db.Column(db.Integer, nullable=True)    # acesso criado quando o cliente autoriza
+
+    licitacao = db.relationship("Licitacao", backref=db.backref("solicitacoes_portal", lazy=True,
+                                order_by="SolicitacaoAcessoPortal.criado_em.desc()"))
+    cliente = db.relationship("Cliente")
+    autor = db.relationship("User", foreign_keys=[criado_por])
+    respondente = db.relationship("User", foreign_keys=[respondido_por])
+
+    @property
+    def lista_planos(self):
+        import json
+        try:
+            planos = json.loads(self.planos or "[]")
+        except ValueError:
+            return []
+        return [p for p in planos if p.get("forma") in FORMAS_PAGAMENTO_PORTAL]
+
+    @property
+    def rotulo_plano(self):
+        return FORMAS_PAGAMENTO_PORTAL.get(self.plano_escolhido or "", "")
+

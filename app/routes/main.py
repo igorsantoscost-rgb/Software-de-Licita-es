@@ -207,7 +207,27 @@ def painel():
         fav_ids=ids_favoritos(),
         fav_cliente_ids=ids_favoritos_cliente() if current_user.is_assessor() else set(),
         metricas_painel=_metricas_painel(licitacoes, status_filtro),
+        sem_acesso_ids=_sem_acesso_portal(licitacoes) if current_user.is_assessor() else set(),
+        consultas_pendentes=_consultas_pendentes_cliente(),
     )
+
+
+def _sem_acesso_portal(licitacoes):
+    """Licitacoes agendadas em portal onde o cliente nao tem acesso ativo."""
+    from app.models import AcessoPortal
+    from app.portais import chave_portal
+    hoje = date.today()
+    ativos = {(a.cliente_id, chave_portal(a.portal)) for a in AcessoPortal.query.all() if a.ativo_em(hoje)}
+    return {l.id for l in licitacoes
+            if l.status == "agendada" and l.portal and (l.cliente_id, chave_portal(l.portal)) not in ativos}
+
+
+def _consultas_pendentes_cliente():
+    """Consultas de compra de acesso aguardando a resposta do cliente logado."""
+    if current_user.is_assessor() or not current_user.cliente_id:
+        return []
+    from app.models import SolicitacaoAcessoPortal
+    return SolicitacaoAcessoPortal.query.filter_by(cliente_id=current_user.cliente_id, status="pendente").all()
 
 
 def _metricas_painel(licitacoes, status_filtro):
@@ -422,7 +442,7 @@ def editar_cliente(id):
         nome = request.form.get("nome", "").strip()
         if not nome:
             flash("O nome da empresa é obrigatório.", "erro")
-            return render_template("form_cliente_editar.html", cliente=cliente, ufs=UFS, ufs_brasil=_ufs_brasil())
+            return _tela_editar_cliente(cliente)
         cliente.nome = nome
         cliente.cnpj = request.form.get("cnpj", "").strip()
         cliente.rua = request.form.get("rua", "").strip()
@@ -448,12 +468,35 @@ def editar_cliente(id):
         db.session.commit()
         flash("Cliente atualizado.", "ok")
         return redirect(url_for("main.clientes"))
-    return render_template("form_cliente_editar.html", cliente=cliente, ufs=UFS, ufs_brasil=_ufs_brasil())
+    return _tela_editar_cliente(cliente)
 
 
 def _ufs_brasil():
     from app.models import UFS_BRASIL
     return sorted(UFS_BRASIL)
+
+
+def _tela_editar_cliente(cliente):
+    """Cadastro do cliente com as abas Dados, Filtros de participacao e Portais."""
+    from app.models import (CobrancaPortal, SolicitacaoAcessoPortal, FORMAS_PAGAMENTO_PORTAL, Fatura)
+    from app.portais import portais_disponiveis
+    ids_acessos = [a.id for a in cliente.acessos_portal]
+    solicitacoes = (SolicitacaoAcessoPortal.query.filter_by(cliente_id=cliente.id)
+                    .order_by(SolicitacaoAcessoPortal.criado_em.desc()).limit(50).all())
+    # Cobrancas: tambem as de acessos ja excluidos, pelas faturas do cliente
+    ids_faturas = [f.id for f in Fatura.query.filter_by(cliente_id=cliente.id).all()]
+    q = CobrancaPortal.query
+    if ids_faturas:
+        q = q.filter(db.or_(CobrancaPortal.acesso_id.in_(ids_acessos or [0]),
+                            CobrancaPortal.fatura_id.in_(ids_faturas)))
+    else:
+        q = q.filter(CobrancaPortal.acesso_id.in_(ids_acessos or [0]))
+    cobrancas = q.order_by(CobrancaPortal.criado_em.desc()).limit(60).all()
+    faturas = {f.id: f for f in Fatura.query.filter(Fatura.id.in_([c.fatura_id for c in cobrancas if c.fatura_id] or [0])).all()}
+    return render_template("form_cliente_editar.html", cliente=cliente, ufs=UFS, ufs_brasil=_ufs_brasil(),
+                           portais=portais_disponiveis(), formas_pagamento=FORMAS_PAGAMENTO_PORTAL,
+                           solicitacoes=solicitacoes, cobrancas=cobrancas, faturas_cobranca=faturas,
+                           hoje=date.today())
 
 
 @main_bp.route("/clientes/<int:id>/palavras-chave/adicionar", methods=["POST"])

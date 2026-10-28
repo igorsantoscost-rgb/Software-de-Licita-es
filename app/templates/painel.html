@@ -19,6 +19,13 @@
   {% endif %}
 </div>
 
+{% if consultas_pendentes %}
+<div class="aviso-portal">
+  <h4>Autorização de acesso a portal aguardando sua resposta</h4>
+  <p>{% for c in consultas_pendentes %}<a href="{{ url_for('lic.detalhe', id=c.licitacao_id, _anchor='acesso-portal') }}"><strong>{{ c.portal }}</strong>{% if c.licitacao %} — {{ c.licitacao.orgao_licitante }}{% endif %}</a>{% if not loop.last %}<br>{% endif %}{% endfor %}</p>
+</div>
+{% endif %}
+
 <!-- Busca por texto -->
 <form method="GET" action="{{ url_for('main.painel') }}" class="busca-form">
   <input type="hidden" name="status" value="{{ status_filtro }}">
@@ -126,7 +133,7 @@
           {% endif %}
         </td>
         <td>{{ l.orgao_licitante }} {% if current_user.is_assessor() and l.comentario_cliente_pendente_em %}<span class="tag-comentario-cliente" title="Comentário novo do cliente ({{ l.comentario_cliente_pendente_em.strftime('%d/%m %H:%M') }})">C</span>{% endif %}</td>
-        <td>{{ l.portal or '—' }}</td>
+        <td>{{ l.portal or '—' }}{% if current_user.is_assessor() and l.id in sem_acesso_ids %}<br><span class="tag-sem-acesso" title="Cliente sem acesso ativo neste portal">sem acesso</span>{% endif %}</td>
         <td>
           {% if l.data_disputa %}
             {{ l.data_disputa.strftime('%d/%m/%Y') }}<br>

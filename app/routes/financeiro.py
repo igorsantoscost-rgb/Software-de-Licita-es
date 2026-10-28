@@ -133,10 +133,12 @@ def gerar_faturas_mes():
     from app.financeiro_service import obter_ou_criar_fatura
     clientes = Cliente.query.all()
     criadas = 0
+    from app.portais import lancar_cobrancas
     for c in clientes:
         fatura = obter_ou_criar_fatura(c)
         if fatura and fatura.id:
             criadas += 1
+        lancar_cobrancas(c)  # acessos a portais (mensal/anual/participacao) que faltam
     db.session.commit()
     flash(f"Faturas do mes verificadas: {criadas} cliente(s).", "ok")
     return redirect(url_for("fin.painel"))

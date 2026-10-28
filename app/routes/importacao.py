@@ -713,7 +713,6 @@ def confirmar(token):
     if not escolhidas:
         flash("Marque pelo menos um processo para importar.", "erro")
         return redirect(url_for("imp.conferir", token=token))
-    avisar = request.form.get("avisar_email") == "1"
 
     # Cliente confirmado (ou trocado) em cada linha + clientes extras marcados
     destino = {}
@@ -759,14 +758,6 @@ def confirmar(token):
                 current_app.logger.exception("Falha ao importar %s", p["pasta"])
                 erros.append(f"{p['pasta']}: {e}")
                 nao_criadas.append({**_rotulo(p), "categoria": "Erro ao criar", "motivo": str(e)[:300]})
-
-    if avisar and criadas:
-        from app.email_service import notificar_nova_licitacao
-        for lic in criadas:
-            try:
-                notificar_nova_licitacao(lic)
-            except Exception:
-                pass
 
     pacote = _pacote_do_token(token, analise)
     shutil.rmtree(_pasta_token(token), ignore_errors=True)

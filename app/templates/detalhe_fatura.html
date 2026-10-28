@@ -75,7 +75,7 @@ Enviar mesmo assim {% else %}Enviar a fatura, o boleto e o relatório {% endif %
           </tr>
           {% endif %}
           <!-- Itens de empenho (2%) -->
-          {% if fatura.itens %}
+          {% if fatura.itens_comissao %}
           <tr style="background:#f7faf8;">
             <td colspan="2" style="padding:12px 8px 4px;font-weight:600;color:#153a29;">
               {% if fatura.comissao_padrao %}
@@ -85,7 +85,7 @@ Enviar mesmo assim {% else %}Enviar a fatura, o boleto e o relatório {% endif %
               {% endif %}
             </td>
           </tr>
-          {% for item in fatura.itens %}
+          {% for item in fatura.itens_comissao %}
           <tr>
             <td style="padding-left:24px;">{{ item.descricao }}{% if item.empenho and item.empenho.valor_total %} <span class="muted">(empenho: R$ {{ "{:,.2f}".format(item.empenho.valor_total).replace(",", "X").replace(".", ",").replace("X", ".") }})</span>{% endif %}</td>
             <td style="text-align:right;">R$ {{ "{:,.2f}".format(item.valor).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
@@ -95,6 +95,19 @@ Enviar mesmo assim {% else %}Enviar a fatura, o boleto e o relatório {% endif %
           <tr>
             <td class="muted" colspan="2">Nenhum empenho neste mês.</td>
           </tr>
+          {% endif %}
+          {% if fatura.itens_portais %}
+          <tr style="background:#f7faf8;">
+            <td colspan="2" style="padding:12px 8px 4px;font-weight:600;color:#153a29;">
+              Acessos a portais — R$ {{ "{:,.2f}".format(fatura.total_portais).replace(",", "X").replace(".", ",").replace("X", ".") }}
+            </td>
+          </tr>
+          {% for item in fatura.itens_portais %}
+          <tr>
+            <td style="padding-left:24px;">{{ item.descricao }}</td>
+            <td style="text-align:right;">R$ {{ "{:,.2f}".format(item.valor).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
+          </tr>
+          {% endfor %}
           {% endif %}
         </tbody>
         <tfoot>

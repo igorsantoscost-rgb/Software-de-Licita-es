@@ -1,9 +1,9 @@
 from flask import (Blueprint, render_template, redirect, url_for,
-                   request, flash, send_from_directory, abort, jsonify, session)
+                   request, flash, send_from_directory, abort, jsonify, session, current_app)
 from flask_login import login_required, current_user
 from app.models import (Licitacao, Documento, ItemLicitacao, Cliente,
                         STATUS_CHOICES, PORTAL_CHOICES, TIPOS_DOC_LICITACAO_UNICOS,
-                        ComentarioLicitacao, ObservacaoApoio)
+                        ComentarioLicitacao, ObservacaoApoio, STATUS_PARTICIPOU)
 from app import db
 from app.capag import consultar as consultar_capag, municipios_por_uf, UFS, significado as capag_significado
 from datetime import datetime
@@ -163,12 +163,7 @@ def nova():
         _aplicar_capag(lic)
         _processar_uploads_form(lic.id)
         db.session.commit()
-        # Notifica cliente e assessores por e-mail
-        from app.email_service import notificar_nova_licitacao
-        try:
-            notificar_nova_licitacao(lic)
-        except Exception:
-            pass  # Nao trava o cadastro se o e-mail falhar
+        # O cliente fica sabendo pelo resumo diario por e-mail (enviar_resumo_diario)
         flash("Licitacao criada.", "ok")
         return redirect(url_for("lic.detalhe", id=lic.id))
     return render_template("form_licitacao.html", clientes=clientes,
@@ -192,7 +187,13 @@ def detalhe(id):
     itens_visiveis, itens_ocultos, palavras_cliente = itens_do_cliente(lic.cliente, lic.itens)
     grupos_mistos, itens_fora_ramo = grupos_mistos_licitacao(lic.cliente, lic.itens)
     todos_itens = request.args.get("todos_itens") == "1"
+    from app.portais import acesso_ativo
+    from app.models import FORMAS_PAGAMENTO_PORTAL
+    acesso_portal = acesso_ativo(lic.cliente_id, lic.portal) if lic.portal else None
+    consulta_portal = lic.solicitacoes_portal[0] if lic.solicitacoes_portal else None
     return render_template("detalhe_licitacao.html", lic=lic,
+                           acesso_portal=acesso_portal, consulta_portal=consulta_portal,
+                           formas_pagamento=FORMAS_PAGAMENTO_PORTAL,
                            status_choices=STATUS_CHOICES, portal_choices=PORTAL_CHOICES,
                            capag_significado=capag_significado(lic.capag_nota),
                            docs_existentes=docs_existentes,
@@ -335,6 +336,13 @@ def atualizar_status(id):
         lic.motivo_encerramento = motivo[:300]
 
     lic.status = novo
+    if novo in STATUS_PARTICIPOU:
+        # Acesso ao portal cobrado por participacao entra na fatura do cliente
+        try:
+            from app.portais import lancar_cobrancas
+            lancar_cobrancas(lic.cliente)
+        except Exception:
+            current_app.logger.exception("Falha ao lancar cobranca de portal")
     if novo in ("homologada", "encerrada"):
         # Disputa encerrada: resultados provisorios dos itens viram definitivos
         for item in lic.itens:

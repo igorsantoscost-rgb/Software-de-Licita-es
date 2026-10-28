@@ -145,10 +145,7 @@
   </div>
 
   <div class="card import-rodape">
-    <label class="import-check-todos">
-      <input type="checkbox" name="avisar_email" value="1">
-      Avisar o cliente por e-mail (1 e-mail de "nova licitação" para cada processo importado)
-    </label>
+    <p class="muted-sm" style="margin:0;">O cliente recebe as licitações novas no resumo diário por e-mail (8h), junto com as demais do dia.</p>
     <div class="form-btns" style="margin-top:12px;">
       <a href="{{ url_for('imp.enviar') }}" class="btn">Enviar outro arquivo</a>
       <button type="submit" class="btn btn-primary" id="btn-confirmar">Importar selecionados</button>

@@ -8,6 +8,7 @@ Uso: python -m app.lembrete_diario
 from datetime import datetime
 from app import create_app_for_cli
 from app.email_service import (
+    enviar_resumo_diario,
     enviar_lembretes_diarios,
     enviar_alertas_vencimento_mensal,
     enviar_alertas_vencimento_semanal,
@@ -21,6 +22,20 @@ def main():
     with app.app_context():
         hoje = datetime.now()
         print(f"=== Bidfy Lembretes — {hoje.strftime('%d/%m/%Y %H:%M')} ===")
+
+        # 0. Resumo diario para o cliente: oportunidades novas + autorizacoes pendentes
+        try:
+            res = enviar_resumo_diario()
+            print(f"Resumo diario: {res['clientes']} cliente(s) com novidade, {res['enviados']} e-mail(s) enviado(s).")
+        except Exception as e:
+            print(f"Resumo diario: falhou ({e})")
+
+        # 0b. Cobrancas de acesso a portais (mensal e por participacao) nas faturas
+        try:
+            from app.portais import lancar_cobrancas_todos
+            print(f"Acessos a portais: {lancar_cobrancas_todos()} cobrança(s) lançada(s) nas faturas.")
+        except Exception as e:
+            print(f"Acessos a portais: falhou ({e})")
 
         # 1. Lembrete de pregoes amanha (todo dia)
         res = enviar_lembretes_diarios()

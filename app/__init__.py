@@ -63,6 +63,9 @@ def create_app():
     from app.routes.prospeccao import pros_bp
     app.register_blueprint(pros_bp)
 
+    from app.routes.portais import portais_bp
+    app.register_blueprint(portais_bp)
+
     @app.before_request
     def _backup_do_dia():
         # Gera o backup diario (em segundo plano) na primeira visita de cada dia
@@ -164,6 +167,7 @@ def create_app():
         _migrar_encerradas_sem_participacao()
         _corrigir_atas_prospeccao()
         _limpar_prospeccao_fora_do_nome()
+        _marcar_licitacoes_ja_avisadas()
 
     return app
 
@@ -192,6 +196,8 @@ def _migrar_prospeccao():
             conn.execute(text("ALTER TABLE clientes ADD COLUMN IF NOT EXISTS bloquear_exclusiva_me BOOLEAN DEFAULT FALSE"))
             conn.execute(text("ALTER TABLE clientes ADD COLUMN IF NOT EXISTS valor_minimo_estimado NUMERIC(14, 2)"))
             conn.execute(text("ALTER TABLE clientes ADD COLUMN IF NOT EXISTS regras_esfera TEXT"))
+            conn.execute(text("ALTER TABLE licitacoes ADD COLUMN IF NOT EXISTS cliente_avisado_em TIMESTAMP"))
+            conn.execute(text("ALTER TABLE itens_fatura ADD COLUMN IF NOT EXISTS acesso_portal_id INTEGER"))
             conn.execute(text("ALTER TABLE palavras_chave_cliente ADD COLUMN IF NOT EXISTS tipo VARCHAR(10) DEFAULT 'inclusao'"))
             conn.execute(text("ALTER TABLE licitacoes ADD COLUMN IF NOT EXISTS participacao_me VARCHAR(20)"))
             conn.execute(text("ALTER TABLE pacotes_importados ADD COLUMN IF NOT EXISTS resumo TEXT"))
@@ -573,6 +579,23 @@ def _corrigir_atas_prospeccao():
 
 
 
+
+
+def _marcar_licitacoes_ja_avisadas():
+    """Uma unica vez, ao ligar o resumo diario por e-mail: as licitacoes que ja
+    existiam nao entram no primeiro resumo (o cliente ja foi avisado delas)."""
+    from app.models import MigracaoAplicada, Licitacao
+    from datetime import datetime
+    nome = "resumo_diario_v1"
+    try:
+        if MigracaoAplicada.query.filter_by(nome=nome).first():
+            return
+        Licitacao.query.filter(Licitacao.cliente_avisado_em.is_(None)).update(
+            {Licitacao.cliente_avisado_em: datetime.utcnow()}, synchronize_session=False)
+        db.session.add(MigracaoAplicada(nome=nome))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
 
 
 def _limpar_prospeccao_fora_do_nome():

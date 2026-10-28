@@ -3,9 +3,16 @@
 {% block conteudo %}
 
 <div class="page-header">
-  <h2>Editar Cliente</h2>
+  <h2>{{ cliente.nome }}</h2>
 </div>
 
+<nav class="abas-cliente" role="tablist">
+  <a href="#dados" class="aba-link" data-aba="dados" role="tab">Dados da empresa</a>
+  <a href="#filtros" class="aba-link" data-aba="filtros" role="tab">Filtros de participação</a>
+  <a href="#portais" class="aba-link" data-aba="portais" role="tab">Portais{% if cliente.acessos_portal %} <span class="aba-contador">{{ cliente.acessos_portal|selectattr('ativo')|list|length }}</span>{% endif %}</a>
+</nav>
+
+<section class="aba-conteudo" data-aba="dados">
 <div class="card card-form">
   <form method="POST">
     <h3>Dados da Empresa</h3>
@@ -109,6 +116,41 @@
   </form>
 </div>
 
+</section>
+
+{% macro campos_acesso(a) %}
+    <label class="restricao-opcao"><input type="checkbox" name="pago" value="1" {% if a and a.pago %}checked{% endif %}> Acesso pago (a consultoria paga e repassa na fatura)</label>
+    <div class="grid-form-3 campos-pago">
+      <div class="campo">
+        <label>Forma de pagamento *</label>
+        <select name="forma_pagamento" class="select">
+          {% for k, rotulo in formas_pagamento.items() %}<option value="{{ k }}" {% if a and a.forma_pagamento == k %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="campo">
+        <label>Valor (R$) *</label>
+        <input type="text" name="valor" inputmode="decimal" placeholder="0,00" value="{{ ('%.2f'|format(a.valor)).replace('.', ',') if a and a.valor else '' }}">
+      </div>
+      <div class="campo">
+        <label>Válido até <span class="obrig-anual">*</span></label>
+        <input type="date" name="valido_ate" value="{{ a.valido_ate.isoformat() if a and a.valido_ate else '' }}">
+      </div>
+    </div>
+    <div class="campo">
+      <label>Observação</label>
+      <input type="text" name="observacao" maxlength="300" value="{{ a.observacao or '' if a else '' }}" placeholder="Ex: login no e-mail do financeiro">
+    </div>
+{% endmacro %}
+
+{% macro resposta_solicitacao(s) %}
+  {% if s.status == 'pendente' %}<span class="tag-acesso tag-pendente">Aguardando o cliente</span>
+  {% elif s.status == 'autorizada' %}<span class="tag-acesso tag-acesso-pago">Autorizou: {{ s.rotulo_plano }} · {{ s.valor_escolhido|brl }}</span>
+  {% elif s.status == 'recusada' %}<span class="tag-acesso tag-recusada">Não autorizou</span>
+  {% else %}<span class="tag-acesso">Cancelada</span>{% endif %}
+  {% if s.respondido_em %}<br><span class="muted-sm">{{ s.respondido_em.strftime('%d/%m/%Y %H:%M') }}{% if s.respondente %} · {{ s.respondente.nome }}{% endif %}</span>{% endif %}
+  {% if s.resposta_obs %}<br><span class="muted-sm">"{{ s.resposta_obs }}"</span>{% endif %}
+{% endmacro %}
+
 {% macro lista_palavras(palavras, vazio) %}
   {% if palavras %}
   <div class="palavras-chave-lista">
@@ -126,7 +168,8 @@
   {% endif %}
 {% endmacro %}
 
-<div class="card card-form" id="filtros">
+<section class="aba-conteudo" data-aba="filtros">
+<div class="card card-form">
   <h3>Filtros de participação</h3>
   <p class="muted-sm">
     A importação usa estes filtros para decidir se a licitação é deste cliente.
@@ -207,6 +250,166 @@
     </div>
   </form>
 </div>
+
+</section>
+
+<section class="aba-conteudo" data-aba="portais">
+<div class="card card-form card-portais">
+  <h3>Portais com acesso</h3>
+  <p class="muted-sm">
+    Portais em que o cliente já tem cadastro. Acesso pago entra na fatura do cliente, porque é a consultoria que paga:
+    <strong>anual</strong> uma vez, na próxima fatura; <strong>mensal</strong> em toda fatura enquanto estiver válido;
+    <strong>por participação</strong> a cada licitação disputada no portal.
+  </p>
+
+  {% if cliente.acessos_portal %}
+  <div class="tabela-wrap">
+  <table class="tabela tabela-portais">
+    <thead><tr><th>Portal</th><th>Tipo</th><th class="col-num">Valor</th><th>Válido até</th><th>Observação</th><th></th></tr></thead>
+    <tbody>
+    {% for a in cliente.acessos_portal %}
+      <tr class="{% if not a.ativo %}acesso-vencido{% endif %}">
+        <td><strong>{{ a.portal }}</strong></td>
+        <td>{% if a.pago %}<span class="tag-acesso tag-acesso-pago">{{ a.rotulo_forma }}</span>{% else %}<span class="tag-acesso">Gratuito</span>{% endif %}</td>
+        <td class="col-num">{{ a.valor|brl if a.pago else '—' }}</td>
+        <td>{% if a.valido_ate %}{{ a.valido_ate.strftime('%d/%m/%Y') }}{% if not a.ativo %} <span class="tag-vencido">vencido</span>{% endif %}{% else %}<span class="muted-sm">sem prazo</span>{% endif %}</td>
+        <td class="muted-sm">{{ a.observacao or '' }}{% if a.autor %}<br>Registrado por {{ a.autor.nome }} em {{ a.criado_em.strftime('%d/%m/%Y') }}{% endif %}</td>
+        <td class="nowrap">
+          <details class="acesso-editar">
+            <summary class="btn btn-sm">Editar</summary>
+            <form method="POST" action="{{ url_for('portais.editar_acesso', acesso_id=a.id) }}" class="form-acesso">
+              <input type="hidden" name="portal" value="{{ a.portal }}">
+              {{ campos_acesso(a) }}
+              <div class="form-btns"><button type="submit" class="btn btn-primary btn-sm">Salvar</button></div>
+            </form>
+          </details>
+          <form method="POST" action="{{ url_for('portais.excluir_acesso', acesso_id=a.id) }}" class="form-inline">
+            <button type="submit" class="btn-excluir-mini" title="Remover acesso" onclick="return confirm('Remover o acesso ao portal {{ a.portal }}? O que já foi cobrado continua nas faturas.')">✕</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="muted filtro-vazio">Nenhum portal registrado ainda.</p>
+  {% endif %}
+</div>
+
+<div class="card card-form">
+  <h3>Registrar acesso</h3>
+  <form method="POST" action="{{ url_for('portais.novo_acesso', id=cliente.id) }}" class="form-acesso">
+    <div class="grid-form-2">
+      <div class="campo">
+        <label>Portal *</label>
+        <select name="portal" class="select select-portal" required>
+          <option value="">Escolha…</option>
+          {% for p in portais %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
+          <option value="__outro__">Outro (digitar)</option>
+        </select>
+        <input type="text" name="portal_outro" class="input-portal-outro" placeholder="Nome do portal" style="display:none;margin-top:6px;">
+      </div>
+    </div>
+    {{ campos_acesso(none) }}
+    <label class="restricao-opcao campo-pago-so"><input type="checkbox" name="ja_cobrado" value="1">
+      Já foi cobrado do cliente antes (não lançar a cobrança deste mês/ano na fatura)</label>
+    <div class="form-btns"><button type="submit" class="btn btn-primary">Registrar acesso</button></div>
+  </form>
+</div>
+
+<div class="card card-form">
+  <h3>Consultas de compra de acesso</h3>
+  <p class="muted-sm">Quando uma licitação é num portal sem acesso ativo, o assessor consulta o cliente pela própria licitação. As respostas ficam registradas aqui.</p>
+  {% if solicitacoes %}
+  <div class="tabela-wrap">
+  <table class="tabela">
+    <thead><tr><th>Data</th><th>Portal</th><th>Licitação</th><th>Planos oferecidos</th><th>Resposta</th></tr></thead>
+    <tbody>
+    {% for s in solicitacoes %}
+      <tr>
+        <td class="nowrap">{{ s.criado_em.strftime('%d/%m/%Y') }}<br><span class="muted-sm">{{ s.autor.nome if s.autor else '' }}</span></td>
+        <td>{{ s.portal }}</td>
+        <td>{% if s.licitacao %}<a href="{{ url_for('lic.detalhe', id=s.licitacao_id) }}">{{ s.licitacao.numero_pregao }}</a><br><span class="muted-sm">{{ s.licitacao.orgao_licitante[:40] }}</span>{% else %}<span class="muted-sm">excluída</span>{% endif %}</td>
+        <td class="muted-sm">{% for p in s.lista_planos %}{{ formas_pagamento[p.forma] }}: {{ p.valor|brl }}{% if not loop.last %}<br>{% endif %}{% endfor %}</td>
+        <td>{{ resposta_solicitacao(s) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="muted filtro-vazio">Nenhuma consulta feita ainda.</p>
+  {% endif %}
+</div>
+
+<div class="card card-form">
+  <h3>Cobranças de acesso lançadas</h3>
+  {% if cobrancas %}
+  <div class="tabela-wrap">
+  <table class="tabela">
+    <thead><tr><th>Lançada em</th><th>Descrição</th><th class="col-num">Valor</th><th>Fatura</th></tr></thead>
+    <tbody>
+    {% for c in cobrancas %}
+      {% set f = faturas_cobranca.get(c.fatura_id) %}
+      <tr>
+        <td class="nowrap">{{ c.criado_em.strftime('%d/%m/%Y') }}</td>
+        <td>{{ c.descricao }}</td>
+        <td class="col-num">{{ c.valor|brl if c.fatura_id else '—' }}</td>
+        <td>{% if f %}<a href="{{ url_for('fin.detalhe_fatura', id=f.id) }}">{{ f.nome_mes }}</a>{% else %}<span class="muted-sm">fora do Bidfy</span>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="muted filtro-vazio">Nenhuma cobrança lançada ainda.</p>
+  {% endif %}
+</div>
+</section>
+
+<script>
+(function () {
+  var abas = document.querySelectorAll('.aba-conteudo');
+  var links = document.querySelectorAll('.aba-link');
+  function mostrar(nome) {
+    if (!document.querySelector('.aba-conteudo[data-aba="' + nome + '"]')) nome = 'dados';
+    abas.forEach(function (a) { a.hidden = a.dataset.aba !== nome; });
+    links.forEach(function (l) {
+      var ativo = l.dataset.aba === nome;
+      l.classList.toggle('ativa', ativo);
+      l.setAttribute('aria-selected', ativo ? 'true' : 'false');
+    });
+  }
+  links.forEach(function (l) {
+    l.addEventListener('click', function (e) {
+      e.preventDefault();
+      history.replaceState(null, '', '#' + l.dataset.aba);
+      mostrar(l.dataset.aba);
+    });
+  });
+  mostrar((location.hash || '#dados').slice(1));
+
+  // Formularios de acesso: campos de pagamento so quando "pago"
+  document.querySelectorAll('.form-acesso').forEach(function (form) {
+    var pago = form.querySelector('input[name=pago]');
+    var forma = form.querySelector('select[name=forma_pagamento]');
+    function atualizar() {
+      form.classList.toggle('acesso-pago', pago.checked);
+      form.classList.toggle('acesso-anual', pago.checked && forma.value === 'anual');
+    }
+    pago.addEventListener('change', atualizar);
+    forma.addEventListener('change', atualizar);
+    atualizar();
+    var sel = form.querySelector('.select-portal');
+    if (sel) sel.addEventListener('change', function () {
+      var outro = form.querySelector('.input-portal-outro');
+      outro.style.display = sel.value === '__outro__' ? '' : 'none';
+      outro.required = sel.value === '__outro__';
+    });
+  });
+})();
+</script>
 
 <script>
 document.querySelectorAll('.esfera-linha').forEach(function (linha) {

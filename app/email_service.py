@@ -99,10 +99,9 @@ def _template_base(conteudo):
     """Wrapper HTML com estilo Bidfy."""
     return f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="background: #14532d; padding: 16px 24px; border-radius: 8px 8px 0 0; text-align: center;">
-        <span style="color: #fff; font-size: 22px; font-weight: 700; letter-spacing: 1px;">
-          <span style="color: #fff;">BID</span><span style="color: #4ade80;">FY</span>
-        </span>
+      <div style="background: #0d2b23; padding: 16px 24px; border-radius: 8px 8px 0 0; text-align: center;">
+        <img src="{BASE_URL}/static/img/logo-bidfy-email.png" width="180" height="50" alt="BIDFY"
+             style="display: inline-block; border: 0; color: #f6f5f2; font-size: 22px; font-weight: 700; letter-spacing: 1px;">
       </div>
       <div style="border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px; padding: 24px;">
         {conteudo}
@@ -147,6 +146,85 @@ def notificar_nova_licitacao(lic):
         border-radius: 6px; text-decoration: none; display: inline-block;">Ver Licitacao</a></p>
     """
     _enviar(destinatarios, assunto, _template_base(conteudo))
+
+
+# ─── Resumo diario para o cliente (unico e-mail de oportunidades) ────────────
+
+STATUS_FORA_DO_RESUMO = ("sem participacao", "interesse nao manifestado", "cancelada", "revogada")
+
+
+def _linhas_resumo(lics):
+    from html import escape
+    linhas = []
+    for lic in lics:
+        prazo = lic.prazo_precos.strftime("%d/%m às %Hh") if getattr(lic, "prazo_precos", None) else "—"
+        valor = _brl(lic.valor_estimado) if lic.valor_estimado else "—"
+        linhas.append(
+            f'<tr><td style="padding:8px;border-bottom:1px solid #eef2ee;">'
+            f'<a href="{BASE_URL}/licitacoes/{lic.id}" style="color:#14532d;font-weight:600;text-decoration:none;">'
+            f'{escape(lic.orgao_licitante or "")}</a><br>'
+            f'<span style="color:#6b7280;font-size:12px;">Pregão {escape(lic.numero_pregao or "")}'
+            f'{" · " + escape(lic.portal) if lic.portal else ""}</span></td>'
+            f'<td style="padding:8px;border-bottom:1px solid #eef2ee;white-space:nowrap;">{_formatar_data(lic.data_disputa).replace(" as ", " ")}</td>'
+            f'<td style="padding:8px;border-bottom:1px solid #eef2ee;white-space:nowrap;text-align:right;">{valor}</td>'
+            f'<td style="padding:8px;border-bottom:1px solid #eef2ee;white-space:nowrap;">{prazo}</td></tr>')
+    return "".join(linhas)
+
+
+def enviar_resumo_diario():
+    """Um e-mail por cliente com as oportunidades criadas desde o ultimo resumo
+    e as autorizacoes de acesso a portal aguardando resposta. Roda as 8h."""
+    from html import escape
+    from app.models import Cliente, Licitacao, SolicitacaoAcessoPortal
+    from app import db
+    agora = datetime.utcnow()
+    enviados, clientes_com_novidade = 0, 0
+    for cliente in Cliente.query.order_by(Cliente.nome).all():
+        novas = Licitacao.query.filter(Licitacao.cliente_id == cliente.id,
+                                       Licitacao.cliente_avisado_em.is_(None)).all()
+        fora = [l for l in novas if l.status in STATUS_FORA_DO_RESUMO]
+        novas = sorted([l for l in novas if l.status not in STATUS_FORA_DO_RESUMO],
+                       key=lambda l: l.data_disputa or datetime.max)
+        for l in fora:
+            l.cliente_avisado_em = agora
+        pendentes = SolicitacaoAcessoPortal.query.filter_by(cliente_id=cliente.id, status="pendente").all()
+        if not novas and not pendentes:
+            continue
+        clientes_com_novidade += 1
+        destinatarios = _emails_do_cliente(cliente)
+        if not destinatarios:
+            continue
+
+        blocos = [f'<h2 style="color:#14532d;margin-top:0;">Resumo do dia</h2>'
+                  f'<p>Olá, <strong>{escape(cliente.nome)}</strong>.</p>']
+        if novas:
+            blocos.append(
+                f'<p>{"Uma nova oportunidade foi cadastrada" if len(novas) == 1 else f"{len(novas)} novas oportunidades foram cadastradas"} para você:</p>'
+                '<table style="width:100%;border-collapse:collapse;font-size:13px;margin:12px 0;">'
+                '<tr style="background:#f1f7f2;color:#14532d;text-align:left;">'
+                '<th style="padding:8px;">Órgão</th><th style="padding:8px;">Disputa</th>'
+                '<th style="padding:8px;text-align:right;">Valor estimado</th><th style="padding:8px;">Prazo p/ preços</th></tr>'
+                + _linhas_resumo(novas) + '</table>')
+        if pendentes:
+            itens = "".join(
+                f'<li style="margin-bottom:6px;"><a href="{BASE_URL}/licitacoes/{s.licitacao_id}" style="color:#14532d;">'
+                f'{escape(s.portal)}</a>{" — " + escape(s.licitacao.orgao_licitante) if s.licitacao else ""}</li>'
+                for s in pendentes)
+            blocos.append(
+                '<div style="background:#fff8e6;border:1px solid #f1d58a;border-radius:8px;padding:12px 16px;margin:16px 0;">'
+                f'<strong>Autorização de acesso a portal aguardando sua resposta ({len(pendentes)})</strong>'
+                f'<ul style="margin:8px 0 0;padding-left:18px;">{itens}</ul></div>')
+        blocos.append(
+            f'<a href="{BASE_URL}/painel" style="display:inline-block;background:#14532d;color:#fff;padding:12px 24px;'
+            'border-radius:8px;text-decoration:none;font-weight:600;margin-top:8px;">Ir para o painel do Bidfy</a>')
+        assunto = (f"Bidfy: {len(novas)} nova(s) oportunidade(s)" if novas
+                   else "Bidfy: autorização de acesso a portal pendente")
+        if _enviar(destinatarios, assunto, _template_base("".join(blocos))):
+            enviados += 1
+            for l in novas:
+                l.cliente_avisado_em = agora
+    db.session.commit()
+    return {"clientes": clientes_com_novidade, "enviados": enviados}
 
 
 # ─── GATILHO 2: Lembrete 1 dia antes do pregao ──────────────────────────────
@@ -706,3 +784,30 @@ def notificar_comentario_cliente(comentario, licitacao):
         border-radius: 6px; text-decoration: none; display: inline-block;">Ver Licitacao</a></p>
     """
     _enviar(destinatarios, assunto, _template_base(conteudo))
+
+
+# ─── Cliente respondeu a consulta de acesso a portal ────────────────────────
+
+def notificar_resposta_acesso_portal(sol):
+    """Avisa os assessores do cliente (e o master) da resposta do cliente."""
+    from html import escape
+    cliente = sol.cliente
+    destinatarios = list(dict.fromkeys(_emails_assessores_do_cliente(cliente)))
+    if not destinatarios:
+        return
+    lic = sol.licitacao
+    if sol.status == "autorizada":
+        titulo = f"Cliente autorizou a compra do acesso ao portal {sol.portal}"
+        detalhe = f"Plano escolhido: <strong>{escape(sol.rotulo_plano)}</strong> — {_brl(sol.valor_escolhido)}."
+    else:
+        titulo = f"Cliente não autorizou a compra do acesso ao portal {sol.portal}"
+        detalhe = ""
+    obs = f"<p>Observação do cliente: {escape(sol.resposta_obs)}</p>" if sol.resposta_obs else ""
+    conteudo = f"""
+      <h2 style="color:#14532d;margin-top:0;">{escape(titulo)}</h2>
+      <p><strong>{escape(cliente.nome)}</strong>{" — " + escape(lic.orgao_licitante) + " (Pregão " + escape(lic.numero_pregao or "") + ")" if lic else ""}</p>
+      <p>{detalhe}</p>{obs}
+      <a href="{BASE_URL}/licitacoes/{sol.licitacao_id}" style="display:inline-block;background:#14532d;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;">Ver licitação</a>
+    """
+    _enviar(destinatarios, f"{titulo} — {cliente.nome}", _template_base(conteudo))
+
