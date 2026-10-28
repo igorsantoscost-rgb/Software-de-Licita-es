@@ -129,7 +129,7 @@
             {% endif %}
             <span class="muted-sm import-sub">
               {% if p.id_effecti %}Effecti {{ p.id_effecti }}{% if p.modalidade %} · {{ p.modalidade }}{% endif %}{% if p.srp %} · SRP{% endif %}{% if p.perfil and p.origem_cliente != 'perfil' %} · Perfil {{ p.perfil }}{% endif %}{% else %}Pasta: {{ p.pasta }}{% endif %}
-              {% if p.link_edital %} · <a href="{{ p.link_edital }}" target="_blank" rel="noopener">abrir no portal ↗</a>{% endif %}
+              {% if p.link_edital %} · <a href="{{ p.link_edital }}" target="_blank" rel="noopener">Abrir no portal ↗</a>{% endif %}
             </span>
           </td>
           <td>{{ p.numero_pregao }}{% if p.uasg %}<br><span class="muted-sm">UASG {{ p.uasg }}</span>{% endif %}</td>

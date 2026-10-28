@@ -44,7 +44,7 @@
   <p class="muted-sm" style="margin:0 0 10px;">
     {% if rodando %}⏳ Busca em andamento{% if status.inicio %} desde {{ status.inicio }}{% endif %} — atualize a página daqui a pouco.
     {% elif status.fim %}Última busca manual: {{ status.fim }}
-      {% if status.erro %} · <span style="color:#991b1b">falhou: {{ status.erro }}</span>
+      {% if status.erro %} · <span style="color:#991b1b">Falhou: {{ status.erro }}</span>
       {% else %} · {{ status.verificados or 0 }} pregão(ões) verificado(s), {{ status.novas or 0 }} oportunidade(s) nova(s){% endif %}
     {% endif %}
   </p>
@@ -188,10 +188,10 @@
             {% for it in g.itens %}
             <tr>
               <td>{{ it.numero_item }}</td>
-              <td><span title="{{ it.descricao_item }}">{{ (it.descricao_item or '')[:220] }}{% if (it.descricao_item or '')|length > 220 %}…{% endif %}</span>{% if it.palavras and not visao_cliente %}<div class="lead-meta">casou com: <em>{{ it.palavras }}</em></div>{% endif %}</td>
+              <td><span title="{{ it.descricao_item }}">{{ (it.descricao_item or '')[:220] }}{% if (it.descricao_item or '')|length > 220 %}…{% endif %}</span>{% if it.palavras and not visao_cliente %}<div class="lead-meta">Casou com: <em>{{ it.palavras }}</em></div>{% endif %}</td>
               <td>{{ it.fornecedor_nome or '—' }}</td>
               <td class="num">{{ '{:,.0f}'.format(it.quantidade_homologada or it.quantidade or 0).replace(',', '.') if (it.quantidade_homologada or it.quantidade) else '—' }}{% if it.unidade %} <span class="lead-meta-inline">{{ it.unidade }}</span>{% endif %}</td>
-              <td class="num">{{ it.valor_unitario_homologado|brl }}{% if it.valor_unitario_estimado %}<div class="lead-meta">est. {{ it.valor_unitario_estimado|brl }}</div>{% endif %}</td>
+              <td class="num">{{ it.valor_unitario_homologado|brl }}{% if it.valor_unitario_estimado %}<div class="lead-meta">Est. {{ it.valor_unitario_estimado|brl }}</div>{% endif %}</td>
               <td class="num">{{ it.valor_total_homologado|brl }}</td>
             </tr>
             {% endfor %}

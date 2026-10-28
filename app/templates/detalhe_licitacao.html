@@ -294,7 +294,7 @@
             <td class="col-sel"><input type="checkbox" name="item_ids" value="{{ item.id }}" form="form-excluir-itens" class="sel-item"></td>
             <td class="col-item">{{ item.numero_item or '—' }}</td>
             {% if tem_lote %}<td class="col-lote">{{ item.lote_grupo or '—' }}</td>{% endif %}
-            <td class="col-desc">{% if item.id in itens_fora_ramo %}<span class="tag-grupo-misto" title="Item do grupo fora das palavras-chave do cliente">fora do ramo</span>{% endif %}<div class="item-desc" title="Clique para ver a descrição inteira" onclick="this.classList.toggle('item-desc-aberta')">{{ item.descricao }}</div></td>
+            <td class="col-desc">{% if item.id in itens_fora_ramo %}<span class="tag-grupo-misto" title="Item do grupo fora das palavras-chave do cliente">Fora do ramo</span>{% endif %}<div class="item-desc" title="Clique para ver a descrição inteira" onclick="this.classList.toggle('item-desc-aberta')">{{ item.descricao }}</div></td>
             {% if tem_marca %}<td>{{ item.marca or '—' }}</td>{% endif %}
             <td class="col-num col-qtd">{{ item.quantidade or '—' }}{% if item.unidade %}<small class="unidade" title="{{ item.unidade }}">{{ item.unidade }}</small>{% endif %}</td>
             <td class="nowrap col-num">
@@ -366,9 +366,9 @@
         <div class="resumo-resultado-titulo">Resultado da disputa{% if mr.provisorios %} <span class="tag-provisorio">{{ mr.provisorios }} provisório(s)</span>{% endif %}</div>
         <div class="kpis">
           <div class="kpi"><span>Êxito em itens</span><strong>{{ mr.pct_exito|pct(0) if mr.pct_exito is not none else '—' }}</strong><small>{{ mr.vitorias }} de {{ mr.disputados }} disputados</small></div>
-          <div class="kpi"><span>Valor vencido</span><strong>{{ mr.valor_vencido|brl }}</strong><small>valor × quantidade</small></div>
+          <div class="kpi"><span>Valor vencido</span><strong>{{ mr.valor_vencido|brl }}</strong><small>Valor × quantidade</small></div>
           {% if mr.derrotas and mr.media_acima is not none %}<div class="kpi"><span>Acima do vencedor (média)</span><strong>{{ '+' ~ (mr.media_acima|pct) }}</strong><small>{{ mr.derrotas }} derrota(s) por preço</small></div>{% endif %}
-          {% if mr.justificadas %}<div class="kpi"><span>Derrotas justificadas</span><strong>{{ mr.justificadas }}</strong><small>cliente tinha valor melhor</small></div>{% endif %}
+          {% if mr.justificadas %}<div class="kpi"><span>Derrotas justificadas</span><strong>{{ mr.justificadas }}</strong><small>Cliente tinha valor melhor</small></div>{% endif %}
         </div>
       </div>
       {% endif %}
@@ -714,7 +714,7 @@
         <input type="text" name="valor_vencedor" id="res-venc" placeholder="0,00" inputmode="decimal" autocomplete="off" required>
       </div>
       <div class="campo">
-        <label>ou Valor total vencedor (R$) <small class="muted" id="res-qtd-txt"></small></label>
+        <label>Ou valor total vencedor (R$) <small class="muted" id="res-qtd-txt"></small></label>
         <input type="text" id="res-total" placeholder="0,00" inputmode="decimal" autocomplete="off">
         <small class="muted">Preenchendo o total, o unitário é calculado sozinho.</small>
       </div>
@@ -891,7 +891,7 @@
         var linhas = '';
         j.itens.forEach(function (it) {
           if (!it.item_id) {
-            linhas += '<tr class="prop-fora"><td></td><td>' + esc(it.numero) + '</td><td>' + (it.unit ? brl(it.unit) : '—') + '</td><td>' + esc(it.marca || '') + '</td><td><small>não está nesta licitação</small></td></tr>';
+            linhas += '<tr class="prop-fora"><td></td><td>' + esc(it.numero) + '</td><td>' + (it.unit ? brl(it.unit) : '—') + '</td><td>' + esc(it.marca || '') + '</td><td><small>Não está nesta licitação</small></td></tr>';
             return;
           }
           var res;
@@ -899,10 +899,10 @@
           else if (it.previsto === 'derrota') res = '<span class="res-badge res-derrota">Derrota · +' + it.diferenca.toFixed(2).replace('.', ',') + '%</span>';
           else if (it.previsto === 'sem_lance') res = '<span class="res-badge res-neutro">Sem valor do cliente</span>';
           else res = '<span class="res-badge res-justificada">Cliente tinha valor melhor</span><input type="text" name="just_' + it.item_id + '" class="prop-just" placeholder="Justificativa (obrigatória)">';
-          if (it.ja_tem) res += '<small class="prop-aviso">substitui o resultado atual</small>';
+          if (it.ja_tem) res += '<small class="prop-aviso">Substitui o resultado atual</small>';
           linhas += '<tr' + (it.minimo !== null ? ' class="prop-interesse"' : '') + '>' +
             '<td><input type="checkbox" name="item_ids" value="' + it.item_id + '"' + (it.marcar ? ' checked' : '') + '></td>' +
-            '<td title="' + esc(it.descricao) + '"><strong>' + esc(it.numero) + '</strong>' + (it.minimo !== null ? '<small>mín. ' + brl(it.minimo) + '</small>' : '<small>sem interesse</small>') + '</td>' +
+            '<td title="' + esc(it.descricao) + '"><strong>' + esc(it.numero) + '</strong>' + (it.minimo !== null ? '<small>Mín. ' + brl(it.minimo) + '</small>' : '<small>Sem interesse</small>') + '</td>' +
             '<td><input type="text" name="unit_' + it.item_id + '" value="' + fmt(it.unit, 4) + '" class="prop-unit"></td>' +
             '<td><input type="text" name="marca_' + it.item_id + '" value="' + esc(it.marca) + '" class="prop-marca"></td>' +
             '<td>' + res + '</td></tr>';

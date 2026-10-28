@@ -886,3 +886,33 @@ class SolicitacaoAcessoPortal(db.Model):
     def rotulo_plano(self):
         return FORMAS_PAGAMENTO_PORTAL.get(self.plano_escolhido or "", "")
 
+
+
+# ─── Padrao de texto do Bidfy ───────────────────────────────────────────────
+# Todo texto gravado no sistema segue o padrao: nomes (orgao, municipio, lote)
+# com a 1a letra de cada palavra maiuscula; textos corridos (objeto, itens)
+# com a 1a letra maiuscula. Nome de cliente e de empresa ficam como digitados.
+
+from sqlalchemy import event as _event
+
+
+def _padronizar_ao_gravar(atributo, funcao):
+    @_event.listens_for(atributo, "set", retval=True)
+    def _ajustar(alvo, valor, antigo, iniciador):
+        if isinstance(valor, str) and valor.strip():
+            from app import texto
+            return getattr(texto, funcao)(valor)
+        return valor
+
+
+CAMPOS_NOME = [Licitacao.orgao_licitante, Licitacao.municipio, ItemLicitacao.lote_grupo,
+               ItemLicitacao.vencedor_municipio, CompraMonitorada.municipio,
+               OportunidadeHomologada.orgao, OportunidadeHomologada.municipio,
+               OportunidadeHomologada.fornecedor_municipio]
+CAMPOS_FRASE = [Licitacao.objeto, ItemLicitacao.descricao, ItemLicitacao.unidade,
+                OportunidadeHomologada.objeto, OportunidadeHomologada.descricao_item,
+                OportunidadeHomologada.unidade]
+for _campo in CAMPOS_NOME:
+    _padronizar_ao_gravar(_campo, "titulo")
+for _campo in CAMPOS_FRASE:
+    _padronizar_ao_gravar(_campo, "primeira_maiuscula")

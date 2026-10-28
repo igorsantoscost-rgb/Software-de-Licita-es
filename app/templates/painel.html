@@ -79,11 +79,11 @@
   <div class="painel-resultados-titulo">Resultados {{ 'das finalizadas' if status_filtro == 'finalizadas' else ('das ' ~ (status_filtro|rotulo_status|lower) ~ 's') }} · {{ m.licitacoes }} licitação(ões){% if m.provisorios %} <span class="tag-provisorio">{{ m.provisorios }} item(ns) provisório(s)</span>{% endif %}</div>
   <div class="kpis">
     <div class="kpi"><span>Êxito em itens</span><strong>{{ m.pct_exito|pct(0) if m.pct_exito is not none else '—' }}</strong><small>{{ m.vitorias }} de {{ m.disputados }} itens disputados</small></div>
-    <div class="kpi"><span>Valor total vencido</span><strong>{{ m.valor_vencido|brl }}</strong><small>itens vencidos × quantidade</small></div>
+    <div class="kpi"><span>Valor total vencido</span><strong>{{ m.valor_vencido|brl }}</strong><small>Itens vencidos × quantidade</small></div>
     {% if m.media_acima is not none %}<div class="kpi"><span>Acima do vencedor nas derrotas</span><strong>{{ ('+' ~ (m.media_acima|pct)) if m.media_acima is not none else '—' }}</strong><small>{% if m.maior_acima is not none %}de +{{ m.menor_acima|pct }} a +{{ m.maior_acima|pct }}{% else %}média por item{% endif %}</small></div>{% endif %}
     {% if m.derrotas or m.justificadas %}<div class="kpi"><span>Derrotas</span><strong>{{ m.derrotas + m.justificadas }}</strong><small>{{ m.derrotas }} por preço · {{ m.justificadas }} justificada(s)</small></div>{% endif %}
-    <div class="kpi"><span>Valor perdido p/ concorrentes</span><strong>{{ m.valor_perdido|brl }}</strong><small>itens perdidos × quantidade</small></div>
-    {% if m.valor_homologado %}<div class="kpi"><span>Valor homologado</span><strong>{{ m.valor_homologado|brl }}</strong><small>soma das homologadas</small></div>{% endif %}
+    <div class="kpi"><span>Valor perdido p/ concorrentes</span><strong>{{ m.valor_perdido|brl }}</strong><small>Itens perdidos × quantidade</small></div>
+    {% if m.valor_homologado %}<div class="kpi"><span>Valor homologado</span><strong>{{ m.valor_homologado|brl }}</strong><small>Soma das homologadas</small></div>{% endif %}
   </div>
   {% if m.concorrentes %}
   <div class="painel-concorrentes">
@@ -96,17 +96,18 @@
 
 <!-- Tabela de licitações -->
 {% if licitacoes %}
+{# Valor homologado: so no filtro Homologadas; sem ela, o orgao ganha o espaco #}
+{% set tem_homologada = status_filtro == 'homologada' %}
 <div class="tabela-wrap">
-  <table class="tabela">
+  <table class="tabela tabela-painel {% if tem_homologada %}com-homologado{% endif %}">
     <thead>
       <tr>
         <th class="col-fav" aria-label="Favorita"></th>
         <th>{{ th_sort('pregao', 'Pregão / UASG') }}</th>
-        <th>{{ th_sort('orgao', 'Órgão licitante') }}</th>
+        <th class="col-orgao">{{ th_sort('orgao', 'Órgão licitante') }}</th>
         <th>{{ th_sort('portal', 'Portal') }}</th>
         <th>{{ th_sort('data', 'Data da disputa') }}</th>
         <th class="col-status">{{ th_sort('status', 'Status') }}</th>
-        {% set tem_homologada = licitacoes|selectattr('status', 'equalto', 'homologada')|selectattr('valor_homologado')|list|length > 0 %}
         {% if tem_homologada %}<th class="col-homologado">Valor homologado</th>{% endif %}
         {% if current_user.is_assessor() %}<th>{{ th_sort('cliente', 'Cliente') }}</th>{% endif %}
         <th></th>
@@ -132,8 +133,8 @@
             💰 Cliente com interesse{% if l.preco_fora_do_prazo %} · fora do prazo{% endif %}</span>
           {% endif %}
         </td>
-        <td>{{ l.orgao_licitante }} {% if current_user.is_assessor() and l.comentario_cliente_pendente_em %}<span class="tag-comentario-cliente" title="Comentário novo do cliente ({{ l.comentario_cliente_pendente_em.strftime('%d/%m %H:%M') }})">C</span>{% endif %}</td>
-        <td>{{ l.portal or '—' }}{% if current_user.is_assessor() and l.id in sem_acesso_ids %}<br><span class="tag-sem-acesso" title="Cliente sem acesso ativo neste portal">sem acesso</span>{% endif %}</td>
+        <td class="col-orgao">{{ l.orgao_licitante }} {% if current_user.is_assessor() and l.comentario_cliente_pendente_em %}<span class="tag-comentario-cliente" title="Comentário novo do cliente ({{ l.comentario_cliente_pendente_em.strftime('%d/%m %H:%M') }})">C</span>{% endif %}</td>
+        <td>{{ l.portal or '—' }}{% if current_user.is_assessor() and l.id in sem_acesso_ids %}<br><span class="tag-sem-acesso" title="Cliente sem acesso ativo neste portal">Sem acesso</span>{% endif %}</td>
         <td>
           {% if l.data_disputa %}
             {{ l.data_disputa.strftime('%d/%m/%Y') }}<br>

@@ -168,6 +168,7 @@ def create_app():
         _corrigir_atas_prospeccao()
         _limpar_prospeccao_fora_do_nome()
         _marcar_licitacoes_ja_avisadas()
+        _padrao_de_texto()
 
     return app
 
@@ -579,6 +580,30 @@ def _corrigir_atas_prospeccao():
 
 
 
+
+
+def _padrao_de_texto():
+    """Uma unica vez: aplica o padrao de texto do Bidfy (models.CAMPOS_NOME e
+    CAMPOS_FRASE) em tudo que ja estava gravado. Daqui em diante cada texto
+    ja e padronizado ao ser gravado."""
+    from app.models import MigracaoAplicada, CAMPOS_NOME, CAMPOS_FRASE
+    nome = "padrao_de_texto_v1"
+    try:
+        if MigracaoAplicada.query.filter_by(nome=nome).first():
+            return
+        campos = {}
+        for c in CAMPOS_NOME + CAMPOS_FRASE:
+            campos.setdefault(c.class_, []).append(c.key)
+        for modelo, chaves in campos.items():
+            for obj in modelo.query.all():
+                for k in chaves:
+                    valor = getattr(obj, k)
+                    if valor:
+                        setattr(obj, k, valor)  # o evento "set" padroniza
+        db.session.add(MigracaoAplicada(nome=nome))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
 
 
 def _marcar_licitacoes_ja_avisadas():

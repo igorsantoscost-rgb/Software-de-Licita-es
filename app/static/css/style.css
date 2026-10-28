@@ -2067,3 +2067,8 @@ body.com-menu .container, body.com-menu .container.container-full { max-width: n
 .tabela-portais td:last-child > * { vertical-align: middle; }
 .aviso-portal input[type=text] { padding: 7px 10px; border: 1px solid var(--borda); border-radius: 8px; font: inherit; background: #fff; }
 .aviso-portal-resumo { cursor: pointer; }
+
+/* Painel: o orgao ocupa o espaco da coluna Valor homologado quando ela nao aparece */
+.tabela-painel { width: 100%; }
+.tabela-painel .col-orgao { width: 36%; }
+.tabela-painel.com-homologado .col-orgao { width: 26%; }

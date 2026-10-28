@@ -15,7 +15,8 @@ from app.capag import UFS_VALIDAS
 
 # Palavras que ficam minusculas no meio de um nome
 CONECTIVOS = {"de", "do", "da", "dos", "das", "e", "em", "no", "na", "nos", "nas",
-              "a", "o", "as", "os", "para", "por", "com", "ao", "aos", "à", "às"}
+              "a", "o", "as", "os", "para", "por", "com", "ao", "aos", "à", "às",
+              "del", "di", "du", "dei"}
 
 # Siglas que continuam em maiusculo
 SIGLAS = {
@@ -25,9 +26,21 @@ SIGLAS = {
     "PNCP", "BLL", "BNC", "SA", "S/A", "LTDA", "EIRELI", "MEI", "SUS", "UBS", "UPA",
     "CRAS", "CREAS", "CAPS", "SEMED", "SEMSA", "SEMOB", "DETRAN", "DER", "DNIT",
     "INSS", "IBGE", "TCU", "CGU", "CEP", "GLP", "GNV", "TI", "CFTV", "USB", "HDMI",
-    "RJ45", "CAT5", "CAT6", "UTP", "AC", "CA", "CC", "AB", "II", "III", "IV", "VI",
+    "RJ45", "CAT5", "CAT6", "UTP", "PV", "PVA", "EVA", "TNT", "AC", "CA", "CC", "AB", "II", "III", "IV", "VI",
     "VII", "VIII", "IX", "XI", "XII", "OM", "OMS", "RM", "BI", "CIA", "COMAR", "CTMRJ",
     "EB", "MB", "FAB", "MD", "GHC", "HNSC", "IPM", "RS", "SC", "PR",
+    "PMMG", "CBMMG", "PCMG", "TJMG", "MPMG", "ALMG", "TCE", "TCEMG", "TRE", "TRT", "TRF", "TJ",
+    "MP", "MPF", "PF", "PRF", "PM", "CBM", "UFMG", "UFU", "UFJF", "UFV", "UFOP", "UFLA",
+    "UFSJ", "UFTM", "UFVJM", "UNIFAL", "UNIFEI", "UEMG", "UNIMONTES", "IFMG", "IFNMG",
+    "IFSULDEMINAS", "IFTM", "CEFET", "FHEMIG", "HEMOMINAS", "FUNED", "COPASA", "CEMIG",
+    "SEPLAG", "SEE", "SES", "SEDESE", "SEJUSP", "DEER", "IEF", "IMA", "EMATER", "IGAM",
+    "FEAM", "IPSEMG", "CODEMIG", "UF", "IF", "INSS", "FNDE", "INCRA", "IBAMA", "ICMBIO",
+    "EBSERH", "ANVISA", "ANAC", "ANATEL", "ANEEL", "ANP", "ANS", "ANA", "CNEN", "CAPES",
+    "CNPQ", "FIOCRUZ", "EMBRAPA", "CONAB", "DATAPREV", "SERPRO", "CEF", "BB", "BNDES",
+    "SENAI", "SESI", "SENAC", "SESC", "SEBRAE", "SENAR", "SEST", "SENAT", "CREA", "CRM",
+    "CRO", "OAB", "CMEI", "EMEI", "EE", "EM", "ETE", "ETA", "CISAMESP", "SUS", "SAMU",
+    "CISRU", "HC", "HU", "UNIFESP", "USP", "UNICAMP", "UNESP", "UFRJ", "UFF", "UFPR",
+    "UFSC", "UFRGS", "UFBA", "UFPE", "UFC", "UNB", "UFG", "UFMS", "UFMT", "UFPA", "UFAM",
 }
 SIGLAS_UF = UFS_VALIDAS
 
@@ -170,3 +183,84 @@ def _padronizar_frase_trecho(texto, inicio_texto=True):
         saida.append(_ajustar_palavra(p, inicio, "frase"))
         inicio = p.endswith((".", "!", "?")) and len(p) > 3
     return "".join(saida)
+
+
+
+# ─── Padrao de nomes do Bidfy (pedido do Igor) ───────────────────────────────
+# Todo nome (orgao, municipio, lote) fica com a 1a letra de cada palavra
+# maiuscula, conectivos minusculos e siglas mantidas, nao importa como chegou:
+# "PREFEITURA MUNICIPAL DE CURVELO" / "prefeitura municipal de curvelo"
+#   -> "Prefeitura Municipal de Curvelo"
+# "Coord.geral Prog.desenvolv.submarino Nuclear"
+#   -> "Coord.Geral Prog.Desenvolv.Submarino Nuclear"
+# Nome de cliente e de empresa nao passa por aqui.
+
+_VOGAIS = set("aeiouáéíóúâêôãõàyAEIOUÁÉÍÓÚÂÊÔÃÕÀY")
+_ROMANOS = re.compile(r"^(?=[IVX])X{0,3}(?:IX|IV|V?I{0,3})$")
+
+
+def _eh_sigla(nucleo, texto_todo_maiusculo):
+    letras = re.sub(r"[^A-Za-zÀ-ÿ]", "", nucleo)
+    if not letras:
+        return False
+    sem_pontos = nucleo.replace(".", "").upper()
+    if sem_pontos in SIGLAS or _ROMANOS.match(sem_pontos):
+        return True
+    if not letras.isupper() or len(letras) < 2:
+        return False
+    if not texto_todo_maiusculo:
+        return True  # palavra toda em maiusculo num texto normal: sigla escrita de proposito
+    # texto todo em maiusculo: sigla so se nao tiver vogal (PMMG, CBMMG, SPPS)
+    return not any(c in _VOGAIS for c in letras)
+
+
+def _capitalizar(palavra):
+    """minusculo e 1a letra de cada parte maiuscula (Santa-Maria, D'Oeste, Coord.Geral)."""
+    baixa = palavra.lower()
+    return re.sub(r"(^|[-'’/(.])([a-zà-ÿ])", lambda m: m.group(1) + m.group(2).upper(), baixa)
+
+
+def titulo(texto):
+    """Aplica o padrao de nomes do Bidfy (veja acima)."""
+    if not texto or not texto.strip():
+        return texto
+    texto = re.sub(r"\s+", " ", texto.strip())
+    todo_maiusculo = _maiusculo_demais(texto, 0.85)
+    partes = re.split(r"(\s+|\s*/\s*|\s+[—–-]\s+)", texto)
+    saida, inicio = [], True
+    for p in partes:
+        if not p:
+            continue
+        if p.isspace() or re.fullmatch(r"\s*/\s*|\s+[—–-]\s+", p):
+            saida.append(p)
+            if p.strip():
+                inicio = True
+            continue
+        nucleo = p.strip(".,;:()[]\"'“”")
+        anterior = "".join(saida).rstrip()
+        if (nucleo.upper() in SIGLAS_UF and len(nucleo) == 2
+                and (anterior.endswith(("/", "-", "–", "—", "(")) or p.startswith("("))):
+            saida.append(p.replace(nucleo, nucleo.upper()))
+        elif any(ch.isdigit() for ch in nucleo) or _eh_sigla(nucleo, todo_maiusculo):
+            saida.append(p if not todo_maiusculo or nucleo.replace(".", "").upper() in SIGLAS
+                         or _ROMANOS.match(nucleo.upper()) or any(ch.isdigit() for ch in nucleo)
+                         else p.upper())
+        elif not inicio and nucleo.lower() in CONECTIVOS:
+            saida.append(p.lower())
+        else:
+            saida.append(_capitalizar(p))
+        inicio = False
+    resultado = "".join(saida)
+    resultado = re.sub(r"\(([A-Za-z]{2})\)",
+                       lambda m: "(" + (m.group(1).upper() if m.group(1).upper() in SIGLAS_UF else m.group(1)) + ")",
+                       resultado)
+    resultado = re.sub(r"\bS[ /]?a\.?$", "S.A.", resultado)
+    return _uf_final(resultado)
+
+
+def primeira_maiuscula(texto):
+    """Texto corrido: padroniza o que esta todo em maiusculo e garante a 1a letra maiuscula."""
+    if not texto:
+        return texto
+    t = padronizar_frase(texto)
+    return re.sub(r"^(\W*)([a-zà-ÿ])", lambda m: m.group(1) + m.group(2).upper(), t, count=1)

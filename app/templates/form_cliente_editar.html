@@ -272,7 +272,7 @@
         <td><strong>{{ a.portal }}</strong></td>
         <td>{% if a.pago %}<span class="tag-acesso tag-acesso-pago">{{ a.rotulo_forma }}</span>{% else %}<span class="tag-acesso">Gratuito</span>{% endif %}</td>
         <td class="col-num">{{ a.valor|brl if a.pago else '—' }}</td>
-        <td>{% if a.valido_ate %}{{ a.valido_ate.strftime('%d/%m/%Y') }}{% if not a.ativo %} <span class="tag-vencido">vencido</span>{% endif %}{% else %}<span class="muted-sm">sem prazo</span>{% endif %}</td>
+        <td>{% if a.valido_ate %}{{ a.valido_ate.strftime('%d/%m/%Y') }}{% if not a.ativo %} <span class="tag-vencido">Vencido</span>{% endif %}{% else %}<span class="muted-sm">Sem prazo</span>{% endif %}</td>
         <td class="muted-sm">{{ a.observacao or '' }}{% if a.autor %}<br>Registrado por {{ a.autor.nome }} em {{ a.criado_em.strftime('%d/%m/%Y') }}{% endif %}</td>
         <td class="nowrap">
           <details class="acesso-editar">
@@ -330,7 +330,7 @@
       <tr>
         <td class="nowrap">{{ s.criado_em.strftime('%d/%m/%Y') }}<br><span class="muted-sm">{{ s.autor.nome if s.autor else '' }}</span></td>
         <td>{{ s.portal }}</td>
-        <td>{% if s.licitacao %}<a href="{{ url_for('lic.detalhe', id=s.licitacao_id) }}">{{ s.licitacao.numero_pregao }}</a><br><span class="muted-sm">{{ s.licitacao.orgao_licitante[:40] }}</span>{% else %}<span class="muted-sm">excluída</span>{% endif %}</td>
+        <td>{% if s.licitacao %}<a href="{{ url_for('lic.detalhe', id=s.licitacao_id) }}">{{ s.licitacao.numero_pregao }}</a><br><span class="muted-sm">{{ s.licitacao.orgao_licitante[:40] }}</span>{% else %}<span class="muted-sm">Excluída</span>{% endif %}</td>
         <td class="muted-sm">{% for p in s.lista_planos %}{{ formas_pagamento[p.forma] }}: {{ p.valor|brl }}{% if not loop.last %}<br>{% endif %}{% endfor %}</td>
         <td>{{ resposta_solicitacao(s) }}</td>
       </tr>
@@ -356,7 +356,7 @@
         <td class="nowrap">{{ c.criado_em.strftime('%d/%m/%Y') }}</td>
         <td>{{ c.descricao }}</td>
         <td class="col-num">{{ c.valor|brl if c.fatura_id else '—' }}</td>
-        <td>{% if f %}<a href="{{ url_for('fin.detalhe_fatura', id=f.id) }}">{{ f.nome_mes }}</a>{% else %}<span class="muted-sm">fora do Bidfy</span>{% endif %}</td>
+        <td>{% if f %}<a href="{{ url_for('fin.detalhe_fatura', id=f.id) }}">{{ f.nome_mes }}</a>{% else %}<span class="muted-sm">Fora do Bidfy</span>{% endif %}</td>
       </tr>
     {% endfor %}
     </tbody>
