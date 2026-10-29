@@ -105,6 +105,38 @@
               {% if p.participacao_me %}<span class="import-me import-me-{{ p.participacao_me }}" title="Pelos {{ p.participacao_fonte }}">{{ {'exclusiva': 'Exclusiva ME/EPP', 'mista': 'Mista ME/EPP', 'ampla': 'Ampla concorrência'}[p.participacao_me] }}</span>{% endif %}
             </span>
             {% endif %}
+            {% if p.itens %}
+            {% set ic = p.itens_cliente or {} %}
+            {% for c in clientes %}{% if ic.get(c.id) %}
+            {% set achados = ic[c.id] %}
+            <details class="itens-motivo" data-cliente="{{ c.id }}" {% if p.cliente_sugerido == c.id %}open{% else %}hidden{% endif %}>
+              <summary>&#128230; {{ achados|length }} de {{ p.itens|length }} {{ 'item' if p.itens|length == 1 else 'itens' }} para {{ c.nome }}</summary>
+              <ul class="itens-motivo-lista">
+                {% for idx, palavras in achados %}{% set it = p.itens[idx] %}
+                <li{% if loop.index > 6 %} class="itens-motivo-mais" hidden{% endif %}>
+                  <span class="itens-motivo-num">{% if it.lote_grupo %}{{ it.lote_grupo }} &middot; {% endif %}{{ it.numero_item or idx + 1 }}</span>
+                  <span class="itens-motivo-desc" title="{{ it.descricao }}">{{ (it.descricao or '')[:110] }}{% if (it.descricao or '')|length > 110 %}&hellip;{% endif %}</span>
+                  <span class="itens-motivo-qtd">{% if it.quantidade is not none %}{{ "{:,}".format(it.quantidade).replace(",", ".") }}{% if it.unidade %} {{ it.unidade }}{% endif %}{% else %}&mdash;{% endif %}</span>
+                </li>
+                {% endfor %}
+              </ul>
+              {% if achados|length > 6 %}<button type="button" class="itens-motivo-ver">Ver mais {{ achados|length - 6 }}</button>{% endif %}
+            </details>
+            {% endif %}{% endfor %}
+            <details class="itens-motivo" data-cliente="" {% if p.cliente_sugerido and ic.get(p.cliente_sugerido) %}hidden{% endif %}>
+              <summary>&#128230; Nenhum item com palavra-chave deste cliente &middot; ver os {{ p.itens|length }}</summary>
+              <ul class="itens-motivo-lista">
+                {% for it in p.itens %}
+                <li{% if loop.index > 6 %} class="itens-motivo-mais" hidden{% endif %}>
+                  <span class="itens-motivo-num">{% if it.lote_grupo %}{{ it.lote_grupo }} &middot; {% endif %}{{ it.numero_item or loop.index }}</span>
+                  <span class="itens-motivo-desc" title="{{ it.descricao }}">{{ (it.descricao or '')[:110] }}{% if (it.descricao or '')|length > 110 %}&hellip;{% endif %}</span>
+                  <span class="itens-motivo-qtd">{% if it.quantidade is not none %}{{ "{:,}".format(it.quantidade).replace(",", ".") }}{% if it.unidade %} {{ it.unidade }}{% endif %}{% else %}&mdash;{% endif %}</span>
+                </li>
+                {% endfor %}
+              </ul>
+              {% if p.itens|length > 6 %}<button type="button" class="itens-motivo-ver">Ver mais {{ p.itens|length - 6 }}</button>{% endif %}
+            </details>
+            {% endif %}
             {% for a in p.avisos %}
             <span class="import-aviso">⚠ {{ a }}</span>
             {% endfor %}
@@ -159,7 +191,25 @@
   var contador = document.getElementById('contador');
   var todos = document.getElementById('marcar-todos');
   var selects = Array.prototype.slice.call(document.querySelectorAll('.select-cliente-import'));
-  selects.forEach(function (s) { s.addEventListener('change', function () { s.classList.toggle('sem-cliente', !s.value); }); });
+  // Mostra os itens que combinam com o cliente escolhido na linha
+  function mostrarItens(sel) {
+    var td = sel.closest('tr').querySelector('.import-orgao');
+    if (!td) return;
+    var caixas = td.querySelectorAll('.itens-motivo');
+    var achou = false;
+    caixas.forEach(function (d) {
+      var dele = d.dataset.cliente && d.dataset.cliente === sel.value;
+      d.hidden = !dele; if (dele) { d.open = true; achou = true; }
+    });
+    caixas.forEach(function (d) { if (!d.dataset.cliente) { d.hidden = achou; d.open = false; } });
+  }
+  document.querySelectorAll('.itens-motivo-ver').forEach(function (b) {
+    b.addEventListener('click', function () {
+      b.parentNode.querySelectorAll('.itens-motivo-mais').forEach(function (li) { li.hidden = false; });
+      b.remove();
+    });
+  });
+  selects.forEach(function (s) { s.addEventListener('change', function () { s.classList.toggle('sem-cliente', !s.value); mostrarItens(s); }); });
   // "+ Adicionar outro cliente": cria a caixa marcada do cliente escolhido
   document.querySelectorAll('.import-add-cliente').forEach(function (sel) {
     sel.addEventListener('change', function () {

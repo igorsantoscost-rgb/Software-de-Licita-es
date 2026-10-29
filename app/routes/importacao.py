@@ -550,7 +550,10 @@ def conferir(token):
     clientes = _clientes_do_usuario()
     nomes = {c.id: c.nome for c in clientes}
     propostas = analise["propostas"]
+    classificador = _classificador(clientes)
     for p in propostas:
+        # Itens que levaram cada cliente a ser sugerido (mostrados na conferencia)
+        p["itens_cliente"] = classificador.itens_por_cliente(p.get("itens"))
         p["data_fmt"] = (datetime.strptime(p["data_disputa"], "%Y-%m-%dT%H:%M").strftime("%d/%m/%Y %H:%M")
                          if p.get("data_disputa") else None)
         p["qtd_lotes"] = len({i["lote_grupo"] for i in p["itens"] if i.get("lote_grupo")})

@@ -2072,3 +2072,15 @@ body.com-menu .container, body.com-menu .container.container-full { max-width: n
 .tabela-painel { width: 100%; }
 .tabela-painel .col-orgao { width: 36%; }
 .tabela-painel.com-homologado .col-orgao { width: 26%; }
+
+/* Conferencia da importacao: itens que levaram ao cliente */
+.itens-motivo { margin-top: 6px; font-size: .8rem; background: #f4f8f3; border: 1px solid var(--borda); border-radius: 8px; padding: 4px 10px; max-width: 560px; }
+.itens-motivo[hidden] { display: none; }
+.itens-motivo summary { cursor: pointer; font-weight: 600; color: var(--texto); }
+.itens-motivo-lista { list-style: none; margin: 6px 0 2px; padding: 0; }
+.itens-motivo-lista li { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; padding: 3px 0; border-top: 1px dashed var(--borda); align-items: baseline; }
+.itens-motivo-lista li[hidden] { display: none; }
+.itens-motivo-num { color: var(--texto-suave); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.itens-motivo-desc { color: var(--texto); line-height: 1.3; }
+.itens-motivo-qtd { white-space: nowrap; font-weight: 600; font-variant-numeric: tabular-nums; }
+.itens-motivo-ver { background: none; border: 0; padding: 2px 0; color: #1d4ed8; font-size: .8rem; cursor: pointer; font-weight: 600; }

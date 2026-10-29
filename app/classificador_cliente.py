@@ -220,6 +220,25 @@ class Classificador:
             "bloqueados": [r for r in ranking if r["so_grupo_misto"]],
         }
 
+    def itens_por_cliente(self, itens):
+        """Indices dos itens que combinam com cada cliente (mesma regra do
+        classificar: nome do item + palavras de exclusao).
+        Devolve {cliente_id: [(indice, [palavras achadas])...]}."""
+        nomes = [(_nome_item(i.get("descricao")), _normalizar(i.get("descricao"))) for i in (itens or [])]
+        saida = {}
+        for cid, _nome, padroes in self.clientes:
+            excl = self.exclusoes.get(cid)
+            achados = []
+            for idx, (txt, inteiro) in enumerate(nomes):
+                if not txt or _excluido(excl, inteiro):
+                    continue
+                palavras = [palavra for palavra, rx in padroes if rx.search(txt)]
+                if palavras:
+                    achados.append((idx, palavras))
+            if achados:
+                saida[cid] = achados
+        return saida
+
     def analisar_cliente(self, cliente_id, itens):
         """Grupos mistos de um cliente especifico (cliente escolhido no envio)."""
         for cid, _nome, padroes in self.clientes:
