@@ -1,37 +1,41 @@
-{# Caixa de busca + lista de resultados (usada no calendario mensal e semanal).
+{# Busca do calendario (mensal e semanal): campo + card com a quantidade encontrada.
+   A lista de resultados so abre ao clicar no card.
    Espera: busca, resultados_busca, acao (url do formulario) e campos_ocultos (dict). #}
+<div class="busca-linha">
 <form method="GET" action="{{ acao }}" class="busca-form">
   {% for nome, valor in campos_ocultos.items() %}
   <input type="hidden" name="{{ nome }}" value="{{ valor }}">
   {% endfor %}
   <input type="search" name="busca" value="{{ busca }}" class="busca-input"
-         placeholder="Buscar licitação: órgão, objeto, portal, número, UASG, cidade, item...">
+         placeholder="Buscar licita&ccedil;&atilde;o: &oacute;rg&atilde;o, objeto, portal, n&uacute;mero, UASG, cidade, item...">
   <button type="submit" class="btn btn-primary btn-sm">Buscar</button>
   {% if busca %}<a href="{{ acao }}{% if campos_ocultos %}?{% for n, v in campos_ocultos.items() %}{{ n }}={{ v }}{% if not loop.last %}&{% endif %}{% endfor %}{% endif %}" class="btn btn-sm">Limpar</a>{% endif %}
 </form>
-
 {% if busca %}
-<div class="card busca-resultados">
-  {% if g.busca_digitada %}<p class="busca-corrigida">Nada encontrado com "<strong>{{ g.busca_digitada }}</strong>". Mostrando resultados para "<strong>{{ busca }}</strong>".</p>{% endif %}
+<div class="cards-contagem">
+<details class="card-contagem card-busca">
+  <summary>
+    <strong class="card-contagem-total">{{ resultados_busca|length }}</strong>
+    <span class="card-contagem-titulo">licita&ccedil;&atilde;o(&otilde;es) com "{{ busca }}"</span>
+    {% if g.busca_digitada %}<small class="card-contagem-sub">(voc&ecirc; digitou "{{ g.busca_digitada }}")</small>{% endif %}
+    {% if resultados_busca %}<span class="card-contagem-abrir">ver lista &#9662;</span>{% endif %}
+  </summary>
   {% if resultados_busca %}
-  <p class="busca-resultados-titulo">
-    {{ resultados_busca|length }} licitação(ões) com "<strong>{{ busca }}</strong>" — o calendário abaixo mostra só essas.
-  </p>
-  <ul class="busca-lista">
+  <ul class="card-contagem-lista busca-lista">
+    <li class="busca-lista-dica muted-sm">O calend&aacute;rio mostra s&oacute; essas licita&ccedil;&otilde;es.</li>
     {% for l in resultados_busca[:30] %}
     <li>
       <a href="{{ url_for('main.calendario_semana', inicio=l.data_disputa.date().isoformat(), dia=l.data_disputa.date().isoformat(), busca=busca) }}"
          class="busca-data" title="Ver a semana desta disputa">{{ l.data_disputa.strftime('%d/%m/%Y %H:%M') }}</a>
-      <a href="{{ url_for('lic.detalhe', id=l.id) }}" class="busca-orgao">{{ l.numero_pregao }} · {{ l.orgao_licitante }}</a> {% if current_user.is_assessor() and l.comentario_cliente_pendente_em %}<span class="tag-comentario-cliente" title="Comentário novo do cliente ({{ l.comentario_cliente_pendente_em.strftime('%d/%m %H:%M') }})">C</span>{% endif %}
-      <span class="badge status-{{ l.status|replace(' ', '-') }}">{{ l.status|rotulo_status }}</span>
-      {% include '_tag_manual.html' %}
-      {% if l.data_disputa_original %}<span class="tag-reagendada">Reagendada</span>{% endif %}
+      <a href="{{ url_for('lic.detalhe', id=l.id) }}" class="busca-orgao" title="{{ l.numero_pregao }} - {{ l.orgao_licitante }}">{{ l.numero_pregao }} &middot; {{ l.orgao_licitante }}</a>
+      <span class="busca-status"><span class="badge status-{{ l.status|replace(' ', '-') }}">{{ l.status|rotulo_status }}</span></span>
+      <span class="busca-tags">{% if current_user.is_assessor() and l.comentario_cliente_pendente_em %}<span class="tag-comentario-cliente" title="Coment&aacute;rio novo do cliente">C</span>{% endif %}{% with tag_icone=True %}{% include '_tag_manual.html' %}{% endwith %}{% if l.data_disputa_original %}<span class="evento-reag-icone" title="Reagendada">&#8635;</span>{% endif %}</span>
     </li>
     {% endfor %}
+    {% if resultados_busca|length > 30 %}<li class="muted-sm">Mostrando as 30 primeiras. Refine a busca para ver menos.</li>{% endif %}
   </ul>
-  {% if resultados_busca|length > 30 %}<p class="muted-sm">Mostrando as 30 primeiras. Refine a busca para ver menos.</p>{% endif %}
-  {% else %}
-  <p class="muted" style="margin:0;">Nenhuma licitação encontrada com "<strong>{{ busca }}</strong>".</p>
   {% endif %}
+</details>
 </div>
 {% endif %}
+</div>

@@ -15,11 +15,12 @@
   </div>
 </div>
 
-{% with cards=cards_resumo %}{% include "_cards_contagem.html" %}{% endwith %}
-
+<div class="topo-calendario">
 {% with acao=url_for('main.calendario'), campos_ocultos={'mes': mes, 'ano': ano} %}
 {% include "_busca_calendario.html" %}
 {% endwith %}
+{% with cards=cards_resumo %}{% include "_cards_contagem.html" %}{% endwith %}
+</div>
 
 <div class="calendario-wrap">
   <table class="calendario">
@@ -51,11 +52,10 @@
                {% if l.cliente.cor %}style="border-left-color:{{ l.cliente.cor }};"{% endif %}>
               <span class="evento-pill-topo">
                 <span class="evento-hora" title="{{ l.numero_pregao }}"><b>{{ l.data_disputa.strftime('%H:%M') }}</b> {{ l.numero_pregao }}</span>
+                {% with tag_icone=True %}{% include '_tag_manual.html' %}{% endwith %}{% if l.data_disputa_original %}<span class="evento-reag-icone" title="Reagendada (era {{ l.data_disputa_original.strftime('%d/%m %H:%M') }})">&#8635;</span>{% endif %}
                 {% if l|tem_comentario_assessor %}<span class="evento-recado-icon" title="Tem comentário do assessor">💬</span>{% endif %}
               </span>
               <span class="evento-orgao" title="{{ l.orgao_licitante }}">{% if current_user.is_assessor() and l.favoritada_pelo_cliente %}<span class="estrela-cliente" title="Favorita do cliente">★</span>{% endif %}{{ l.orgao_licitante }} {% if current_user.is_assessor() and l.comentario_cliente_pendente_em %}<span class="tag-comentario-cliente" title="Comentário novo do cliente ({{ l.comentario_cliente_pendente_em.strftime('%d/%m %H:%M') }})">C</span>{% endif %}</span>
-              {% with tag_mini=True %}{% include '_tag_manual.html' %}{% endwith %}
-              {% if l.data_disputa_original %}<span class="tag-reagendada tag-reagendada-mini">↻ Reagendada</span>{% endif %}
             </a>
             {% endfor %}
           </div>

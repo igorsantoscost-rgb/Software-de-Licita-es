@@ -18,11 +18,12 @@
   </div>
 </div>
 
-{% with cards=cards_resumo %}{% include "_cards_contagem.html" %}{% endwith %}
-
+<div class="topo-calendario">
 {% with acao=url_for('main.calendario_semana'), campos_ocultos={'inicio': inicio.isoformat()} %}
 {% include "_busca_calendario.html" %}
 {% endwith %}
+{% with cards=cards_resumo %}{% include "_cards_contagem.html" %}{% endwith %}
+</div>
 
 <div class="semana-wrap">
   {% for dia in dias_semana %}
@@ -40,11 +41,10 @@
           <div class="evento-card-topo">
             <span class="evento-card-hora">{{ l.data_disputa.strftime('%H:%M') }}</span>
             <span class="evento-card-pregao" title="{{ l.numero_pregao }}">{{ l.numero_pregao }}</span>
+            {% with tag_icone=True %}{% include '_tag_manual.html' %}{% endwith %}{% if l.data_disputa_original %}<span class="evento-reag-icone" title="Reagendada (era {{ l.data_disputa_original.strftime('%d/%m %H:%M') }})">&#8635;</span>{% endif %}
             {% if l|tem_comentario_assessor %}<span class="evento-recado-icon" title="Tem comentário do assessor">💬</span>{% endif %}
           </div>
           <div class="evento-card-orgao" title="{{ l.orgao_licitante }}">{% if current_user.is_assessor() and l.favoritada_pelo_cliente %}<span class="estrela-cliente" title="Favorita do cliente">★</span>{% endif %}{{ l.orgao_licitante }} {% if current_user.is_assessor() and l.comentario_cliente_pendente_em %}<span class="tag-comentario-cliente" title="Comentário novo do cliente ({{ l.comentario_cliente_pendente_em.strftime('%d/%m %H:%M') }})">C</span>{% endif %}</div>
-          {% with tag_mini=True %}{% include '_tag_manual.html' %}{% endwith %}
-          {% if l.data_disputa_original %}<div class="tag-reagendada tag-reagendada-mini" title="Data original: {{ l.data_disputa_original.strftime('%d/%m/%Y %H:%M') }}">↻ Reagendada</div>{% endif %}
         </a>
         {% endfor %}
       {% else %}

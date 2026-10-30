@@ -1,3 +1,4 @@
-{# Selo "Acompanhamento manual": portal fora da lista da Effecti. Espera `l` (Licitacao) ou `portal_tag` (texto). #}
+{# Selo "Acompanhamento manual": portal fora da lista da Effecti.
+   Espera `l` (Licitacao) ou `portal_tag` (texto). tag_icone=True mostra so o "!" vermelho. #}
 {% set _portal = portal_tag if portal_tag is defined else (l.portal if l else '') %}
-{% if current_user.is_assessor() and (_portal|acomp_manual) %}<span class="tag-acomp-manual{% if tag_mini is defined and tag_mini %} tag-acomp-manual-mini{% endif %}" title="Portal {{ _portal }} n&atilde;o &eacute; acompanhado pela Effecti. Acompanhar manualmente."><span class="tag-acomp-manual-icone">!</span>Acompanhamento manual</span>{% endif %}
+{% if current_user.is_assessor() and (_portal|acomp_manual) %}{% if tag_icone is defined and tag_icone %}<span class="tag-acomp-icone" title="Acompanhamento manual: portal {{ _portal }} n&atilde;o &eacute; acompanhado pela Effecti">!</span>{% else %}<span class="tag-acomp-manual{% if tag_mini is defined and tag_mini %} tag-acomp-manual-mini{% endif %}" title="Portal {{ _portal }} n&atilde;o &eacute; acompanhado pela Effecti. Acompanhar manualmente."><span class="tag-acomp-manual-icone">!</span>Acompanhamento manual</span>{% endif %}{% endif %}
