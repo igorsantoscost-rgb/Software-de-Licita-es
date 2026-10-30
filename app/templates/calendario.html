@@ -69,12 +69,6 @@
   </table>
 </div>
 
-<div class="legenda-status">
-  {% for s in ['agendada', 'em disputa', 'em julgamento', 'em habilitacao', 'homologada', 'revogada', 'cancelada'] %}
-  <span class="legenda-item"><span class="badge status-{{ s|replace(' ', '-') }}">{{ s|rotulo_status }}</span></span>
-  {% endfor %}
-</div>
-
 {% include "_andamento_calendario.html" %}
 
 <script>
