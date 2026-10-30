@@ -1,4 +1,6 @@
-from flask import Blueprint, render_template, redirect, url_for, request, flash, session
+from flask import Blueprint, render_template, redirect, url_for, request, flash, session, g
+import re
+import difflib
 from flask_login import login_required, current_user
 from app.models import Licitacao, Cliente, User, STATUS_CHOICES, PalavraChaveCliente, ItemLicitacao, FavoritoLicitacao
 from app import db, bcrypt
@@ -31,6 +33,65 @@ def _em_andamento(busca=""):
     lics = filtrar_por_busca(q.order_by(Licitacao.data_disputa.asc()).all(), busca)
     return [(s, [l for l in lics if l.status == s]) for s in STATUS_ANDAMENTO]
 
+
+
+# Cards de contagem (painel e calendario)
+MESES_NOME = ["", "janeiro", "fevereiro", "mar\u00e7o", "abril", "maio", "junho", "julho",
+              "agosto", "setembro", "outubro", "novembro", "dezembro"]
+
+
+def _por_cliente(lics, url_cliente):
+    """[{nome, cor, n, url}] agrupando as licitacoes por cliente (mais licitacoes primeiro)."""
+    grupos = {}
+    for l in lics:
+        g = grupos.setdefault(l.cliente_id, {"cliente": l.cliente, "n": 0})
+        g["n"] += 1
+    saida = []
+    for g in grupos.values():
+        c = g["cliente"]
+        saida.append({"nome": c.nome if c else "-", "cor": (c.cor if c else None),
+                      "n": g["n"], "url": url_cliente(c) if c else None})
+    saida.sort(key=lambda x: (-x["n"], normalizar(x["nome"])))
+    return saida
+
+
+def _cards_painel():
+    """Cards Agendadas / Em andamento do topo do painel.
+    Assessor: todas, com a divisao por cliente. Cliente: so as dele."""
+    q = Licitacao.query.filter(Licitacao.status.in_(["agendada"] + STATUS_ANDAMENTO))
+    assessor = current_user.is_assessor()
+    if not assessor:
+        q = q.filter(Licitacao.cliente_id == current_user.cliente_id)
+    lics = q.all()
+    rotulos = {"em disputa": "disputa", "em julgamento": "julgamento", "em habilitacao": "habilita\u00e7\u00e3o"}
+    hoje = date.today()
+    cards = []
+    for chave, titulo, status in (("agendada", "Agendadas", ["agendada"]),
+                                  ("andamento", "Em andamento", STATUS_ANDAMENTO)):
+        grupo = [l for l in lics if l.status in status]
+        if chave == "andamento":
+            sub = " \u00b7 ".join(f"{sum(1 for l in grupo if l.status == s)} {rotulos[s]}" for s in STATUS_ANDAMENTO)
+        else:
+            semana = sum(1 for l in grupo if l.data_disputa and hoje <= l.data_disputa.date() <= hoje + timedelta(days=7))
+            sub = f"{semana} nos pr\u00f3ximos 7 dias"
+        cards.append({
+            "chave": chave, "titulo": titulo, "total": len(grupo), "sub": sub,
+            "url": url_for("main.painel", status=chave, cliente_id="todos"),
+            "clientes": _por_cliente(grupo, lambda c, k=chave: url_for("main.painel", status=k, cliente_id=c.id))
+                        if assessor else None,
+        })
+    return cards
+
+
+def _card_calendario(lics, titulo, url_cliente):
+    """Card de total do periodo no topo do calendario (mesmo criterio do painel)."""
+    assessor = current_user.is_assessor()
+    return [{
+        "chave": "periodo", "titulo": titulo, "total": len(lics),
+        "sub": (f"{len({l.cliente_id for l in lics})} cliente(s)" if assessor else "suas disputas agendadas"),
+        "url": None,
+        "clientes": _por_cliente(lics, url_cliente) if assessor else None,
+    }]
 
 
 # Colunas clicaveis do painel -> funcao que extrai a chave de ordenacao de cada licitacao
@@ -134,6 +195,52 @@ def filtrar_por_busca(lics, busca):
     return resultado
 
 
+def sugerir_busca(busca, lics):
+    """Busca sem resultado: troca cada palavra que nao existe por a mais parecida
+    que aparece nas licitacoes ou na descricao dos itens (erro de digitacao).
+    Ex: "tavesseiro" -> "travesseiro". Devolve None se nao houver sugestao."""
+    palavras = normalizar(busca).split() if busca else []
+    if not palavras or not lics:
+        return None
+    vocab = set()
+    for l in lics:
+        vocab.update(re.findall(r"[a-z0-9]{3,}", _texto_busca(l)))
+    ids = [l.id for l in lics]
+    for (desc, lote) in (db.session.query(ItemLicitacao.descricao, ItemLicitacao.lote_grupo)
+                         .filter(ItemLicitacao.licitacao_id.in_(ids)).all()):
+        vocab.update(re.findall(r"[a-z0-9]{3,}", normalizar((desc or "") + " " + (lote or ""))))
+    vocab = list(vocab)
+    novas, mudou = [], False
+    for p in palavras:
+        if any(p in w for w in vocab):
+            novas.append(p)
+            continue
+        parecida = difflib.get_close_matches(p, vocab, n=1, cutoff=0.8)
+        if parecida:
+            novas.append(parecida[0])
+            mudou = True
+        else:
+            novas.append(p)
+    return " ".join(novas) if mudou else None
+
+
+def _corrigir_busca_calendario(busca):
+    """Calendario: se a busca nao acha nada, tenta a palavra parecida."""
+    if not busca:
+        return busca
+    q = Licitacao.query.filter(Licitacao.data_disputa.isnot(None))
+    if not current_user.is_assessor():
+        q = q.filter(Licitacao.cliente_id == current_user.cliente_id)
+    base = q.all()
+    if filtrar_por_busca(base, busca):
+        return busca
+    sugestao = sugerir_busca(busca, base)
+    if sugestao:
+        g.busca_digitada = busca
+        return sugestao
+    return busca
+
+
 def _licitacoes_do_usuario(status_filtro=None, cliente_filtro=None, sort_coluna=None, sort_dir="asc"):
     q = Licitacao.query
     if not current_user.is_assessor():
@@ -149,6 +256,8 @@ def _licitacoes_do_usuario(status_filtro=None, cliente_filtro=None, sort_coluna=
         q = q.filter(Licitacao.id.in_(ids_favoritos_cliente() or {0}))
     elif status_filtro == "finalizadas":
         q = q.filter(Licitacao.status.in_(("homologada", "encerrada")))
+    elif status_filtro == "andamento":
+        q = q.filter(Licitacao.status.in_(STATUS_ANDAMENTO))
     elif status_filtro and status_filtro != "todos":
         q = q.filter_by(status=status_filtro)
     # "Todos": nao filtra por status — toda licitacao continua aparecendo no
@@ -189,7 +298,13 @@ def painel():
 
     busca = (request.args.get("busca") or "").strip()
     licitacoes = _licitacoes_do_usuario(status_filtro, cliente_filtro, sort_coluna, sort_dir)
+    base_busca = licitacoes
     licitacoes = filtrar_por_busca(licitacoes, busca)
+    if busca and not licitacoes:
+        sugestao = sugerir_busca(busca, base_busca)
+        if sugestao:
+            g.busca_digitada, busca = busca, sugestao
+            licitacoes = filtrar_por_busca(base_busca, busca)
     _lembrar_tela(url_for("main.painel", status=status_filtro, cliente_id=cliente_filtro,
                           sort=sort_coluna or None, dir=sort_dir if sort_coluna else None,
                           busca=busca or None), "Painel")
@@ -209,6 +324,7 @@ def painel():
         metricas_painel=_metricas_painel(licitacoes, status_filtro),
         sem_acesso_ids=_sem_acesso_portal(licitacoes) if current_user.is_assessor() else set(),
         consultas_pendentes=_consultas_pendentes_cliente(),
+        cards_resumo=_cards_painel(),
     )
 
 
@@ -275,7 +391,7 @@ def calendario():
     )
     if not current_user.is_assessor():
         q = q.filter(Licitacao.cliente_id == current_user.cliente_id)
-    busca = (request.args.get("busca") or "").strip()
+    busca = _corrigir_busca_calendario((request.args.get("busca") or "").strip())
     licitacoes_mes = filtrar_por_busca(q.all(), busca)
     _lembrar_tela(url_for("main.calendario", mes=mes, ano=ano, busca=busca or None), "Calendário")
     resultados_busca = _resultados_busca_calendario(busca)
@@ -284,6 +400,12 @@ def calendario():
     for l in licitacoes_mes:
         d = l.data_disputa.date()
         eventos.setdefault(d, []).append(l)
+
+    from app.feriados import feriados_entre
+    feriados = feriados_entre(primeiro_dia, ultimo_dia)
+    cards_resumo = _card_calendario(
+        licitacoes_mes, "Licita\u00e7\u00f5es em " + MESES_NOME[mes],
+        lambda c: url_for("main.calendario", mes=mes, ano=ano, busca=c.nome))
 
     calendar.setfirstweekday(6)  # 6 = domingo (calendar usa 0=segunda por padrao)
     semanas = calendar.monthcalendar(ano, mes)
@@ -299,6 +421,8 @@ def calendario():
         mes=mes,
         ano=ano,
         nome_mes=nomes_meses[mes],
+        feriados=feriados,
+        cards_resumo=cards_resumo,
         primeiro_dia=primeiro_dia,
         hoje=date.today(),
         busca=busca,
@@ -326,20 +450,24 @@ def calendario_semana():
     except ValueError:
         pass
 
-    # Volta para o domingo da semana de 'inicio' (igual ao calendario mensal: domingo primeiro)
-    inicio = inicio - timedelta(days=(inicio.weekday() + 1) % 7)
-    fim = inicio + timedelta(days=6)
+    # Semana de segunda a sexta. Domingo pula para a semana seguinte
+    # (no calendario mensal o domingo abre a linha da semana).
+    if inicio.weekday() == 6:
+        inicio = inicio + timedelta(days=1)
+    inicio = inicio - timedelta(days=inicio.weekday())
+    fim = inicio + timedelta(days=4)
+    fim_busca = inicio + timedelta(days=6)  # pega tambem disputas no sabado/domingo
 
-    dias_semana = [inicio + timedelta(days=i) for i in range(7)]
+    dias_semana = [inicio + timedelta(days=i) for i in range(5)]
 
     q = Licitacao.query.filter(
         Licitacao.data_disputa >= datetime(inicio.year, inicio.month, inicio.day),
-        Licitacao.data_disputa <= datetime(fim.year, fim.month, fim.day, 23, 59, 59),
+        Licitacao.data_disputa <= datetime(fim_busca.year, fim_busca.month, fim_busca.day, 23, 59, 59),
         Licitacao.status == "agendada",  # no calendario so as disputas agendadas
     )
     if not current_user.is_assessor():
         q = q.filter(Licitacao.cliente_id == current_user.cliente_id)
-    busca = (request.args.get("busca") or "").strip()
+    busca = _corrigir_busca_calendario((request.args.get("busca") or "").strip())
     licitacoes_semana = filtrar_por_busca(q.order_by(Licitacao.data_disputa.asc()).all(), busca)
     _lembrar_tela(url_for("main.calendario_semana", inicio=inicio.isoformat(),
                           dia=dia_destaque.isoformat() if dia_destaque else None,
@@ -350,6 +478,13 @@ def calendario_semana():
     for l in licitacoes_semana:
         d = l.data_disputa.date()
         eventos.setdefault(d, []).append(l)
+
+    from app.feriados import feriados_entre
+    feriados = feriados_entre(inicio, fim)
+    fim_de_semana = [l for l in licitacoes_semana if l.data_disputa.date() > fim]
+    cards_resumo = _card_calendario(
+        licitacoes_semana, "Licita\u00e7\u00f5es nesta semana",
+        lambda c: url_for("main.calendario_semana", inicio=inicio.isoformat(), busca=c.nome))
 
     nomes_meses_curto = [
         "", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
@@ -362,6 +497,9 @@ def calendario_semana():
         eventos=eventos,
         inicio=inicio,
         fim=fim,
+        feriados=feriados,
+        fim_de_semana=fim_de_semana,
+        cards_resumo=cards_resumo,
         semana_anterior=inicio - timedelta(days=7),
         semana_seguinte=inicio + timedelta(days=7),
         nomes_meses_curto=nomes_meses_curto,

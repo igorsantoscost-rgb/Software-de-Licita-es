@@ -1,0 +1,30 @@
+{# Cards de contagem. Espera `cards`: [{chave, titulo, total, sub, url, clientes}].
+   clientes = None (visao do cliente) ou [{nome, cor, n, url}] (assessor: abre ao clicar). #}
+<div class="cards-contagem">
+  {% for c in cards %}
+  {% if c.clientes is not none %}
+  <details class="card-contagem card-contagem-{{ c.chave }}">
+    <summary>
+      <span class="card-contagem-titulo">{{ c.titulo }}</span>
+      <strong class="card-contagem-total">{{ c.total }}</strong>
+      <small class="card-contagem-sub">{{ c.sub }}</small>
+      <span class="card-contagem-abrir">por cliente &#9662;</span>
+    </summary>
+    <ul class="card-contagem-lista">
+      {% for cl in c.clientes %}
+      <li><a href="{{ cl.url }}"><span class="cliente-dot" style="background:{{ cl.cor or '#9aa79f' }};"></span>{{ cl.nome }}<strong>{{ cl.n }}</strong></a></li>
+      {% else %}
+      <li class="muted">Nenhuma licita&ccedil;&atilde;o.</li>
+      {% endfor %}
+      {% if c.url %}<li class="card-contagem-todas"><a href="{{ c.url }}">Ver todas no painel &rarr;</a></li>{% endif %}
+    </ul>
+  </details>
+  {% else %}
+  {% if c.url %}<a href="{{ c.url }}" class="card-contagem card-contagem-{{ c.chave }}">{% else %}<div class="card-contagem card-contagem-{{ c.chave }}">{% endif %}
+    <span class="card-contagem-titulo">{{ c.titulo }}</span>
+    <strong class="card-contagem-total">{{ c.total }}</strong>
+    <small class="card-contagem-sub">{{ c.sub }}</small>
+  {% if c.url %}</a>{% else %}</div>{% endif %}
+  {% endif %}
+  {% endfor %}
+</div>

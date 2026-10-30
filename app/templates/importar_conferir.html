@@ -166,7 +166,7 @@
           </td>
           <td>{{ p.numero_pregao }}{% if p.uasg %}<br><span class="muted-sm">UASG {{ p.uasg }}</span>{% endif %}</td>
           <td>{% if p.data_fmt %}{{ p.data_fmt }}{% else %}<span class="import-falta">—</span>{% endif %}</td>
-          <td>{% if p.portal %}{{ p.portal }}{% else %}<span class="import-falta">—</span>{% endif %}</td>
+          <td>{% if p.portal %}{{ p.portal }}{% with portal_tag=p.portal, tag_mini=True %}<br>{% include '_tag_manual.html' %}{% endwith %}{% else %}<span class="import-falta">—</span>{% endif %}</td>
           <td style="white-space:nowrap;">{% if p.valor_estimado %}R$ {{ "{:,.2f}".format(p.valor_estimado).replace(",", "X").replace(".", ",").replace("X", ".") }}{% else %}—{% endif %}</td>
           <td>{{ p.itens|length }}{% if p.qtd_lotes %}<br><span class="muted-sm">{{ p.qtd_lotes }} lote(s)/grupo(s)</span>{% endif %}</td>
           <td>{{ p.arquivos|length }}{% if p.edital_nome %}<br><span class="muted-sm" title="{{ p.edital_nome }}">Edital: {{ p.edital_nome[:28] }}{% if p.edital_nome|length > 28 %}…{% endif %}</span>{% endif %}</td>

@@ -16,7 +16,7 @@
           <option value="">— Selecione —</option>
           {% for l in licitacoes %}
           <option value="{{ l.id }}" data-cliente="{{ l.cliente_id }}">
-            {{ l.orgao_licitante }} — {{ l.numero_pregao }} ({{ l.cliente.nome }})
+            {{ l.orgao_licitante }} — {{ l.numero_pregao }} ({{ l.cliente.nome }}){% if l.acompanhamento_manual %} &middot; (!) Acompanhamento manual{% endif %}
           </option>
           {% endfor %}
         </select>

@@ -72,15 +72,18 @@
     <div class="campo-row">
       <div class="campo">
         <label>Portal</label>
-        <select name="portal" class="select">
+        <select name="portal" class="select select-portal-troca">
           <option value="">Selecione...</option>
-          {% for p in portal_choices %}
-          <option value="{{ p }}" {% if lic and lic.portal == p %}selected{% endif %}>{{ p }}</option>
+          {% for p in portal_choices if p != 'Outro' %}
+          <option value="{{ p }}" {% if lic and lic.portal == p %}selected{% endif %}>{{ p }}{% if p|acomp_manual %} (manual){% endif %}</option>
           {% endfor %}
           {% if lic and lic.portal and lic.portal not in portal_choices %}
           <option value="{{ lic.portal }}" selected>{{ lic.portal }}</option>
           {% endif %}
+          <option value="Outro">Outro (digitar)</option>
         </select>
+        <input type="text" name="portal_outro" class="input-portal-outro-troca" placeholder="Nome do portal" style="display:none;margin-top:6px;">
+        <small class="muted">"(manual)" = a Effecti n&atilde;o acompanha esse portal.</small>
       </div>
       <div class="campo">
         <label>Data e Hora da Disputa</label>
@@ -205,4 +208,11 @@
 })();
 </script>
 
+<script>
+document.querySelectorAll('.select-portal-troca').forEach(function (sel) {
+  var outro = sel.form.querySelector('.input-portal-outro-troca');
+  function ajusta() { outro.style.display = sel.value === 'Outro' ? '' : 'none'; outro.required = sel.value === 'Outro'; }
+  sel.addEventListener('change', ajusta); ajusta();
+});
+</script>
 {% endblock %}

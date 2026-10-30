@@ -18,16 +18,19 @@
   </div>
 </div>
 
+{% with cards=cards_resumo %}{% include "_cards_contagem.html" %}{% endwith %}
+
 {% with acao=url_for('main.calendario_semana'), campos_ocultos={'inicio': inicio.isoformat()} %}
 {% include "_busca_calendario.html" %}
 {% endwith %}
 
 <div class="semana-wrap">
   {% for dia in dias_semana %}
-  <div class="semana-coluna {% if dia == hoje %}semana-coluna-hoje{% endif %} {% if dia == dia_destaque %}semana-coluna-destaque{% endif %}">
+  <div class="semana-coluna {% if dia == hoje %}semana-coluna-hoje{% endif %} {% if dia == dia_destaque %}semana-coluna-destaque{% endif %} {% if dia in feriados %}semana-coluna-feriado{% endif %}">
     <div class="semana-coluna-header">
       <span class="semana-dia-nome">{{ ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][(dia.weekday()+1) % 7] }}</span>
       <span class="semana-dia-num">{{ dia.day }}/{{ dia.month }}</span>
+      {% if dia in feriados %}<span class="feriado-nome feriado-nome-semana">Feriado &middot; {{ feriados[dia] }}</span>{% endif %}
     </div>
     <div class="semana-coluna-corpo">
       {% if dia in eventos %}
@@ -36,10 +39,11 @@
            {% if l.cliente.cor %}style="border-left-color:{{ l.cliente.cor }};"{% endif %}>
           <div class="evento-card-topo">
             <span class="evento-card-hora">{{ l.data_disputa.strftime('%H:%M') }}</span>
+            <span class="evento-card-pregao" title="{{ l.numero_pregao }}">{{ l.numero_pregao }}</span>
             {% if l|tem_comentario_assessor %}<span class="evento-recado-icon" title="Tem comentário do assessor">💬</span>{% endif %}
           </div>
-          <div class="evento-card-pregao">{{ l.numero_pregao }}</div>
-          <div class="evento-card-orgao">{% if current_user.is_assessor() and l.favoritada_pelo_cliente %}<span class="estrela-cliente" title="Favorita do cliente">★</span>{% endif %}{{ l.orgao_licitante }} {% if current_user.is_assessor() and l.comentario_cliente_pendente_em %}<span class="tag-comentario-cliente" title="Comentário novo do cliente ({{ l.comentario_cliente_pendente_em.strftime('%d/%m %H:%M') }})">C</span>{% endif %}</div>
+          <div class="evento-card-orgao" title="{{ l.orgao_licitante }}">{% if current_user.is_assessor() and l.favoritada_pelo_cliente %}<span class="estrela-cliente" title="Favorita do cliente">★</span>{% endif %}{{ l.orgao_licitante }} {% if current_user.is_assessor() and l.comentario_cliente_pendente_em %}<span class="tag-comentario-cliente" title="Comentário novo do cliente ({{ l.comentario_cliente_pendente_em.strftime('%d/%m %H:%M') }})">C</span>{% endif %}</div>
+          {% with tag_mini=True %}{% include '_tag_manual.html' %}{% endwith %}
           {% if l.data_disputa_original %}<div class="tag-reagendada tag-reagendada-mini" title="Data original: {{ l.data_disputa_original.strftime('%d/%m/%Y %H:%M') }}">↻ Reagendada</div>{% endif %}
         </a>
         {% endfor %}
@@ -50,6 +54,13 @@
   </div>
   {% endfor %}
 </div>
+
+{% if fim_de_semana %}
+<div class="aviso-fim-semana">
+  <strong>Disputa(s) no fim de semana:</strong>
+  {% for l in fim_de_semana %}<a href="{{ url_for('lic.detalhe', id=l.id) }}">{{ l.data_disputa.strftime('%d/%m %H:%M') }} &middot; {{ l.numero_pregao }} &middot; {{ l.orgao_licitante }}</a>{% if not loop.last %} &middot; {% endif %}{% endfor %}
+</div>
+{% endif %}
 
 <div class="legenda-status">
   {% for s in ['agendada', 'em disputa', 'em julgamento', 'em habilitacao', 'homologada', 'revogada', 'cancelada'] %}

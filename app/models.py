@@ -174,6 +174,14 @@ PORTAL_CHOICES = [
     "Compras BR",
     "Atende.net (IPM)",
     "PNCP",
+    "Compras MG",
+    "Compras SC",
+    "Compras MT",
+    "Compras GO",
+    "Portal Amazonas",
+    "PE Integrado",
+    "Publinexo",
+    "Siga RJ",
     "Outro",
 ]
 
@@ -222,6 +230,12 @@ class Licitacao(db.Model):
     aviso_preco_enviado_em = db.Column(db.DateTime, nullable=True)  # ultimo e-mail de "preco registrado"
     # Comentario do cliente ainda nao visto pelo assessor (some quando o assessor abre a licitacao)
     comentario_cliente_pendente_em = db.Column(db.DateTime, nullable=True)
+
+    @property
+    def acompanhamento_manual(self):
+        """Portal fora da lista da Effecti: o assessor acompanha na mao."""
+        from app.effecti import acompanhamento_manual
+        return acompanhamento_manual(self.portal)
 
     @property
     def proposta_cadastrada_por_nome(self):

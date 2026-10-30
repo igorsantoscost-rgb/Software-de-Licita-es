@@ -59,6 +59,16 @@ MAPA_PORTAIS = {
     "comprasbr": "Compras BR",
     "bbmnet": "BBMNET",
     "banrisul": "Banrisul",
+    "compras mg": "Compras MG",
+    "compras.mg": "Compras MG",
+    "compras sc": "Compras SC",
+    "compras mt": "Compras MT",
+    "compras go": "Compras GO",
+    "amazonas": "Portal Amazonas",
+    "pe integrado": "PE Integrado",
+    "peintegrado": "PE Integrado",
+    "publinexo": "Publinexo",
+    "siga rj": "Siga RJ",
 }
 
 # Palavras no texto do edital -> portal (usado quando a planilha diz so "PNCP")
@@ -76,6 +86,10 @@ PORTAIS_NO_TEXTO = [
     (r"comprasbr|compras br\b", "Compras BR"),
     (r"bbmnet", "BBMNET"),
     (r"atende\.net", "Atende.net (IPM)"),
+    (r"compras\.mg\.gov|portal de compras mg", "Compras MG"),
+    (r"peintegrado|pe integrado", "PE Integrado"),
+    (r"publinexo", "Publinexo"),
+    (r"siga\.rj\.gov|compras\.rj\.gov", "Siga RJ"),
 ]
 
 NOME_UF_NORMALIZADO = {normalizar(nome): sigla for sigla, nome in UFS}

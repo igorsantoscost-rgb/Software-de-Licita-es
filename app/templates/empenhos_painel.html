@@ -54,7 +54,7 @@
       <tr>
         <td><strong>{{ e.numero_empenho or '—' }}</strong></td>
         <td>{{ e.cliente.nome }}</td>
-        <td>{{ e.licitacao.orgao_licitante }} — {{ e.licitacao.numero_pregao }}</td>
+        <td>{{ e.licitacao.orgao_licitante }} — {{ e.licitacao.numero_pregao }}{% with l=e.licitacao, tag_mini=True %} {% include '_tag_manual.html' %}{% endwith %}</td>
         <td>{{ e.tipo|rotulo_status }}</td>
         <td>{{ "R$ {:,.2f}".format(e.valor_total).replace(",", "X").replace(".", ",").replace("X", ".") if e.valor_total else '—' }}</td>
         <td>{{ e.prazo_entrega.strftime('%d/%m/%Y') if e.prazo_entrega else '—' }}</td>

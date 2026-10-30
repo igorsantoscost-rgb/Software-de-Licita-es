@@ -19,6 +19,8 @@
   {% endif %}
 </div>
 
+{% with cards=cards_resumo %}{% include "_cards_contagem.html" %}{% endwith %}
+
 {% if consultas_pendentes %}
 <div class="aviso-portal">
   <h4>Autorização de acesso a portal aguardando sua resposta</h4>
@@ -35,7 +37,7 @@
          placeholder="Buscar licitação: órgão, objeto, portal, número, UASG, cidade, item...">
   <button type="submit" class="btn btn-primary btn-sm">Buscar</button>
   {% if busca %}<a href="{{ url_for('main.painel', status=status_filtro, cliente_id=cliente_filtro) }}" class="btn btn-sm">Limpar</a>
-  <span class="muted-sm busca-contagem">{{ licitacoes|length }} resultado(s)</span>{% endif %}
+  <span class="muted-sm busca-contagem"><strong>{{ licitacoes|length }}</strong> licita&ccedil;&atilde;o(&otilde;es) encontrada(s){% if g.busca_digitada %} para "<strong>{{ busca }}</strong>" (voc&ecirc; digitou "{{ g.busca_digitada }}"){% endif %}</span>{% endif %}
 </form>
 
 <!-- Filtro por cliente (apenas assessor) -->
@@ -134,7 +136,7 @@
           {% endif %}
         </td>
         <td class="col-orgao">{{ l.orgao_licitante }} {% if current_user.is_assessor() and l.comentario_cliente_pendente_em %}<span class="tag-comentario-cliente" title="Comentário novo do cliente ({{ l.comentario_cliente_pendente_em.strftime('%d/%m %H:%M') }})">C</span>{% endif %}</td>
-        <td>{{ l.portal or '—' }}{% if current_user.is_assessor() and l.id in sem_acesso_ids %}<br><span class="tag-sem-acesso" title="Cliente sem acesso ativo neste portal">Sem acesso</span>{% endif %}</td>
+        <td>{{ l.portal or '—' }}{% if l.acompanhamento_manual %}<br>{% include '_tag_manual.html' %}{% endif %}{% if current_user.is_assessor() and l.id in sem_acesso_ids %}<br><span class="tag-sem-acesso" title="Cliente sem acesso ativo neste portal">Sem acesso</span>{% endif %}</td>
         <td>
           {% if l.data_disputa %}
             {{ l.data_disputa.strftime('%d/%m/%Y') }}<br>

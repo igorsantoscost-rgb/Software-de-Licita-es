@@ -330,7 +330,7 @@
       <tr>
         <td class="nowrap">{{ s.criado_em.strftime('%d/%m/%Y') }}<br><span class="muted-sm">{{ s.autor.nome if s.autor else '' }}</span></td>
         <td>{{ s.portal }}</td>
-        <td>{% if s.licitacao %}<a href="{{ url_for('lic.detalhe', id=s.licitacao_id) }}">{{ s.licitacao.numero_pregao }}</a><br><span class="muted-sm">{{ s.licitacao.orgao_licitante[:40] }}</span>{% else %}<span class="muted-sm">Excluída</span>{% endif %}</td>
+        <td>{% if s.licitacao %}<a href="{{ url_for('lic.detalhe', id=s.licitacao_id) }}">{{ s.licitacao.numero_pregao }}</a><br><span class="muted-sm">{{ s.licitacao.orgao_licitante[:40] }}</span>{% with l=s.licitacao, tag_mini=True %}<br>{% include '_tag_manual.html' %}{% endwith %}{% else %}<span class="muted-sm">Excluída</span>{% endif %}</td>
         <td class="muted-sm">{% for p in s.lista_planos %}{{ formas_pagamento[p.forma] }}: {{ p.valor|brl }}{% if not loop.last %}<br>{% endif %}{% endfor %}</td>
         <td>{{ resposta_solicitacao(s) }}</td>
       </tr>

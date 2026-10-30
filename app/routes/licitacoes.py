@@ -151,7 +151,7 @@ def nova():
             orgao_licitante=request.form["orgao_licitante"].strip(),
             numero_pregao=request.form["numero_pregao"].strip(),
             uasg=request.form.get("uasg", "").strip(),
-            portal=request.form.get("portal", "").strip(),
+            portal=_portal_form(),
             data_disputa=data_disputa,
             status="agendada",
             objeto=request.form.get("objeto", "").strip(),
@@ -255,7 +255,7 @@ def editar(id):
         lic.orgao_licitante = request.form["orgao_licitante"].strip()
         lic.numero_pregao = request.form["numero_pregao"].strip()
         lic.uasg = request.form.get("uasg", "").strip()
-        lic.portal = request.form.get("portal", "").strip()
+        lic.portal = _portal_form()
         lic.objeto = request.form.get("objeto", "").strip()
         lic.link_edital = request.form.get("link_edital", "").strip()
         lic.valor_estimado = _valor_form("valor_estimado")
@@ -270,6 +270,33 @@ def editar(id):
                            tipos_doc_unicos=TIPOS_DOC_LICITACAO_UNICOS, docs_existentes=docs_existentes,
                            ufs=UFS, esfera_choices=ESFERA_CHOICES,
                            municipios_uf=municipios_por_uf(lic.uf) if lic.uf else [])
+
+
+def _portal_form():
+    """Portal escolhido no formulario; "Outro" usa o nome digitado."""
+    portal = (request.form.get("portal", "") or "").strip()
+    if portal == "Outro":
+        portal = (request.form.get("portal_outro", "") or "").strip()
+    return portal[:100]
+
+
+@lic_bp.route("/<int:id>/portal", methods=["POST"])
+@login_required
+def alterar_portal(id):
+    """Correcao manual do portal (a importacao as vezes traz o portal errado)."""
+    if not current_user.is_assessor():
+        abort(403)
+    lic = Licitacao.query.get_or_404(id)
+    if not _pode_ver(lic):
+        abort(403)
+    antes = lic.portal or "-"
+    lic.portal = _portal_form() or None
+    db.session.commit()
+    msg = f"Portal alterado: {antes} -> {lic.portal or '-'}."
+    if lic.acompanhamento_manual:
+        msg += " Aten\u00e7\u00e3o: a Effecti n\u00e3o acompanha este portal (acompanhamento manual)."
+    flash(msg, "ok")
+    return redirect(url_for("lic.detalhe", id=lic.id))
 
 
 @lic_bp.route("/<int:id>/excluir", methods=["POST"])

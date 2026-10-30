@@ -29,7 +29,7 @@
       <h3>Informacoes</h3>
       <table class="tabela-detalhes">
         <tr><td class="label-td">Cliente</td><td>{{ emp.cliente.nome }}</td></tr>
-        <tr><td class="label-td">Licitacao</td><td>{{ emp.licitacao.orgao_licitante }} — {{ emp.licitacao.numero_pregao }}</td></tr>
+        <tr><td class="label-td">Licitacao</td><td>{{ emp.licitacao.orgao_licitante }} — {{ emp.licitacao.numero_pregao }}{% with l=emp.licitacao %} {% include '_tag_manual.html' %}{% endwith %}</td></tr>
         <tr><td class="label-td">Contrato</td><td>{{ emp.contrato or 'Sem contrato' }}</td></tr>
         <tr><td class="label-td">Tipo</td><td>{{ emp.tipo|rotulo_status }}{% if emp.tipo == 'ordinario' %} (paga ao entregar tudo){% else %} (admite entrega parcial){% endif %}</td></tr>
         <tr><td class="label-td">Valor Total</td><td>{{ "R$ {:,.2f}".format(emp.valor_total).replace(",", "X").replace(".", ",").replace("X", ".") if emp.valor_total else '—' }}</td></tr>

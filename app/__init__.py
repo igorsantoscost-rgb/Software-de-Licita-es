@@ -111,6 +111,7 @@ def create_app():
         "interesse nao manifestado": "Interesse não manifestado",
         "ordinario": "Ordinário",
         "aguardando pagamento": "Aguardando pagamento",
+        "andamento": "Em andamento",
     }
 
     @app.template_filter("rotulo_status")
@@ -142,6 +143,12 @@ def create_app():
     def _ctx_agora_brasilia():
         from app.models import agora_brasilia
         return {"agora_brasilia": agora_brasilia}
+
+    @app.template_filter("acomp_manual")
+    def acomp_manual(portal):
+        """True se a Effecti nao acompanha esse portal."""
+        from app.effecti import acompanhamento_manual
+        return acompanhamento_manual(portal)
 
     @app.template_filter("tem_comentario_assessor")
     def tem_comentario_assessor(licitacao):

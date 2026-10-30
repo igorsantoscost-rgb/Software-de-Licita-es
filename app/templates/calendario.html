@@ -15,6 +15,8 @@
   </div>
 </div>
 
+{% with cards=cards_resumo %}{% include "_cards_contagem.html" %}{% endwith %}
+
 {% with acao=url_for('main.calendario'), campos_ocultos={'mes': mes, 'ano': ano} %}
 {% include "_busca_calendario.html" %}
 {% endwith %}
@@ -24,7 +26,7 @@
     <thead>
       <tr>
         {% for dia in ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'] %}
-        <th>{{ dia }}</th>
+        <th{% if loop.first or loop.last %} class="th-fds"{% endif %}>{{ dia }}</th>
         {% endfor %}
       </tr>
     </thead>
@@ -37,20 +39,22 @@
           {% set dia_date.d = primeiro_dia.replace(day=dia_num) %}
         {% endif %}
         <td {% if dia_date.d %}data-href="{{ url_for('main.calendario_semana', inicio=dia_date.d.isoformat(), dia=dia_date.d.isoformat(), busca=busca or None) }}" title="Ver a semana deste dia"{% endif %}
-            class="cel-dia {% if dia_date.d %}cel-clicavel{% endif %} {% if dia_num == 0 %}cel-vazia{% endif %} {% if dia_date.d and dia_date.d in eventos %}cel-com-evento{% endif %} {% if dia_date.d and dia_date.d == hoje %}cel-hoje{% endif %}">
+            class="cel-dia {% if loop.first or loop.last %}cel-fds{% endif %} {% if dia_date.d and dia_date.d in feriados %}cel-feriado{% endif %} {% if dia_date.d %}cel-clicavel{% endif %} {% if dia_num == 0 %}cel-vazia{% endif %} {% if dia_date.d and dia_date.d in eventos %}cel-com-evento{% endif %} {% if dia_date.d and dia_date.d == hoje %}cel-hoje{% endif %}">
           {% if dia_num != 0 %}
           <a href="{{ url_for('main.calendario_semana', inicio=dia_date.d.isoformat(), dia=dia_date.d.isoformat(), busca=busca or None) }}"
              class="num-dia {% if dia_date.d and dia_date.d == hoje %}num-dia-hoje{% endif %}">{{ dia_num }}</a>
+          {% if dia_date.d and dia_date.d in feriados %}<span class="feriado-nome" title="Feriado nacional">{{ feriados[dia_date.d] }}</span>{% endif %}
           {% if dia_date.d and dia_date.d in eventos %}
           <div class="eventos-dia">
             {% for l in eventos[dia_date.d] %}
             <a href="{{ url_for('lic.detalhe', id=l.id) }}" class="evento-pill status-{{ l.status|replace(' ', '-') }}"
                {% if l.cliente.cor %}style="border-left-color:{{ l.cliente.cor }};"{% endif %}>
               <span class="evento-pill-topo">
-                <span class="evento-hora">{{ l.data_disputa.strftime('%H:%M') }} {{ l.numero_pregao }}</span>
+                <span class="evento-hora" title="{{ l.numero_pregao }}"><b>{{ l.data_disputa.strftime('%H:%M') }}</b> {{ l.numero_pregao }}</span>
                 {% if l|tem_comentario_assessor %}<span class="evento-recado-icon" title="Tem comentário do assessor">💬</span>{% endif %}
               </span>
-              <span class="evento-orgao">{% if current_user.is_assessor() and l.favoritada_pelo_cliente %}<span class="estrela-cliente" title="Favorita do cliente">★</span>{% endif %}{{ l.orgao_licitante }} {% if current_user.is_assessor() and l.comentario_cliente_pendente_em %}<span class="tag-comentario-cliente" title="Comentário novo do cliente ({{ l.comentario_cliente_pendente_em.strftime('%d/%m %H:%M') }})">C</span>{% endif %}</span>
+              <span class="evento-orgao" title="{{ l.orgao_licitante }}">{% if current_user.is_assessor() and l.favoritada_pelo_cliente %}<span class="estrela-cliente" title="Favorita do cliente">★</span>{% endif %}{{ l.orgao_licitante }} {% if current_user.is_assessor() and l.comentario_cliente_pendente_em %}<span class="tag-comentario-cliente" title="Comentário novo do cliente ({{ l.comentario_cliente_pendente_em.strftime('%d/%m %H:%M') }})">C</span>{% endif %}</span>
+              {% with tag_mini=True %}{% include '_tag_manual.html' %}{% endwith %}
               {% if l.data_disputa_original %}<span class="tag-reagendada tag-reagendada-mini">↻ Reagendada</span>{% endif %}
             </a>
             {% endfor %}
