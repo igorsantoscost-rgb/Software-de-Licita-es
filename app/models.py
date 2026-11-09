@@ -230,6 +230,16 @@ class Licitacao(db.Model):
     aviso_preco_enviado_em = db.Column(db.DateTime, nullable=True)  # ultimo e-mail de "preco registrado"
     # Comentario do cliente ainda nao visto pelo assessor (some quando o assessor abre a licitacao)
     comentario_cliente_pendente_em = db.Column(db.DateTime, nullable=True)
+    # Cliente clicou em "Não tenho interesse" (status vira "interesse nao manifestado")
+    desinteresse_em = db.Column(db.DateTime, nullable=True)
+    desinteresse_por = db.Column(db.Integer, nullable=True)  # id do usuario (sem FK, mesmo motivo do proposta_cadastrada_por)
+
+    @property
+    def desinteresse_por_nome(self):
+        if not self.desinteresse_por:
+            return ""
+        u = User.query.get(self.desinteresse_por)
+        return u.nome if u else ""
 
     @property
     def acompanhamento_manual(self):
@@ -930,3 +940,46 @@ for _campo in CAMPOS_NOME:
     _padronizar_ao_gravar(_campo, "titulo")
 for _campo in CAMPOS_FRASE:
     _padronizar_ao_gravar(_campo, "primeira_maiuscula")
+
+
+# ─── Sugestoes de melhoria (assessores -> master) ───────────────────────────
+
+STATUS_SUGESTAO = ("pendente", "acatada", "recusada")
+
+
+class SugestaoMelhoria(db.Model):
+    __tablename__ = "sugestoes_melhoria"
+    id = db.Column(db.Integer, primary_key=True)
+    autor_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    titulo = db.Column(db.String(200), nullable=False)
+    texto = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(20), nullable=False, default="pendente")  # pendente | acatada | recusada
+    resposta = db.Column(db.Text, nullable=True)  # retorno do master
+    decidido_por = db.Column(db.Integer, nullable=True)
+    decidido_em = db.Column(db.DateTime, nullable=True)
+    criado_em = db.Column(db.DateTime, default=agora_brasilia)
+
+    autor = db.relationship("User", foreign_keys=[autor_id])
+    anexos = db.relationship("AnexoSugestao", backref="sugestao", lazy=True,
+                             cascade="all, delete-orphan", order_by="AnexoSugestao.id")
+
+    @property
+    def decidido_por_nome(self):
+        if not self.decidido_por:
+            return ""
+        u = User.query.get(self.decidido_por)
+        return u.nome if u else ""
+
+
+class AnexoSugestao(db.Model):
+    __tablename__ = "anexos_sugestao"
+    id = db.Column(db.Integer, primary_key=True)
+    sugestao_id = db.Column(db.Integer, db.ForeignKey("sugestoes_melhoria.id"), nullable=False, index=True)
+    nome_original = db.Column(db.String(300), nullable=False)
+    caminho = db.Column(db.String(500), nullable=False)
+    tamanho = db.Column(db.Integer, nullable=True)
+    criado_em = db.Column(db.DateTime, default=agora_brasilia)
+
+    @property
+    def e_imagem(self):
+        return self.nome_original.lower().rsplit(".", 1)[-1] in ("png", "jpg", "jpeg", "gif", "webp", "bmp")

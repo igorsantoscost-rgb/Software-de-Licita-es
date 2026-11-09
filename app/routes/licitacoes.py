@@ -382,6 +382,33 @@ def atualizar_status(id):
     return redirect(destino)
 
 
+@lic_bp.route("/<int:id>/desinteresse", methods=["POST"])
+@login_required
+def desinteresse(id):
+    """Cliente avisa que nao quer participar: a licitacao vai para
+    'Interesse nao manifestado' e os assessores recebem e-mail."""
+    lic = Licitacao.query.get_or_404(id)
+    if current_user.is_assessor() or not _pode_ver(lic):
+        abort(403)
+    if lic.status != "agendada":
+        flash("Só dá para manifestar desinteresse enquanto a licitação está Agendada.", "erro")
+        return redirect(url_for("lic.detalhe", id=id))
+    from app.models import agora_brasilia
+    motivo = request.form.get("motivo", "").strip()
+    lic.status = "interesse nao manifestado"
+    lic.desinteresse_em = agora_brasilia()
+    lic.desinteresse_por = current_user.id
+    lic.motivo_encerramento = (f"Desinteresse do cliente: {motivo}" if motivo else "Desinteresse do cliente")[:300]
+    db.session.commit()
+    try:
+        from app.email_service import notificar_desinteresse_cliente
+        notificar_desinteresse_cliente(lic, current_user, motivo)
+    except Exception:
+        current_app.logger.exception("Falha ao avisar desinteresse do cliente")
+    flash("Pronto. A consultoria foi avisada de que você não tem interesse nesta licitação.", "ok")
+    return redirect(url_for("lic.detalhe", id=id))
+
+
 @lic_bp.route("/<int:id>/reagendar", methods=["POST"])
 @login_required
 def reagendar(id):

@@ -811,3 +811,73 @@ def notificar_resposta_acesso_portal(sol):
     """
     _enviar(destinatarios, f"{titulo} — {cliente.nome}", _template_base(conteudo))
 
+
+
+# ─── Cliente sem interesse na licitacao ─────────────────────────────────────
+
+def notificar_desinteresse_cliente(lic, usuario, motivo=""):
+    """Avisa os assessores do cliente (e o master) que o cliente desistiu da licitacao."""
+    from html import escape
+    destinatarios = _emails_assessores_do_cliente(lic.cliente)
+    if not destinatarios:
+        return
+    cliente_nome = lic.cliente.nome if lic.cliente else "Cliente"
+    bloco_motivo = (f'''<div style="background:#f1f5f9;padding:12px 16px;border-radius:6px;margin:14px 0;border-left:4px solid #64748b;">
+      <p style="margin:0;white-space:pre-wrap;">{escape(motivo)}</p></div>''' if motivo else "")
+    conteudo = f"""
+    <h2 style="color:#14532d;margin-top:0;">Cliente sem interesse na licitação</h2>
+    <p><strong>{escape(usuario.nome)}</strong> ({escape(cliente_nome)}) informou que não tem interesse.
+       A licitação passou para <strong>Interesse não manifestado</strong>.</p>
+    <table style="width:100%;border-collapse:collapse;margin:12px 0;">
+      <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;color:#6b7280;">Órgão</td>
+          <td style="padding:8px;border-bottom:1px solid #e5e7eb;font-weight:600;">{escape(lic.orgao_licitante or "")}</td></tr>
+      <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;color:#6b7280;">Pregão</td>
+          <td style="padding:8px;border-bottom:1px solid #e5e7eb;font-weight:600;">{escape(lic.numero_pregao or "")}</td></tr>
+      <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;color:#6b7280;">Disputa</td>
+          <td style="padding:8px;border-bottom:1px solid #e5e7eb;font-weight:600;">{_formatar_data(lic.data_disputa)}</td></tr>
+    </table>
+    {bloco_motivo}
+    <p><a href="{BASE_URL}/licitacoes/{lic.id}" style="background:#14532d;color:#fff;padding:10px 20px;
+        border-radius:6px;text-decoration:none;display:inline-block;">Ver licitação</a></p>
+    """
+    _enviar(destinatarios, f"[SEM INTERESSE] {cliente_nome} — {lic.orgao_licitante}", _template_base(conteudo))
+
+
+# ─── Sugestoes de melhoria ──────────────────────────────────────────────────
+
+def notificar_nova_sugestao(sug):
+    """Avisa o(s) master(s) de uma sugestao nova."""
+    from html import escape
+    from app.models import User
+    destinatarios = [u.email for u in User.query.filter_by(perfil="master").all() if u.email]
+    if not destinatarios:
+        return
+    anexos = f"<p style=\"color:#6b7280;\">{len(sug.anexos)} anexo(s)</p>" if sug.anexos else ""
+    conteudo = f"""
+    <h2 style="color:#14532d;margin-top:0;">Nova sugestão de melhoria</h2>
+    <p><strong>{escape(sug.autor.nome)}</strong> enviou: <strong>{escape(sug.titulo)}</strong></p>
+    <div style="background:#f1f5f9;padding:12px 16px;border-radius:6px;margin:14px 0;">
+      <p style="margin:0;white-space:pre-wrap;">{escape(sug.texto or "")}</p></div>
+    {anexos}
+    <p><a href="{BASE_URL}/sugestoes/{sug.id}" style="background:#14532d;color:#fff;padding:10px 20px;
+        border-radius:6px;text-decoration:none;display:inline-block;">Ver sugestão</a></p>
+    """
+    _enviar(destinatarios, f"Sugestão de melhoria — {sug.titulo}", _template_base(conteudo))
+
+
+def notificar_decisao_sugestao(sug):
+    """Avisa o autor que a sugestao foi acatada ou recusada."""
+    from html import escape
+    if not (sug.autor and sug.autor.email):
+        return
+    rotulo = "acatada ✅" if sug.status == "acatada" else "recusada"
+    resposta = (f'''<div style="background:#f1f5f9;padding:12px 16px;border-radius:6px;margin:14px 0;">
+      <p style="margin:0;white-space:pre-wrap;">{escape(sug.resposta)}</p></div>''' if sug.resposta else "")
+    conteudo = f"""
+    <h2 style="color:#14532d;margin-top:0;">Sua sugestão foi {rotulo}</h2>
+    <p><strong>{escape(sug.titulo)}</strong></p>
+    {resposta}
+    <p><a href="{BASE_URL}/sugestoes/{sug.id}" style="background:#14532d;color:#fff;padding:10px 20px;
+        border-radius:6px;text-decoration:none;display:inline-block;">Ver sugestão</a></p>
+    """
+    _enviar([sug.autor.email], f"Sugestão {rotulo.split()[0]} — {sug.titulo}", _template_base(conteudo))

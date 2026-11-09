@@ -1,0 +1,85 @@
+{# Area de anexos: escolher arquivos, arrastar ou colar print com Ctrl+V.
+   Usa um <input type="file" name="anexos" multiple> real, entao o form envia normal. #}
+<div class="anexos-colar" data-anexos-colar>
+  <input type="file" name="anexos" multiple class="anexos-colar-input" id="{{ id_input|default('anexos-input') }}">
+  <label for="{{ id_input|default('anexos-input') }}" class="anexos-colar-zona" tabindex="0">
+    <strong>📎 Anexar arquivos</strong>
+    <span>Clique para escolher, arraste aqui ou cole um print com <kbd>Ctrl</kbd>+<kbd>V</kbd></span>
+  </label>
+  <ul class="anexos-colar-lista"></ul>
+</div>
+<script>
+(function () {
+  var box = document.currentScript.previousElementSibling;
+  var input = box.querySelector('.anexos-colar-input');
+  var zona = box.querySelector('.anexos-colar-zona');
+  var lista = box.querySelector('.anexos-colar-lista');
+  var arquivos = [];
+  var nPrint = 0;
+
+  function carimbo() {
+    var d = new Date(), p = function (n) { return String(n).padStart(2, '0'); };
+    return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds());
+  }
+  function sincronizar() {
+    try {
+      var dt = new DataTransfer();
+      arquivos.forEach(function (f) { dt.items.add(f); });
+      input.files = dt.files;
+    } catch (e) {}
+    lista.innerHTML = '';
+    arquivos.forEach(function (f, i) {
+      var li = document.createElement('li');
+      if (f.type && f.type.indexOf('image/') === 0) {
+        var img = document.createElement('img');
+        img.src = URL.createObjectURL(f);
+        li.appendChild(img);
+      } else {
+        var ic = document.createElement('span'); ic.className = 'anexos-colar-icone'; ic.textContent = '📄';
+        li.appendChild(ic);
+      }
+      var nome = document.createElement('span'); nome.className = 'anexos-colar-nome'; nome.textContent = f.name; nome.title = f.name;
+      li.appendChild(nome);
+      var x = document.createElement('button'); x.type = 'button'; x.className = 'anexos-colar-remover'; x.title = 'Remover'; x.textContent = '🗑';
+      x.onclick = function () { arquivos.splice(i, 1); sincronizar(); };
+      li.appendChild(x);
+      lista.appendChild(li);
+    });
+  }
+  function adicionar(files, colado) {
+    Array.prototype.forEach.call(files, function (f) {
+      if (colado) {
+        var ext = (f.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+        nPrint++;
+        f = new File([f], 'print-' + carimbo() + (nPrint > 1 ? '-' + nPrint : '') + '.' + ext, { type: f.type });
+      }
+      arquivos.push(f);
+    });
+    sincronizar();
+  }
+
+  input.addEventListener('change', function () {
+    // o navegador troca a selecao inteira: guarda os novos junto com os que ja estavam
+    var novos = Array.prototype.slice.call(input.files).filter(function (f) { return arquivos.indexOf(f) < 0; });
+    adicionar(novos, false);
+  });
+
+  // Ctrl+V em qualquer lugar da pagina (inclusive dentro do campo de texto)
+  document.addEventListener('paste', function (e) {
+    var itens = (e.clipboardData || {}).items || [];
+    var files = [];
+    for (var i = 0; i < itens.length; i++) {
+      if (itens[i].kind === 'file') { var f = itens[i].getAsFile(); if (f) files.push(f); }
+    }
+    if (files.length) { e.preventDefault(); adicionar(files, true); zona.classList.add('colou'); setTimeout(function () { zona.classList.remove('colou'); }, 600); }
+  });
+
+  ['dragenter', 'dragover'].forEach(function (ev) {
+    zona.addEventListener(ev, function (e) { e.preventDefault(); zona.classList.add('arrastando'); });
+  });
+  ['dragleave', 'drop'].forEach(function (ev) {
+    zona.addEventListener(ev, function (e) { e.preventDefault(); zona.classList.remove('arrastando'); });
+  });
+  zona.addEventListener('drop', function (e) { if (e.dataTransfer && e.dataTransfer.files) adicionar(e.dataTransfer.files, false); });
+})();
+</script>

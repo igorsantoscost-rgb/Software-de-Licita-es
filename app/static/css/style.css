@@ -2190,3 +2190,40 @@ a.card-contagem:hover { text-decoration: none; box-shadow: 0 2px 10px rgba(0,0,0
 .evento-card-orgao { font-size: .68rem; line-height: 1.15; }
 .tag-acomp-icone { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; border-radius: 50%; background: #dc2626; color: #fff; font-size: .62rem; font-weight: 900; flex-shrink: 0; line-height: 1; }
 .evento-reag-icone { font-size: .8rem; font-weight: 700; color: #8a5a00; flex-shrink: 0; line-height: 1; }
+
+
+/* ─── Cliente: "Não tenho interesse" nos parametros da disputa ─── */
+.form-desinteresse { margin-left: auto; }
+.btn-desinteresse { background: #fff; color: #9f1239; border: 1px solid #fecdd3; }
+.btn-desinteresse:hover { background: #fff1f2; border-color: #fda4af; }
+.aviso-desinteresse { font-size: .84rem; color: #475569; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 10px; padding: 8px 12px; margin: 8px 0; }
+
+/* ─── Sugestoes de melhoria ─── */
+.linha-clicavel { cursor: pointer; }
+.linha-clicavel:hover td { background: #f8faf9; }
+.sug-status { display: inline-block; font-size: .76rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; vertical-align: middle; }
+.sug-pendente { background: #fef3c7; color: #92400e; }
+.sug-acatada { background: #dcfce7; color: #166534; }
+.sug-recusada { background: #e2e8f0; color: #475569; }
+.sug-texto { white-space: pre-wrap; line-height: 1.5; margin: 0; }
+.sug-anexos { display: flex; flex-wrap: wrap; gap: 10px; }
+.sug-anexo-img { display: block; width: 160px; height: 110px; border: 1px solid var(--borda, #e2e8f0); border-radius: 8px; overflow: hidden; background: #f8fafc; }
+.sug-anexo-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sug-anexo-arq { display: inline-flex; align-items: center; max-width: 260px; padding: 8px 12px; border: 1px solid var(--borda, #e2e8f0); border-radius: 8px; font-size: .84rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sug-decisao-acatada { border-left: 4px solid #16a34a; }
+.sug-decisao-recusada { border-left: 4px solid #94a3b8; }
+.sug-botoes { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.btn-sug-recusar { color: #a3352b; border-color: #efcfca; }
+.btn-sug-recusar:hover { background: #fef2f2; }
+
+.anexos-colar-input { display: none; }
+.anexos-colar-zona { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 16px; border: 2px dashed #cbd5e1; border-radius: 10px; background: #f8fafc; cursor: pointer; text-align: center; font-size: .85rem; color: #475569; transition: background .15s, border-color .15s; }
+.anexos-colar-zona span { font-size: .8rem; color: #64748b; }
+.anexos-colar-zona:hover, .anexos-colar-zona.arrastando { background: #f0fdf4; border-color: #86efac; }
+.anexos-colar-zona.colou { background: #dcfce7; border-color: #22c55e; }
+.anexos-colar-zona kbd { font-family: inherit; font-size: .75rem; background: #fff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 0 5px; }
+.anexos-colar-lista { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.anexos-colar-lista li { display: flex; align-items: center; gap: 8px; max-width: 280px; padding: 6px 8px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; font-size: .8rem; }
+.anexos-colar-lista img { width: 48px; height: 36px; object-fit: cover; border-radius: 4px; }
+.anexos-colar-nome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.anexos-colar-remover { background: none; border: none; cursor: pointer; padding: 0 2px; font-size: .9rem; }

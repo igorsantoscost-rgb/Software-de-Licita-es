@@ -66,6 +66,21 @@ def create_app():
     from app.routes.portais import portais_bp
     app.register_blueprint(portais_bp)
 
+    from app.routes.sugestoes import sug_bp
+    app.register_blueprint(sug_bp)
+
+    @app.context_processor
+    def _contexto_sugestoes():
+        """Numero de sugestoes pendentes (bolinha no menu do master)."""
+        from flask_login import current_user
+        try:
+            if current_user.is_authenticated and current_user.is_master():
+                from app.models import SugestaoMelhoria
+                return {"sugestoes_pendentes": SugestaoMelhoria.query.filter_by(status="pendente").count()}
+        except Exception:
+            db.session.rollback()
+        return {"sugestoes_pendentes": 0}
+
     @app.before_request
     def _backup_do_dia():
         # Gera o backup diario (em segundo plano) na primeira visita de cada dia
@@ -209,6 +224,8 @@ def _migrar_prospeccao():
             conn.execute(text("ALTER TABLE palavras_chave_cliente ADD COLUMN IF NOT EXISTS tipo VARCHAR(10) DEFAULT 'inclusao'"))
             conn.execute(text("ALTER TABLE licitacoes ADD COLUMN IF NOT EXISTS participacao_me VARCHAR(20)"))
             conn.execute(text("ALTER TABLE pacotes_importados ADD COLUMN IF NOT EXISTS resumo TEXT"))
+            conn.execute(text("ALTER TABLE licitacoes ADD COLUMN IF NOT EXISTS desinteresse_em TIMESTAMP"))
+            conn.execute(text("ALTER TABLE licitacoes ADD COLUMN IF NOT EXISTS desinteresse_por INTEGER"))
             conn.commit()
     except Exception:
         db.session.rollback()

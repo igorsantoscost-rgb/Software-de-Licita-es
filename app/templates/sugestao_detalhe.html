@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block titulo %}{{ sug.titulo }} — Sugestão{% endblock %}
+{% block conteudo %}
+{% set rotulos = {'pendente': 'Pendente', 'acatada': 'Acatada', 'recusada': 'Recusada'} %}
+<div class="page-header">
+  <div>
+    <a href="{{ url_for('sug.lista') }}" class="voltar">← Voltar para Sugestões</a>
+    <h2>{{ sug.titulo }} <span class="sug-status sug-{{ sug.status }}">{{ rotulos[sug.status] }}</span></h2>
+    <p class="muted">Enviada por {{ sug.autor.nome if sug.autor else '—' }} em {{ sug.criado_em.strftime('%d/%m/%Y às %H:%M') if sug.criado_em else '—' }}</p>
+  </div>
+  {% if current_user.is_master() or (sug.autor_id == current_user.id and sug.status == 'pendente') %}
+  <form method="POST" action="{{ url_for('sug.excluir', id=sug.id) }}" class="form-inline">
+    <button type="submit" class="btn btn-sm btn-excluir-licitacao" onclick="return confirm('Excluir esta sugestão e os anexos?')">Excluir</button>
+  </form>
+  {% endif %}
+</div>
+
+<div class="card card-form">
+  <h3>Descrição</h3>
+  <p class="sug-texto">{{ sug.texto or '—' }}</p>
+
+  {% if sug.anexos %}
+  <h3 style="margin-top:20px;">Anexos</h3>
+  <div class="sug-anexos">
+    {% for a in sug.anexos %}
+      {% if a.e_imagem %}
+      <a href="{{ url_for('sug.anexo', anexo_id=a.id) }}" target="_blank" class="sug-anexo-img" title="{{ a.nome_original }}">
+        <img src="{{ url_for('sug.anexo', anexo_id=a.id) }}" alt="{{ a.nome_original }}" loading="lazy">
+      </a>
+      {% else %}
+      <a href="{{ url_for('sug.anexo', anexo_id=a.id) }}" class="sug-anexo-arq" title="{{ a.nome_original }}">📄 {{ a.nome_original }}</a>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if sug.status == 'pendente' %}
+  <form method="POST" action="{{ url_for('sug.anexar', id=sug.id) }}" enctype="multipart/form-data" style="margin-top:18px;">
+    {% with id_input='anexos-mais' %}{% include '_anexos_colar.html' %}{% endwith %}
+    <button type="submit" class="btn btn-sm" style="margin-top:10px;">Enviar anexos</button>
+  </form>
+  {% endif %}
+</div>
+
+{% if sug.status != 'pendente' or sug.resposta %}
+<div class="card card-form sug-decisao sug-decisao-{{ sug.status }}">
+  <h3>{{ 'Acatada' if sug.status == 'acatada' else ('Recusada' if sug.status == 'recusada' else 'Retorno') }}{% if sug.decidido_em %} · {{ sug.decidido_em.strftime('%d/%m/%Y às %H:%M') }}{% endif %}{% if sug.decidido_por_nome %} por {{ sug.decidido_por_nome }}{% endif %}</h3>
+  <p class="sug-texto">{{ sug.resposta or 'Sem comentário.' }}</p>
+</div>
+{% endif %}
+
+{% if current_user.is_master() %}
+<div class="card card-form">
+  <h3>Registrar decisão</h3>
+  <form method="POST" action="{{ url_for('sug.decidir', id=sug.id) }}">
+    <div class="campo">
+      <label>Resposta para quem sugeriu</label>
+      <textarea name="resposta" rows="3" placeholder="Ex: Feito na atualização de hoje. / Não vamos fazer porque...">{{ sug.resposta or '' }}</textarea>
+    </div>
+    <div class="sug-botoes">
+      <button type="submit" name="status" value="acatada" class="btn btn-primary">✅ Acatada</button>
+      <button type="submit" name="status" value="recusada" class="btn btn-sug-recusar">✕ Recusada</button>
+      {% if sug.status != 'pendente' %}
+      <button type="submit" name="status" value="pendente" class="btn btn-sm">Voltar para pendente</button>
+      {% endif %}
+    </div>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

@@ -243,7 +243,21 @@
             <button type="submit" class="btn btn-sm btn-proposta-cadastrada" onclick="return confirm('Confirmar que a proposta foi cadastrada no portal? Os valores mínimos e as marcas do cliente ficarão travados.')">📨 Proposta cadastrada</button>
           </form>
         {% endif %}
+        {% if not current_user.is_assessor() and lic.status == 'agendada' %}
+          <form method="POST" action="{{ url_for('lic.desinteresse', id=lic.id) }}" class="form-inline form-desinteresse"
+                onsubmit="var m = prompt('Confirma que NÃO tem interesse nesta licitação?\nA consultoria será avisada e a licitação sai da sua agenda.\n\nSe quiser, diga o motivo (opcional):', ''); if (m === null) return false; this.motivo.value = m; return true;">
+            <input type="hidden" name="motivo" value="">
+            <button type="submit" class="btn btn-sm btn-desinteresse" title="Avisar a consultoria que você não quer participar desta licitação">🚫 Não tenho interesse</button>
+          </form>
+        {% endif %}
       </div>
+      {% if lic.status == 'interesse nao manifestado' and lic.desinteresse_em %}
+      <div class="aviso-desinteresse">
+        🚫 <strong>{{ 'Você informou' if not current_user.is_assessor() else 'O cliente informou' }} que não tem interesse</strong>
+        em {{ lic.desinteresse_em.strftime('%d/%m/%Y às %H:%M') }}{% if lic.desinteresse_por_nome and current_user.is_assessor() %} ({{ lic.desinteresse_por_nome }}){% endif %}.
+        {% if lic.motivo_encerramento and lic.motivo_encerramento.startswith('Desinteresse do cliente:') %}<br><small>Motivo: {{ lic.motivo_encerramento[25:] }}</small>{% endif %}
+      </div>
+      {% endif %}
       {% if travada and not current_user.is_assessor() %}
       <div class="aviso-proposta-travada">🔒 A consultoria já cadastrou a proposta no portal. Os valores mínimos não podem mais ser alterados.</div>
       {% endif %}

@@ -326,7 +326,7 @@ document.querySelectorAll('.btn-cancelar-edicao-comentario').forEach(btn => {
   }
 
   document.querySelectorAll('input[type="file"]').forEach((input) => {
-    if (input.closest('.dropzone-doc') || input.closest('.dropzone-geral')) return;
+    if (input.closest('.dropzone-doc') || input.closest('.dropzone-geral') || input.closest('[data-anexos-colar]')) return;
     const zona = document.createElement('div');
     zona.className = 'dropzone-geral';
     const texto = document.createElement('span');
