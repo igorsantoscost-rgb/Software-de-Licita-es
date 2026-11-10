@@ -13,9 +13,14 @@
     <span class="gestao-card-sub">{% if resumo.disponibilizadas %}{{ (100 * resumo.participadas / resumo.disponibilizadas)|round|int }}% das disponibilizadas{% else %}—{% endif %}</span>
   </div>
   <div class="card gestao-card">
+    <span class="gestao-card-rotulo">Em andamento</span>
+    <strong class="gestao-card-valor">{{ resumo.em_andamento }}</strong>
+    <span class="gestao-card-sub">{% if resumo.primeiro_lugar %}{{ resumo.primeiro_lugar }} em 1º lugar{% else %}Disputa, julgamento ou habilitação{% endif %}</span>
+  </div>
+  <div class="card gestao-card">
     <span class="gestao-card-rotulo">Sem participação</span>
     <strong class="gestao-card-valor">{{ resumo.sem_participacao }}</strong>
-    <span class="gestao-card-sub">{% if resumo.aguardando %}{{ resumo.aguardando }} aguardando disputa{% else %}Revogadas, canceladas ou não disputadas{% endif %}</span>
+    <span class="gestao-card-sub">Revogadas, canceladas ou não disputadas</span>
   </div>
   <div class="card gestao-card gestao-card-destaque">
     <span class="gestao-card-rotulo">Vencidas</span>
@@ -54,13 +59,22 @@
         {% endfor %}
       </ul>
     </div>
+    <p class="gestao-nota">Participadas: {{ resumo.participadas }} no total (finalizadas, em andamento e em 1º lugar).{% if modo_relatorio %} Agendadas: todas as disputas marcadas em {{ gerado_em.strftime('%d/%m/%Y') }}.{% endif %}</p>
     {% else %}
     <p class="muted">Nenhuma oportunidade neste período.</p>
     {% endif %}
   </div>
 
+  {% if modo_relatorio %}<div class="gestao-coluna">
+  {% if mensagem_consultor %}
+  <div class="card gestao-obs">
+    <h3>OBS</h3>
+    <p class="gestao-obs-texto">{{ mensagem_consultor }}</p>
+  </div>
+  {% endif %}
+  {% endif %}
   <div class="card">
-    <h3>Mês a mês</h3>
+    <h3>Mês a mês{% if modo_relatorio %} <span class="gestao-h3-sub">últimos 3 meses</span>{% endif %}</h3>
     {% if evolucao %}
     <div class="gestao-meses-lista">
       {% for e in evolucao %}
@@ -82,6 +96,7 @@
     </ul>
     {% endif %}
   </div>
+  {% if modo_relatorio %}</div>{% endif %}
 </div>
 
 {% if not modo_relatorio %}

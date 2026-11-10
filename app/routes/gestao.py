@@ -14,6 +14,11 @@ no mes em que foi cadastrada):
 - sem participacao: status "sem participacao", revogada, cancelada ou ainda
   "agendada" com a data da disputa ja passada;
 - aguardando disputa: agendada com data futura (ou sem data);
+- em andamento: em disputa, em julgamento ou em habilitacao (parte das participadas);
+- em 1o lugar: em andamento com algum item marcado como vitoria (resultado provisorio);
+- participadas finalizadas: homologada ou encerrada;
+- no relatorio mensal, "agendadas" sao todas as agendadas do cliente no momento
+  em que o relatorio e gerado (de qualquer mes);
 - valor homologado: soma do valor homologado das vencidas;
 - valor empenhado: soma dos empenhos recebidos no periodo.
 """
@@ -29,6 +34,7 @@ from app.models import Licitacao, Empenho, Cliente
 gestao_bp = Blueprint("gestao", __name__, url_prefix="/gestao")
 
 PARTICIPOU = {"em disputa", "em julgamento", "em habilitacao", "homologada", "encerrada"}
+EM_ANDAMENTO = {"em disputa", "em julgamento", "em habilitacao"}
 NAO_PARTICIPOU = {"revogada", "cancelada", "sem participacao", "interesse nao manifestado"}
 
 MESES = ["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
@@ -36,10 +42,11 @@ MESES = ["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
 
 # Fatias do grafico (disjuntas: somam o total disponibilizado)
 FATIAS = [
-    ("vencidas", "Vencidas", "#1f4d36"),
-    ("participou_sem_vencer", "Participadas sem vitória", "#6fa585"),
+    ("participadas_finalizadas", "Participadas (finalizadas)", "#1f4d36"),
+    ("andamento_sem_primeiro", "Em andamento", "#6fa585"),
+    ("primeiro_lugar", "Em 1º lugar", "#d9a628"),
+    ("agendadas", "Agendadas", "#9fb2c6"),
     ("sem_participacao", "Sem participação", "#c9b98f"),
-    ("aguardando", "Aguardando disputa", "#9fb2c6"),
 ]
 
 
@@ -76,12 +83,17 @@ def _rotulo_mes(d):
 
 def _metricas(lics, emps, agora):
     m = {"disponibilizadas": 0, "participadas": 0, "vencidas": 0, "sem_participacao": 0,
-         "aguardando": 0, "valor_homologado": 0.0, "valor_empenhado": 0.0}
+         "aguardando": 0, "em_andamento": 0, "primeiro_lugar": 0,
+         "valor_homologado": 0.0, "valor_empenhado": 0.0}
     for lic in lics:
         m["disponibilizadas"] += 1
         st = (lic.status or "").lower()
         if st in PARTICIPOU:
             m["participadas"] += 1
+            if st in EM_ANDAMENTO:
+                m["em_andamento"] += 1
+                if any(i.resultado == "vitoria" for i in lic.itens):
+                    m["primeiro_lugar"] += 1
             if st == "homologada":
                 m["vencidas"] += 1
                 m["valor_homologado"] += float(lic.valor_homologado or 0)
@@ -93,8 +105,29 @@ def _metricas(lics, emps, agora):
             m["aguardando"] += 1
     m["valor_empenhado"] = sum(float(e.valor_total or 0) for e in emps)
     m["participou_sem_vencer"] = m["participadas"] - m["vencidas"]
+    m["participadas_finalizadas"] = m["participadas"] - m["em_andamento"]
+    m["andamento_sem_primeiro"] = m["em_andamento"] - m["primeiro_lugar"]
+    m["agendadas"] = m["aguardando"]
     m["aproveitamento"] = round(100 * m["vencidas"] / m["participadas"]) if m["participadas"] else None
     return m
+
+
+def _agendada_futura(lic, agora):
+    return (lic.status or "").lower() == "agendada" and (not lic.data_disputa or lic.data_disputa >= agora)
+
+
+def _evolucao(lics, emps, de, ate, agora, limite=24):
+    """Numeros de cada mes entre de e ate (inclusive)."""
+    evolucao = []
+    d = de
+    while d <= ate and len(evolucao) < limite:
+        lm = [l for l in lics if _ref(l) == d]
+        em = [e for e in emps if e.criado_em and date(e.criado_em.year, e.criado_em.month, 1) == d]
+        mm = _metricas(lm, em, agora)
+        mm["rotulo"] = _rotulo_mes(d)
+        evolucao.append(mm)
+        d = _mais_meses(d, 1)
+    return evolucao
 
 
 def _pizza(m):
@@ -181,15 +214,7 @@ def _contexto(periodo, de_txt, ate_txt, cliente_filtro):
     fatias, total_pizza = _pizza(resumo)
 
     # Evolucao mensal dentro do periodo (ate 24 meses)
-    evolucao = []
-    d = de
-    while d <= ate and len(evolucao) < 24:
-        lm = [l for l in alvo_lics if _ref(l) == d]
-        em = [e for e in alvo_emps if date(e.criado_em.year, e.criado_em.month, 1) == d]
-        mm = _metricas(lm, em, agora)
-        mm["rotulo"] = _rotulo_mes(d)
-        evolucao.append(mm)
-        d = _mais_meses(d, 1)
+    evolucao = _evolucao(alvo_lics, alvo_emps, de, ate, agora)
     maior = max([e["disponibilizadas"] for e in evolucao] + [1])
 
     rotulo_periodo = _rotulo_mes(de) if de == ate else f"{_rotulo_mes(de)} a {_rotulo_mes(ate)}"
@@ -213,29 +238,49 @@ def painel():
     return render_template("gestao.html", modo_relatorio=False, **ctx)
 
 
-@gestao_bp.route("/relatorio")
+@gestao_bp.route("/relatorio", methods=["GET", "POST"])
 @login_required
 def relatorio():
     """Relatorio mensal: a mesma visualizacao da guia, de um mes, pronta para PDF."""
     if not pode_ver_gestao(current_user):
         abort(404)
-    mes = request.args.get("mes") or datetime.now().strftime("%Y-%m")
+    mes = request.values.get("mes") or datetime.now().strftime("%Y-%m")
     if not _mes(mes):
         abort(400)
-    cliente_id = request.args.get("cliente_id", type=int)
+    cliente_id = request.values.get("cliente_id", type=int)
     if not cliente_id or not Cliente.query.get(cliente_id):
         flash("Escolha o cliente do relatório.", "erro")
         return redirect(url_for("gestao.painel"))
     # O relatorio e de um cliente so: nenhum numero de outro cliente entra nele
     ctx = _contexto("personalizado", mes, mes, cliente_id)
     ctx["linhas"] = []
+    agora = datetime.now()
+    d = _mes(mes)
+    lics_cliente = Licitacao.query.filter_by(cliente_id=cliente_id).all()
+    emps_cliente = Empenho.query.filter_by(cliente_id=cliente_id).all()
+
+    # Agendadas: todas as agendadas do cliente no momento em que o relatorio e gerado
+    resumo = ctx["resumo"]
+    resumo["agendadas"] = sum(1 for l in lics_cliente if _agendada_futura(l, agora))
+    ctx["fatias"], ctx["total_pizza"] = _pizza(resumo)
+
+    # Mes a mes: o mes do relatorio e os 2 anteriores (so os que tem dados do cliente)
+    refs = [_ref(l) for l in lics_cliente if _ref(l)] + \
+           [date(e.criado_em.year, e.criado_em.month, 1) for e in emps_cliente if e.criado_em]
+    primeiro = min(refs) if refs else d
+    de_evol = max(_mais_meses(d, -2), min(primeiro, d))
+    ctx["evolucao"] = _evolucao(lics_cliente, emps_cliente, de_evol, d, agora)
+    ctx["maior"] = max([e["disponibilizadas"] for e in ctx["evolucao"]] + [1])
+
+    # OBS: mensagem do consultor digitada ao gerar o relatorio
+    ctx["mensagem_consultor"] = (request.values.get("mensagem") or "").strip()[:2000]
+
     meses_extenso = ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho",
                      "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
-    d = _mes(mes)
     nome_mes = f"{meses_extenso[d.month]} de {d.year}"
     arquivo = f"Relatorio-Bidfy-{d.year}-{d.month:02d}"
     if ctx["cliente_nome"]:
         arquivo += "-" + "".join(ch for ch in ctx["cliente_nome"] if ch.isalnum() or ch in " -").strip().replace(" ", "-")[:40]
     return render_template("gestao_relatorio.html", modo_relatorio=True, nome_mes=nome_mes,
-                           nome_arquivo=arquivo, gerado_em=datetime.now(),
+                           nome_arquivo=arquivo, gerado_em=agora,
                            baixar_automatico=request.args.get("ver") != "1", **ctx)

@@ -7,7 +7,7 @@
     <h2>Gestão <span class="gestao-teste">Versão de teste</span></h2>
     <span class="muted-sm">{{ rotulo_periodo }}{% if cliente_nome %} · {{ cliente_nome }}{% endif %}</span>
   </div>
-  <form method="GET" action="{{ url_for('gestao.relatorio') }}" target="_blank" class="gestao-relatorio-form">
+  <form method="POST" action="{{ url_for('gestao.relatorio') }}" target="_blank" class="gestao-relatorio-form" id="form-relatorio">
     <label class="muted-sm" for="mes-relatorio">Relatório do mês</label>
     <input type="month" id="mes-relatorio" name="mes" value="{{ ate }}" class="select" required>
     <select name="cliente_id" class="select" required aria-label="Cliente do relatório">
@@ -16,7 +16,22 @@
       <option value="{{ c.id }}" {% if cliente_filtro == c.id %}selected{% endif %}>{{ c.nome }}</option>
       {% endfor %}
     </select>
-    <button type="submit" class="btn btn-primary">Gerar relatório</button>
+    <button type="button" class="btn btn-primary" id="btn-gerar-relatorio">Gerar relatório</button>
+
+    {# O app.js move os .modal para o fim do body: os campos se ligam ao form pelo atributo form #}
+    <div id="modal-relatorio" class="modal" style="display:none">
+      <div class="modal-box gestao-modal-box">
+        <h3>Mensagem do consultor</h3>
+        <div class="campo">
+          <label for="mensagem-relatorio">Aparece no campo <strong>OBS</strong> do relatório <small class="muted">(opcional)</small></label>
+          <textarea name="mensagem" id="mensagem-relatorio" form="form-relatorio" maxlength="2000" placeholder="Ex: Em outubro priorizamos os pregões de tintas imobiliárias. Duas disputas seguem em habilitação e devem ser homologadas em novembro."></textarea>
+        </div>
+        <div class="modal-btns">
+          <button type="button" class="btn" id="fechar-modal-relatorio">Cancelar</button>
+          <button type="submit" class="btn btn-primary" form="form-relatorio">Gerar relatório</button>
+        </div>
+      </div>
+    </div>
   </form>
 </div>
 
@@ -50,6 +65,19 @@
 {% include "_gestao_conteudo.html" %}
 
 <script>
+(function () {
+  var formRel = document.getElementById('form-relatorio');
+  var modal = document.getElementById('modal-relatorio');
+  var texto = document.getElementById('mensagem-relatorio');
+  document.getElementById('btn-gerar-relatorio').addEventListener('click', function () {
+    if (!formRel.reportValidity()) { return; }
+    modal.style.display = 'flex';
+    texto.focus();
+  });
+  document.getElementById('fechar-modal-relatorio').addEventListener('click', function () { modal.style.display = 'none'; });
+  modal.addEventListener('click', function (e) { if (e.target === modal) { modal.style.display = 'none'; } });
+  formRel.addEventListener('submit', function () { setTimeout(function () { modal.style.display = 'none'; }, 100); });
+})();
 (function () {
   var form = document.getElementById('form-gestao');
   var meses = document.getElementById('gestao-meses');

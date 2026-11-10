@@ -1304,13 +1304,13 @@ body.com-menu .detalhe-principal .card h3 {
 .gestao-meses[hidden] { display: none; }
 .gestao-meses label { display: flex; gap: 6px; align-items: center; font-size: .85rem; color: var(--texto-suave); }
 .gestao-meses input { width: auto; padding: 6px 8px; }
-.gestao-cards { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+.gestao-cards { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
 .gestao-card { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; margin: 0; }
 .gestao-card-rotulo { font-size: .8rem; font-weight: 700; color: var(--texto-suave); }
 .gestao-card-valor { font-size: 1.7rem; font-weight: 800; color: var(--tinta); letter-spacing: -.02em; line-height: 1.15; white-space: nowrap; }
 .gestao-card-sub { font-size: .75rem; color: var(--texto-suave); }
 .gestao-card-destaque .gestao-card-valor { color: #1f4d36; }
-@media (max-width: 1250px) { .gestao-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 1250px) { .gestao-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .gestao-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .gestao-graficos { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
 .gestao-graficos .card { margin-bottom: 18px; }
@@ -1426,7 +1426,7 @@ body.com-menu.relatorio-pagina { background: #eef2ee; margin: 0; padding: 0 0 40
 .relatorio-titulo h1 { margin: 0; font-size: 1.45rem; font-weight: 800; color: #123524; letter-spacing: -.02em; }
 .relatorio-titulo p { margin: 2px 0 0; color: var(--texto-suave); font-weight: 600; }
 .relatorio-gerado { font-size: .78rem; color: var(--texto-suave); }
-.relatorio-folha .gestao-cards { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.relatorio-folha .gestao-cards { grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; } .relatorio-folha .gestao-card { padding: 14px 12px; } .relatorio-folha .gestao-card-rotulo { font-size: .76rem; white-space: nowrap; } .relatorio-folha .gestao-card-valor { font-size: 1.5rem; } .gestao-coluna { display: flex; flex-direction: column; } .gestao-coluna .card:last-child { flex: 1; } .gestao-obs { border-left: 4px solid #6fa585; } .gestao-obs h3 { margin-bottom: 8px; } .gestao-obs-texto { margin: 0; white-space: pre-line; font-size: .9rem; line-height: 1.55; color: #36423b; } .gestao-h3-sub { font-size: .75rem; font-weight: 600; color: var(--texto-suave); margin-left: 6px; } .gestao-nota { margin: 14px 0 0; font-size: .74rem; color: var(--texto-suave); } .gestao-modal-box textarea { width: 100%; min-height: 140px; resize: vertical; font: inherit; }
 .relatorio-folha .gestao-graficos { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .relatorio-folha .gestao-meses-lista { max-height: none; overflow: visible; }
 .relatorio-folha .card { box-shadow: none; }
