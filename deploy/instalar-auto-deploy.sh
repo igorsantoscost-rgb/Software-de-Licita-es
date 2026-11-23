@@ -22,6 +22,7 @@ Description=Confere o GitHub a cada minuto e atualiza o Bidfy
 
 [Timer]
 OnBootSec=60
+OnActiveSec=20
 OnUnitInactiveSec=60
 Unit=bidfy-deploy.service
 
@@ -30,8 +31,10 @@ WantedBy=timers.target
 UNIT
 
 systemctl daemon-reload
-systemctl enable --now bidfy-deploy.timer
-bash "$DIR/deploy/auto-deploy.sh" --forcar || true
+systemctl enable bidfy-deploy.timer
+systemctl restart bidfy-deploy.timer
+# primeira rodada pelo proprio servico: assim o timer passa a contar a partir dela
+systemctl start bidfy-deploy.service || true
 echo
 echo "Auto-deploy instalado. Status atual:"
 cat "$DIR/uploads/_deploy/status.json"; echo
