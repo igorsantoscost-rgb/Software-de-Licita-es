@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block titulo %}Caixa de entrada{% endblock %}
+{% block conteudo %}
+<div class="page-header">
+  <div>
+    <h2>Caixa de entrada</h2>
+    <p class="muted">Avisos do sistema e recados da equipe.</p>
+  </div>
+  <div class="acoes-header">
+    {% if aba == 'entrada' and caixa_nao_lidas %}
+    <form method="POST" action="{{ url_for('caixa.marcar_lidas') }}" class="form-inline"><button class="btn btn-sm">Marcar todas como lidas</button></form>
+    {% endif %}
+    {% if current_user.is_assessor() %}
+    <button type="button" class="btn btn-sm btn-primary" onclick="document.getElementById('dlg-mensagem').showModal()">+ Nova mensagem</button>
+    {% endif %}
+  </div>
+</div>
+
+{% if current_user.is_assessor() %}
+<div class="filtros">
+  <a href="{{ url_for('caixa.lista') }}" class="filtro-pill {% if aba == 'entrada' %}ativo{% endif %}">Recebidas{% if caixa_nao_lidas %} ({{ caixa_nao_lidas }} nova{{ 's' if caixa_nao_lidas > 1 }}){% endif %}</a>
+  <a href="{{ url_for('caixa.lista', aba='enviadas') }}" class="filtro-pill {% if aba == 'enviadas' %}ativo{% endif %}">Enviadas</a>
+</div>
+{% endif %}
+
+{% if msgs %}
+<div class="caixa-lista">
+  {% for m in msgs %}
+  <a href="{{ url_for('caixa.ver', id=m.id) }}" class="caixa-item {% if aba == 'entrada' and not m.lida_em %}nao-lida{% endif %}">
+    <span class="caixa-icone caixa-icone-{{ m.tipo }}">{{ '💡' if m.tipo == 'sugestao' else ('⚙' if m.tipo == 'sistema' else '✉') }}</span>
+    <span class="caixa-de">{% if aba == 'enviadas' %}Para: {{ m.destinatario.nome if m.destinatario else '—' }}{% else %}{{ m.remetente.nome if m.remetente else 'Bidfy' }}{% endif %}</span>
+    <span class="caixa-assunto"><strong>{{ m.assunto }}</strong>{% if m.texto %} <span class="muted">— {{ m.texto|truncate(110) }}</span>{% endif %}</span>
+    <span class="caixa-data">{{ m.criado_em.strftime('%d/%m %H:%M') if m.criado_em else '' }}</span>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="vazio"><p>{{ 'Nenhuma mensagem enviada.' if aba == 'enviadas' else 'Sua caixa de entrada está vazia.' }}</p></div>
+{% endif %}
+
+{% if current_user.is_assessor() %}
+<dialog class="dlg-sugestao" id="dlg-mensagem">
+  <form method="POST" action="{{ url_for('caixa.nova') }}" class="dlg-sugestao-form">
+    <div class="dlg-sugestao-topo">
+      <div><h3>Nova mensagem</h3><p>Chega na caixa de entrada de quem você escolher.</p></div>
+      <button type="button" class="dlg-fechar" onclick="this.closest('dialog').close()" aria-label="Fechar">×</button>
+    </div>
+    <div class="campo">
+      <label>Para *</label>
+      <div class="caixa-para">
+        {% for u in destinatarios %}
+        <label class="caixa-para-opcao"><input type="checkbox" name="para" value="{{ u.id }}"> {{ u.nome }} <small class="muted">{{ u.perfil|rotulo_status }}</small></label>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="campo"><label>Assunto *</label><input type="text" name="assunto" maxlength="200" required></div>
+    <div class="campo"><label>Mensagem</label><textarea name="texto" rows="6" maxlength="4000"></textarea></div>
+    <div class="dlg-sugestao-rodape"><span></span>
+      <div><button type="button" class="btn" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="submit" class="btn btn-primary">Enviar</button></div>
+    </div>
+  </form>
+</dialog>
+{% endif %}
+{% endblock %}

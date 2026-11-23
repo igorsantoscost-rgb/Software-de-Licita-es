@@ -66,6 +66,9 @@
 
   // Ctrl+V em qualquer lugar da pagina (inclusive dentro do campo de texto)
   document.addEventListener('paste', function (e) {
+    // com a janela de sugestao aberta, so ela recebe o print; fechada, ela ignora
+    var dlg = box.closest('dialog'), aberto = document.querySelector('dialog[open]');
+    if (dlg ? !dlg.open : !!aberto) return;
     var itens = (e.clipboardData || {}).items || [];
     var files = [];
     for (var i = 0; i < itens.length; i++) {

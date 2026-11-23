@@ -7,7 +7,7 @@ from app.models import (Licitacao, Documento, ItemLicitacao, Cliente,
 from app import db
 from app.capag import consultar as consultar_capag, municipios_por_uf, UFS, significado as capag_significado
 from datetime import datetime
-import os, re, uuid, requests
+import math, os, re, uuid, requests
 
 lic_bp = Blueprint("lic", __name__, url_prefix="/licitacoes")
 
@@ -191,7 +191,8 @@ def detalhe(id):
     from app.models import FORMAS_PAGAMENTO_PORTAL
     acesso_portal = acesso_ativo(lic.cliente_id, lic.portal) if lic.portal else None
     consulta_portal = lic.solicitacoes_portal[0] if lic.solicitacoes_portal else None
-    return render_template("detalhe_licitacao.html", lic=lic,
+    proxima = None if current_user.is_assessor() else _proxima_do_calendario(lic)
+    return render_template("detalhe_licitacao.html", lic=lic, proxima=proxima,
                            acesso_portal=acesso_portal, consulta_portal=consulta_portal,
                            formas_pagamento=FORMAS_PAGAMENTO_PORTAL,
                            status_choices=STATUS_CHOICES, portal_choices=PORTAL_CHOICES,
@@ -202,6 +203,22 @@ def detalhe(id):
                            palavras_cliente=palavras_cliente,
                            grupos_mistos=grupos_mistos, itens_fora_ramo=itens_fora_ramo,
                            favorita=any(f.user_id == current_user.id for f in lic.favoritos))
+
+
+def _proxima_do_calendario(lic):
+    """Proxima licitacao do cliente na ordem do calendario (agendadas, por data da
+    disputa). Usada pelo botao "Proxima licitacao" na visao do cliente."""
+    from sqlalchemy import and_, or_
+    q = Licitacao.query.filter(Licitacao.cliente_id == current_user.cliente_id,
+                               Licitacao.status == "agendada",
+                               Licitacao.data_disputa.isnot(None),
+                               Licitacao.id != lic.id)
+    if lic.data_disputa:
+        q = q.filter(or_(Licitacao.data_disputa > lic.data_disputa,
+                         and_(Licitacao.data_disputa == lic.data_disputa, Licitacao.id > lic.id)))
+    else:
+        q = q.filter(Licitacao.data_disputa >= datetime.now())
+    return q.order_by(Licitacao.data_disputa.asc(), Licitacao.id.asc()).first()
 
 
 @lic_bp.route("/capag/municipios")
@@ -485,6 +502,32 @@ def excluir_doc(doc_id):
 
 # ─── Itens / Lotes ────────────────────────────────────────────────────────────
 
+def _numero_br(texto):
+    """'1.234,56' / '1234,56' / '1234.56' / 'R$ 10' -> float. Vazio ou invalido -> None."""
+    t = (texto or "").replace("R$", "").replace(" ", "").strip()
+    if not t:
+        return None
+    if "," in t:
+        t = t.replace(".", "").replace(",", ".")
+    elif t.count(".") > 1 or re.fullmatch(r"\d{1,3}(\.\d{3})+", t):
+        t = t.replace(".", "")  # 1.000 / 1.000.000 = milhar
+    try:
+        v = float(t)
+    except ValueError:
+        return None
+    return v if math.isfinite(v) and abs(v) < 1e12 else None
+
+
+def _quantidade_br(texto):
+    v = _numero_br(texto)
+    if v is None or v < 0 or v > 2_000_000_000:
+        return None
+    return int(round(v))
+
+
+def _campo(nome, limite):
+    return request.form.get(nome, "").strip()[:limite]
+
 def _marcar_preco_registrado(item):
     """Guarda quando e quem registrou o valor minimo do item."""
     from app.models import agora_brasilia
@@ -569,41 +612,39 @@ def adicionar_item(id):
         return redirect(url_for("lic.detalhe", id=id))
     descricao = request.form.get("descricao", "").strip()
     if not descricao:
-        flash("Descricao do item e obrigatoria.", "erro")
-        return redirect(url_for("lic.detalhe", id=id))
-    valor_str = request.form.get("valor_minimo", "").replace(",", ".")
-    valor = None
-    try:
-        valor = float(valor_str) if valor_str else None
-    except ValueError:
-        pass
-    qtd_str = request.form.get("quantidade", "")
-    qtd = None
-    try:
-        qtd = int(qtd_str) if qtd_str else None
-    except ValueError:
-        pass
-    if valor is not None and not current_user.is_assessor() and not request.form.get("marca", "").strip():
+        flash("Descrição do item é obrigatória.", "erro")
+        return redirect(url_for("lic.detalhe", id=id) + "#parametros-disputa")
+    valor = _numero_br(request.form.get("valor_minimo", ""))
+    qtd = _quantidade_br(request.form.get("quantidade", ""))
+    marca = _campo("marca", 200)
+    if valor is not None and not current_user.is_assessor() and not marca:
         flash("Preencha a marca do produto para registrar o valor mínimo.", "erro")
-        return redirect(url_for("lic.detalhe", id=id))
+        return redirect(url_for("lic.detalhe", id=id) + "#parametros-disputa")
     item = ItemLicitacao(
         licitacao_id=id,
-        numero_item=request.form.get("numero_item", "").strip(),
+        numero_item=_campo("numero_item", 20),
         descricao=descricao,
-        marca=request.form.get("marca", "").strip(),
-        lote_grupo=request.form.get("lote_grupo", "").strip(),
+        marca=marca,
+        lote_grupo=_campo("lote_grupo", 100),
         valor_minimo=valor,
-        unidade=request.form.get("unidade", "").strip(),
+        unidade=_campo("unidade", 50),
         quantidade=qtd,
     )
     if valor is not None:
         _marcar_preco_registrado(item)
-    db.session.add(item)
-    db.session.commit()
+    try:
+        db.session.add(item)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        import logging
+        logging.getLogger(__name__).exception(f"Falha ao adicionar item na licitacao {id}: {e}")
+        flash("Não consegui salvar o item. Confira os campos (quantidade só com números) e tente de novo.", "erro")
+        return redirect(url_for("lic.detalhe", id=id) + "#parametros-disputa")
     if valor is not None:
         _avisar_preco_registrado(lic, [item])
     flash("Item adicionado.", "ok")
-    return redirect(url_for("lic.detalhe", id=id))
+    return redirect(url_for("lic.detalhe", id=id) + "#parametros-disputa")
 
 
 @lic_bp.route("/item/<int:item_id>/editar", methods=["POST"])
@@ -620,26 +661,24 @@ def editar_item(item_id):
         return redirect(url_for("lic.detalhe", id=lic.id))
     if travada:
         marca_pedida = request.form.get("marca", "").strip()
-        valor_pedido = request.form.get("valor_minimo", "").replace(",", ".").strip()
-        try:
-            valor_pedido = float(valor_pedido) if valor_pedido else None
-        except ValueError:
+        bruto = request.form.get("valor_minimo", "").strip()
+        valor_pedido = _numero_br(bruto)
+        if bruto and valor_pedido is None:
             valor_pedido = "x"
         valor_atual = float(item.valor_minimo) if item.valor_minimo is not None else None
         tentou_mudar_travado = marca_pedida != (item.marca or "").strip() or valor_pedido != valor_atual
-    item.numero_item = request.form.get("numero_item", "").strip()
-    item.descricao = request.form.get("descricao", item.descricao).strip()
+    item.numero_item = _campo("numero_item", 20)
+    item.descricao = request.form.get("descricao", item.descricao).strip() or item.descricao
     if not travada:
-        item.marca = request.form.get("marca", "").strip()
-    item.lote_grupo = request.form.get("lote_grupo", "").strip()
-    item.unidade = request.form.get("unidade", "").strip()
-    valor_str = request.form.get("valor_minimo", "").replace(",", ".")
+        item.marca = _campo("marca", 200)
+    item.lote_grupo = _campo("lote_grupo", 100)
+    item.unidade = _campo("unidade", 50)
+    valor_str = request.form.get("valor_minimo", "").strip()
     valor_antes = float(item.valor_minimo) if item.valor_minimo is not None else None
     if not travada:
-        try:
-            item.valor_minimo = float(valor_str) if valor_str else None
-        except ValueError:
-            pass
+        novo = _numero_br(valor_str)
+        if novo is not None or not valor_str:
+            item.valor_minimo = novo
     valor_depois = float(item.valor_minimo) if item.valor_minimo is not None else None
     if valor_depois is not None and not current_user.is_assessor() and not (item.marca or "").strip():
         db.session.rollback()
@@ -651,12 +690,17 @@ def editar_item(item_id):
     elif valor_depois is None and not travada:
         item.valor_registrado_em = None
         item.valor_registrado_por = None
-    qtd_str = request.form.get("quantidade", "")
+    qtd_str = request.form.get("quantidade", "").strip()
+    if not qtd_str or _quantidade_br(qtd_str) is not None:
+        item.quantidade = _quantidade_br(qtd_str)
     try:
-        item.quantidade = int(qtd_str) if qtd_str else None
-    except ValueError:
-        pass
-    db.session.commit()
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        import logging
+        logging.getLogger(__name__).exception(f"Falha ao editar item {item_id}: {e}")
+        flash("Não consegui salvar o item. Confira os campos e tente de novo.", "erro")
+        return redirect(url_for("lic.detalhe", id=lic.id) + "#parametros-disputa")
     if preco_novo:
         _avisar_preco_registrado(lic, [item])
     if tentou_mudar_travado:

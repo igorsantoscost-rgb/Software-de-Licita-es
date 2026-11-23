@@ -69,6 +69,28 @@ def create_app():
     from app.routes.sugestoes import sug_bp
     app.register_blueprint(sug_bp)
 
+    from app.routes.caixa import caixa_bp
+    app.register_blueprint(caixa_bp)
+
+    from app.routes.dev import dev_bp
+    app.register_blueprint(dev_bp)
+
+    @app.context_processor
+    def _contexto_topo():
+        """Bolinha de versao/status (equipe) e recados nao lidos da caixa de entrada."""
+        from flask_login import current_user
+        ctx = {"caixa_nao_lidas": 0, "sistema": None}
+        try:
+            if current_user.is_authenticated:
+                from app.caixa import nao_lidas
+                ctx["caixa_nao_lidas"] = nao_lidas(current_user.id)
+                if current_user.is_assessor():
+                    from app.versao import status_sistema
+                    ctx["sistema"] = status_sistema()
+        except Exception:
+            db.session.rollback()
+        return ctx
+
     @app.context_processor
     def _contexto_sugestoes():
         """Numero de sugestoes pendentes (bolinha no menu do master)."""
@@ -226,6 +248,10 @@ def _migrar_prospeccao():
             conn.execute(text("ALTER TABLE pacotes_importados ADD COLUMN IF NOT EXISTS resumo TEXT"))
             conn.execute(text("ALTER TABLE licitacoes ADD COLUMN IF NOT EXISTS desinteresse_em TIMESTAMP"))
             conn.execute(text("ALTER TABLE licitacoes ADD COLUMN IF NOT EXISTS desinteresse_por INTEGER"))
+            conn.commit()
+        with db.engine.connect() as conn:
+            # Item digitado a mao com a descricao inteira do edital passava de 500 e dava erro 500
+            conn.execute(text("ALTER TABLE itens_licitacao ALTER COLUMN descricao TYPE TEXT"))
             conn.commit()
     except Exception:
         db.session.rollback()

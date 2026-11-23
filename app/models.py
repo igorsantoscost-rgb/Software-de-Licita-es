@@ -430,7 +430,7 @@ class ItemLicitacao(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     licitacao_id = db.Column(db.Integer, db.ForeignKey("licitacoes.id"), nullable=False)
     numero_item = db.Column(db.String(20), nullable=True)
-    descricao = db.Column(db.String(500), nullable=False)
+    descricao = db.Column(db.Text, nullable=False)  # TEXT: descricao do edital pode passar de 500 caracteres
     marca = db.Column(db.String(200), nullable=True)
     lote_grupo = db.Column(db.String(100), nullable=True)
     valor_minimo = db.Column(db.Numeric(14, 2), nullable=True)
@@ -983,3 +983,23 @@ class AnexoSugestao(db.Model):
     @property
     def e_imagem(self):
         return self.nome_original.lower().rsplit(".", 1)[-1] in ("png", "jpg", "jpeg", "gif", "webp", "bmp")
+
+
+# ─── Caixa de entrada (mensagens internas do sistema) ───────────────────────
+
+class MensagemCaixa(db.Model):
+    """Recado interno: avisos do sistema (sugestao acatada/recusada...) e
+    mensagens entre a equipe. remetente_id vazio = aviso automatico do Bidfy."""
+    __tablename__ = "mensagens_caixa"
+    id = db.Column(db.Integer, primary_key=True)
+    destinatario_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    remetente_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    tipo = db.Column(db.String(20), nullable=False, default="mensagem")  # mensagem | sugestao | sistema
+    assunto = db.Column(db.String(200), nullable=False)
+    texto = db.Column(db.Text, nullable=True)
+    link = db.Column(db.String(300), nullable=True)
+    lida_em = db.Column(db.DateTime, nullable=True)
+    criado_em = db.Column(db.DateTime, default=agora_brasilia, index=True)
+
+    destinatario = db.relationship("User", foreign_keys=[destinatario_id])
+    remetente = db.relationship("User", foreign_keys=[remetente_id])

@@ -17,6 +17,7 @@ sug_bp = Blueprint("sug", __name__, url_prefix="/sugestoes")
 
 PASTA = "/app/uploads/sugestoes"
 LIMITE_ANEXOS = 20
+LIMITE_TEXTO = 4000
 
 
 def _so_equipe():
@@ -69,21 +70,39 @@ def nova():
     _so_equipe()
     titulo = request.form.get("titulo", "").strip()
     texto = request.form.get("texto", "").strip()
+    voltar = request.form.get("voltar", "").strip()
+    if not (voltar.startswith("/") and not voltar.startswith("//")):
+        voltar = ""
+    if not titulo and not texto:
+        flash("Escreva a sugestão antes de enviar.", "erro")
+        return redirect(voltar or url_for("sug.lista"))
+    if len(texto) > LIMITE_TEXTO:
+        flash(f"A sugestão passou de {LIMITE_TEXTO} caracteres. Resuma um pouco e envie de novo.", "erro")
+        return redirect(voltar or url_for("sug.lista"))
     if not titulo:
-        flash("Dê um título para a sugestão.", "erro")
-        return redirect(url_for("sug.lista"))
+        primeira = texto.splitlines()[0].strip()
+        titulo = primeira if len(primeira) <= 80 else primeira[:77].rstrip() + "..."
     sug = SugestaoMelhoria(autor_id=current_user.id, titulo=titulo[:200], texto=texto)
     db.session.add(sug)
     db.session.flush()
     _salvar_anexos(sug)
     db.session.commit()
     try:
+        from app.caixa import enviar_mensagem
+        from app.models import User
+        masters = User.query.filter_by(perfil="master").all()
+        enviar_mensagem(masters, f"Nova sugestão: {sug.titulo}", (texto or "")[:600],
+                        link=url_for("sug.detalhe", id=sug.id), remetente_id=current_user.id, tipo="sugestao")
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    try:
         from app.email_service import notificar_nova_sugestao
         notificar_nova_sugestao(sug)
     except Exception:
         pass
     flash("Sugestão enviada. Obrigado!", "ok")
-    return redirect(url_for("sug.detalhe", id=sug.id))
+    return redirect(voltar or url_for("sug.detalhe", id=sug.id))
 
 
 @sug_bp.route("/<int:id>")
@@ -140,6 +159,18 @@ def decidir(id):
     elif mudou or not sug.decidido_em:
         sug.decidido_por = current_user.id
         sug.decidido_em = agora_brasilia()
+    if mudou and status != "pendente" and sug.autor_id != current_user.id:
+        from app.caixa import enviar_mensagem
+        if status == "acatada":
+            assunto = f"Sua sugestão foi acatada e subiu: {sug.titulo}"
+            corpo = "A melhoria que você sugeriu foi aprovada e já está no sistema."
+        else:
+            assunto = f"Sua sugestão foi recusada: {sug.titulo}"
+            corpo = "A melhoria que você sugeriu não vai ser feita por enquanto."
+        if sug.resposta:
+            corpo += "\n\nResposta:\n" + sug.resposta
+        enviar_mensagem([sug.autor_id], assunto, corpo, link=url_for("sug.detalhe", id=sug.id),
+                        remetente_id=current_user.id, tipo="sugestao")
     db.session.commit()
     if mudou and status != "pendente" and sug.autor_id != current_user.id:
         try:
@@ -148,7 +179,10 @@ def decidir(id):
         except Exception:
             pass
     rotulo = {"acatada": "acatada", "recusada": "recusada", "pendente": "pendente de novo"}[status]
-    flash(f"Sugestão marcada como {rotulo}.", "ok")
+    flash(f"Sugestão marcada como {rotulo}." + (" O autor foi avisado na caixa de entrada." if mudou and status != "pendente" and sug.autor_id != current_user.id else ""), "ok")
+    voltar = request.form.get("voltar", "").strip()
+    if voltar.startswith("/") and not voltar.startswith("//"):
+        return redirect(voltar)
     return redirect(url_for("sug.detalhe", id=id))
 
 

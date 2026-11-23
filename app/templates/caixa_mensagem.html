@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block titulo %}{{ m.assunto }} — Caixa de entrada{% endblock %}
+{% block conteudo %}
+<div class="page-header">
+  <div>
+    <a href="{{ url_for('caixa.lista') }}" class="voltar">← Voltar para Caixa de entrada</a>
+    <h2>{{ m.assunto }}</h2>
+    <p class="muted">De {{ m.remetente.nome if m.remetente else 'Bidfy (aviso automático)' }} para {{ m.destinatario.nome if m.destinatario else '—' }} · {{ m.criado_em.strftime('%d/%m/%Y às %H:%M') if m.criado_em else '' }}</p>
+  </div>
+</div>
+<div class="card card-form">
+  <p class="sug-texto">{{ m.texto or '—' }}</p>
+  {% if m.link and m.link.startswith('/') and not m.link.startswith('//') %}
+  <p style="margin-top:16px;"><a href="{{ m.link }}" class="btn btn-sm">Abrir</a></p>
+  {% endif %}
+</div>
+{% if m.remetente_id and m.destinatario_id == current_user.id %}
+<div class="card card-form">
+  <h3>Responder</h3>
+  <form method="POST" action="{{ url_for('caixa.responder', id=m.id) }}">
+    <div class="campo"><textarea name="texto" rows="4" maxlength="4000" required placeholder="Escreva sua resposta"></textarea></div>
+    <button type="submit" class="btn btn-primary">Enviar resposta</button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

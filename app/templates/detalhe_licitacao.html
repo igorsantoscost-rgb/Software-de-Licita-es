@@ -6,7 +6,21 @@
 <div class="page-header">
   <div>
     {% set voltar_url = session.get('voltar_url') if (session.get('voltar_url') or '').startswith('/') and not (session.get('voltar_url') or '').startswith('//') else url_for('main.painel') %}
-    <a href="{{ voltar_url }}" class="voltar">← Voltar para {{ session.get('voltar_rotulo') or 'Painel' }}</a>
+    <div class="detalhe-navegacao">
+      <a href="{{ voltar_url }}" class="voltar">← Voltar para {{ session.get('voltar_rotulo') or 'Painel' }}</a>
+      {% if not current_user.is_assessor() %}
+        {% if proxima %}
+        <a href="{{ url_for('lic.detalhe', id=proxima.id) }}" class="btn-proxima"
+           title="{{ proxima.orgao_licitante }} · {{ proxima.data_disputa.strftime('%d/%m/%Y %H:%M') }}">
+          Próxima licitação
+          <small>{{ proxima.data_disputa.strftime('%d/%m %H:%M') }}</small>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+        {% else %}
+        <span class="btn-proxima desativado" title="Não há outra licitação agendada depois desta">Última da agenda</span>
+        {% endif %}
+      {% endif %}
+    </div>
     <h2 class="titulo-com-favorito">
       <form method="POST" action="{{ url_for('lic.favoritar', id=lic.id) }}" class="form-favorito">
         <button type="submit" class="btn-favorito btn-favorito-grande {% if favorita %}favorita{% endif %}"
@@ -418,7 +432,7 @@
         <form method="POST" action="{{ url_for('lic.adicionar_item', id=lic.id) }}" class="form-item">
           <div class="campo">
             <label>Descrição *</label>
-            <input type="text" name="descricao" required placeholder="Ex: Caixas de papel A4">
+            <textarea name="descricao" required rows="3" placeholder="Ex: Caixas de papel A4 (pode colar a descrição completa do edital)"></textarea>
           </div>
           <div class="campo-row">
             <div class="campo">

@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=costa18">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=sobrio1">
   <script>try { if (localStorage.getItem('bidfy-menu') === 'recolhido') document.documentElement.classList.add('menu-recolhido'); } catch (e) {}</script>
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/bidfy-simbolo.svg') }}">
   <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
@@ -28,6 +28,15 @@
     <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
   </button>
   <a href="{{ url_for('main.painel') }}" class="topo-mobile-marca"><img src="{{ url_for('static', filename='img/logo-bidfy-escuro.svg') }}" alt="Bidfy"></a>
+  <a href="{{ url_for('caixa.lista') }}" class="btn-lampada btn-lampada-mobile btn-caixa" aria-label="Caixa de entrada">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13l2.5-7.5A2 2 0 0 1 7.4 4h9.2a2 2 0 0 1 1.9 1.5L21 13v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 13h5l1.5 3h5L16 13h5"/></svg>
+    {% if caixa_nao_lidas %}<span class="btn-lampada-bolinha">{{ caixa_nao_lidas }}</span>{% endif %}
+  </a>
+  {% if current_user.is_assessor() %}
+  <button type="button" class="btn-lampada btn-lampada-mobile" data-abrir-sugestao title="Sugerir uma melhoria" aria-label="Sugerir uma melhoria">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/></svg>
+  </button>
+  {% endif %}
 </header>
 
 <aside class="menu-lateral" id="menu-lateral">
@@ -39,8 +48,17 @@
     <img src="{{ url_for('static', filename='img/logo-bidfy-escuro.svg') }}" alt="Bidfy" class="menu-marca-logo">
     <img src="{{ url_for('static', filename='img/bidfy-simbolo.svg') }}" alt="Bidfy" class="menu-marca-icone">
   </a>
+  {% if sistema %}
+  <a href="{{ url_for('dev.painel') if current_user.is_master() else '#' }}" class="menu-versao menu-versao-{{ sistema.estado }}"
+     title="{{ sistema.rotulo }}{% if sistema.mensagem %} — {{ sistema.mensagem }}{% endif %}{% if sistema.em %} ({{ sistema.em }}){% endif %}">
+    <span class="ponto-status ponto-{{ sistema.estado }}"></span>{{ sistema.versao }}
+  </a>
+  {% endif %}
 
   <nav class="menu-grupos">
+    {% if current_user.is_master() %}
+    {{ item('dev.painel', 'Desenvolvimento' ~ (' (' ~ sugestoes_pendentes ~ ')' if sugestoes_pendentes else ''), '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/>', ep.startswith('dev.') or ep.startswith('sug.')) }}
+    {% endif %}
     <p class="menu-grupo-titulo">Licitações</p>
     {{ item('main.painel', 'Painel', '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>', ep == 'main.painel' or ep.startswith('lic.')) }}
     {{ item('main.calendario', 'Calendário', '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>', ep.startswith('main.calendario')) }}
@@ -62,7 +80,9 @@
     {% if ver_gestao %}
     {{ item('gestao.painel', 'Gestão (teste)', '<path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/>', ep.startswith('gestao.')) }}
     {% endif %}
-    {{ item('sug.lista', 'Sugestões' ~ (' (' ~ sugestoes_pendentes ~ ')' if current_user.is_master() and sugestoes_pendentes else ''), '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/>', ep.startswith('sug.')) }}
+    {% if not current_user.is_master() %}
+    {{ item('sug.lista', 'Sugestões', '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/>', ep.startswith('sug.')) }}
+    {% endif %}
     {% endif %}
     {% if current_user.is_master() %}
     <p class="menu-grupo-titulo">Administração</p>
@@ -87,6 +107,95 @@
   </div>
 </aside>
 <div class="menu-fundo" onclick="document.body.classList.remove('menu-aberto')"></div>
+
+{# Trilha da barra superior: (prefixo do endpoint, grupo, tela) — o primeiro que casar vale #}
+{% set trilhas = [
+  ('lic.detalhe', 'Licitações', 'Licitação'), ('lic.nova', 'Licitações', 'Nova licitação'), ('lic.editar', 'Licitações', 'Editar licitação'),
+  ('lic.', 'Licitações', 'Painel'), ('main.painel', 'Licitações', 'Painel'), ('main.calendario', 'Licitações', 'Calendário'),
+  ('pros.', 'Licitações', 'Leads indiretos'), ('imp.', 'Licitações', 'Importar pacote'),
+  ('docs.', 'Gestão', 'Clientes'), ('emp.', 'Gestão', 'Empenhos'), ('fin.', 'Gestão', 'Financeiro'),
+  ('gestao.', 'Gestão', 'Indicadores'), ('sug.', 'Desenvolvimento' if current_user.is_master() else 'Gestão', 'Sugestões'), ('admin.', 'Administração', 'Sistema'),
+  ('portais.', 'Gestão', 'Portais'), ('dev.', 'Desenvolvimento', 'Sugestões e versões'), ('caixa.', '', 'Caixa de entrada'),
+] %}
+{% set ns = namespace(grupo='', tela='') %}
+{% for pre, g, t in trilhas %}{% if not ns.tela and ep.startswith(pre) %}{% set ns.grupo = g %}{% set ns.tela = t %}{% endif %}{% endfor %}
+{% if not ns.tela %}
+  {% if 'cliente' in ep %}{% set ns.grupo = 'Gestão' %}{% set ns.tela = 'Clientes' %}
+  {% elif 'assessor' in ep %}{% set ns.grupo = 'Administração' %}{% set ns.tela = 'Assessores' %}
+  {% elif 'acesso' in ep %}{% set ns.grupo = 'Administração' %}{% set ns.tela = 'Acessos' %}
+  {% else %}{% set ns.tela = 'Bidfy' %}{% endif %}
+{% endif %}
+<header class="barra-topo">
+  <nav class="barra-topo-trilha" aria-label="Você está em">
+    {% if ns.grupo %}<span>{{ ns.grupo }}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>{% endif %}
+    <strong>{{ ns.tela }}</strong>
+  </nav>
+  <div class="barra-topo-acoes">
+    <a href="{{ url_for('caixa.lista') }}" class="btn-lampada btn-caixa" title="Caixa de entrada{% if caixa_nao_lidas %}: {{ caixa_nao_lidas }} nova(s){% endif %}" aria-label="Caixa de entrada">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13l2.5-7.5A2 2 0 0 1 7.4 4h9.2a2 2 0 0 1 1.9 1.5L21 13v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 13h5l1.5 3h5L16 13h5"/></svg>
+      {% if caixa_nao_lidas %}<span class="btn-lampada-bolinha">{{ caixa_nao_lidas }}</span>{% endif %}
+    </a>
+    {% if current_user.is_assessor() %}
+    <button type="button" class="btn-lampada" data-abrir-sugestao title="Sugerir uma melhoria no Bidfy" aria-label="Sugerir uma melhoria">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/></svg>
+      {% if current_user.is_master() and sugestoes_pendentes %}<span class="btn-lampada-bolinha">{{ sugestoes_pendentes }}</span>{% endif %}
+    </button>
+    {% endif %}
+    <div class="barra-topo-usuario">
+      <div class="menu-avatar">{{ (current_user.nome or current_user.username)[:1]|upper }}</div>
+      <div>
+        <strong>{{ current_user.nome or current_user.username }}</strong>
+        <span>{{ current_user.perfil|rotulo_status }}{% if current_user.cliente %} · {{ current_user.cliente.nome }}{% endif %}</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+{% if current_user.is_assessor() %}
+<dialog class="dlg-sugestao" id="dlg-sugestao" aria-labelledby="dlg-sugestao-titulo">
+  <form method="POST" action="{{ url_for('sug.nova') }}" enctype="multipart/form-data" class="dlg-sugestao-form">
+    <input type="hidden" name="voltar" value="{{ request.full_path if request.full_path.startswith('/') and not request.full_path.startswith('//') else '' }}">
+    <div class="dlg-sugestao-topo">
+      <div>
+        <h3 id="dlg-sugestao-titulo">Sugestão de melhoria</h3>
+        <p>Viu algo que pode melhorar no Bidfy? Conte aqui. Pode anexar prints e arquivos.</p>
+      </div>
+      <button type="button" class="dlg-fechar" data-fechar-sugestao aria-label="Fechar">×</button>
+    </div>
+    <div class="campo">
+      <label for="sug-titulo">Título <small class="muted">(opcional)</small></label>
+      <input type="text" id="sug-titulo" name="titulo" maxlength="200" placeholder="Ex: Mostrar o valor estimado no calendário">
+    </div>
+    <div class="campo">
+      <label for="sug-texto">Sugestão *</label>
+      <textarea id="sug-texto" name="texto" rows="7" maxlength="4000" required placeholder="Explique o que poderia mudar e por quê."></textarea>
+      <small class="contador-caracteres"><span data-contador>0</span> / 4000 caracteres</small>
+    </div>
+    {% with id_input='anexos-lampada' %}{% include '_anexos_colar.html' %}{% endwith %}
+    <div class="dlg-sugestao-rodape">
+      <a href="{{ url_for('sug.lista') }}" class="muted">{{ 'Ver todas as sugestões' if current_user.is_master() else 'Minhas sugestões' }}</a>
+      <div>
+        <button type="button" class="btn" data-fechar-sugestao>Cancelar</button>
+        <button type="submit" class="btn btn-primary">Enviar sugestão</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+<script>
+(function () {
+  var dlg = document.getElementById('dlg-sugestao');
+  if (!dlg || !dlg.showModal) return;
+  var txt = dlg.querySelector('#sug-texto'), cont = dlg.querySelector('[data-contador]');
+  function contar() { cont.textContent = txt.value.length; cont.parentNode.classList.toggle('no-limite', txt.value.length >= 4000); }
+  txt.addEventListener('input', contar);
+  document.querySelectorAll('[data-abrir-sugestao]').forEach(function (b) {
+    b.addEventListener('click', function () { document.body.classList.remove('menu-aberto'); dlg.showModal(); txt.focus(); });
+  });
+  dlg.querySelectorAll('[data-fechar-sugestao]').forEach(function (b) { b.addEventListener('click', function () { dlg.close(); }); });
+  dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
+})();
+</script>
+{% endif %}
 {% endif %}
 
 <main class="container {% block main_classe %}{% endblock %}">

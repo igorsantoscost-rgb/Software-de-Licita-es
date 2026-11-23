@@ -4,7 +4,7 @@
 {% set rotulos = {'pendente': 'Pendente', 'acatada': 'Acatada', 'recusada': 'Recusada'} %}
 <div class="page-header">
   <div>
-    <a href="{{ url_for('sug.lista') }}" class="voltar">← Voltar para Sugestões</a>
+    <a href="{{ url_for('dev.painel') if current_user.is_master() else url_for('sug.lista') }}" class="voltar">← Voltar para {{ 'Desenvolvimento' if current_user.is_master() else 'Sugestões' }}</a>
     <h2>{{ sug.titulo }} <span class="sug-status sug-{{ sug.status }}">{{ rotulos[sug.status] }}</span></h2>
     <p class="muted">Enviada por {{ sug.autor.nome if sug.autor else '—' }} em {{ sug.criado_em.strftime('%d/%m/%Y às %H:%M') if sug.criado_em else '—' }}</p>
   </div>

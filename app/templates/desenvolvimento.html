@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block titulo %}Desenvolvimento{% endblock %}
+{% block conteudo %}
+{% set rotulos = {'pendente': 'Pendentes', 'acatada': 'Acatadas', 'recusada': 'Recusadas'} %}
+<div class="page-header">
+  <div>
+    <h2>Desenvolvimento</h2>
+    <p class="muted">Sugestões de melhoria da equipe e atualizações do sistema. Ao acatar ou recusar, quem sugeriu recebe o aviso na caixa de entrada.</p>
+  </div>
+  {% if sistema %}
+  <div class="dev-versao dev-versao-{{ sistema.estado }}">
+    <span class="ponto-status ponto-{{ sistema.estado }}"></span>
+    <div><strong>{{ sistema.versao }}</strong><span>{{ sistema.rotulo }}</span></div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="card card-faixa">
+  <div class="card-faixa-titulo"><h3>Sugestões de melhoria</h3>
+    <div class="filtros filtros-faixa">
+      {% for s, r in rotulos.items() %}
+      <a href="{{ url_for('dev.painel', status=s) }}" class="filtro-pill {% if filtro == s %}ativo{% endif %}">{{ r }} ({{ contagem[s] }})</a>
+      {% endfor %}
+      <a href="{{ url_for('dev.painel', status='todas') }}" class="filtro-pill {% if filtro not in rotulos %}ativo{% endif %}">Todas ({{ contagem.todas }})</a>
+    </div>
+  </div>
+
+  {% if sugestoes %}
+  <div class="dev-lista">
+    {% for s in sugestoes %}
+    <div class="dev-sug">
+      <div class="dev-sug-corpo">
+        <div class="dev-sug-topo">
+          <a href="{{ url_for('sug.detalhe', id=s.id) }}" class="dev-sug-titulo">{{ s.titulo }}</a>
+          <span class="sug-status sug-{{ s.status }}">{{ {'pendente':'Pendente','acatada':'Acatada','recusada':'Recusada'}[s.status] }}</span>
+        </div>
+        <small class="muted">{{ s.autor.nome if s.autor else '—' }} · {{ s.criado_em.strftime('%d/%m/%Y %H:%M') if s.criado_em else '' }}{% if s.anexos %} · 📎 {{ s.anexos|length }} anexo(s){% endif %}</small>
+        {% if s.texto %}<p class="dev-sug-texto">{{ s.texto|truncate(420) }}</p>{% endif %}
+        {% if s.resposta %}<p class="dev-sug-resposta"><strong>Resposta:</strong> {{ s.resposta }}</p>{% endif %}
+      </div>
+      <div class="dev-sug-acoes">
+        {% if s.status == 'pendente' %}
+        <button type="button" class="btn btn-sm btn-primary" data-decidir="acatada" data-id="{{ s.id }}" data-titulo="{{ s.titulo }}">✓ Acatar</button>
+        <button type="button" class="btn btn-sm btn-sug-recusar" data-decidir="recusada" data-id="{{ s.id }}" data-titulo="{{ s.titulo }}">✕ Recusar</button>
+        {% endif %}
+        <a href="{{ url_for('sug.detalhe', id=s.id) }}" class="btn btn-sm">Abrir</a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="vazio"><p>Nenhuma sugestão {{ 'pendente' if filtro == 'pendente' else 'neste filtro' }}.</p></div>
+  {% endif %}
+</div>
+
+<div class="card card-faixa">
+  <div class="card-faixa-titulo"><h3>Atualizações do sistema</h3></div>
+  {% if deploys %}
+  <div class="tabela-wrap tabela-wrap-card">
+    <table class="tabela tabela-sm">
+      <thead><tr><th>Versão</th><th>Quando</th><th>Situação</th><th>Mudança</th></tr></thead>
+      <tbody>
+        {% for d in deploys %}
+        <tr>
+          <td><strong>v{{ d.versao }}</strong> <small class="muted">{{ (d.commit or '')[:7] }}</small></td>
+          <td style="white-space:nowrap;">{{ d.em }}</td>
+          <td><span class="ponto-status ponto-{{ d.estado }}"></span> {{ {'ok':'No ar','falhou':'Falhou','build':'Em andamento'}.get(d.estado, d.estado) }}</td>
+          <td>{{ d.mensagem }}{% if d.erro %}<br><small class="texto-erro">{{ d.erro|truncate(220) }}</small>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">Nenhuma atualização registrada ainda. O histórico aparece aqui depois que o auto-deploy for instalado na VPS.</p>
+  {% endif %}
+</div>
+
+<dialog class="dlg-sugestao" id="dlg-decidir">
+  <form method="POST" id="form-decidir" class="dlg-sugestao-form">
+    <input type="hidden" name="status" id="decidir-status">
+    <input type="hidden" name="voltar" value="{{ request.full_path }}">
+    <div class="dlg-sugestao-topo">
+      <div><h3 id="decidir-titulo">Acatar sugestão</h3><p id="decidir-sub"></p></div>
+      <button type="button" class="dlg-fechar" onclick="this.closest('dialog').close()" aria-label="Fechar">×</button>
+    </div>
+    <div class="campo">
+      <label for="decidir-resposta">Mensagem para quem sugeriu</label>
+      <textarea name="resposta" id="decidir-resposta" rows="5" maxlength="4000"></textarea>
+      <small class="muted">Vai para a caixa de entrada do autor (e por e-mail, se ele tiver cadastrado).</small>
+    </div>
+    <div class="dlg-sugestao-rodape">
+      <span></span>
+      <div>
+        <button type="button" class="btn" onclick="this.closest('dialog').close()">Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="decidir-confirmar">Confirmar</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+<script>
+(function () {
+  var dlg = document.getElementById('dlg-decidir'), form = document.getElementById('form-decidir');
+  var base = "{{ url_for('sug.decidir', id=0) }}".replace(/0\/decidir$/, '');
+  document.querySelectorAll('[data-decidir]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var acatar = b.dataset.decidir === 'acatada';
+      form.action = base + b.dataset.id + '/decidir';
+      document.getElementById('decidir-status').value = b.dataset.decidir;
+      document.getElementById('decidir-titulo').textContent = acatar ? 'Acatar sugestão' : 'Recusar sugestão';
+      document.getElementById('decidir-sub').textContent = b.dataset.titulo;
+      var r = document.getElementById('decidir-resposta');
+      r.placeholder = acatar ? 'Ex: Feito! Já está no ar na versão de hoje.' : 'Ex: Não vamos fazer agora porque...';
+      r.value = '';
+      var c = document.getElementById('decidir-confirmar');
+      c.textContent = acatar ? '✓ Acatar e avisar' : '✕ Recusar e avisar';
+      c.className = acatar ? 'btn btn-primary' : 'btn btn-sug-recusar';
+      dlg.showModal(); r.focus();
+    });
+  });
+  dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
+})();
+</script>
+{% endblock %}
