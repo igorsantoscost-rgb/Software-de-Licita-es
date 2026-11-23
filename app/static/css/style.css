@@ -2493,3 +2493,13 @@ body.com-menu .card > .card-info-topo:first-child { margin: -18px -20px 16px !im
 body.com-menu .dlg-sugestao { margin: auto; }
 body.com-menu .filtros-faixa .filtro-pill { background: transparent !important; border-color: rgba(255,255,255,.25) !important; color: #dbe5df !important; }
 body.com-menu .filtros-faixa .filtro-pill.ativo { background: #fff !important; color: var(--s-escuro) !important; border-color: #fff !important; }
+/* Campos lado a lado: caixa sempre alinhada embaixo, mesmo se um rótulo quebrar linha */
+.campo-row > .campo { justify-content: flex-end; }
+/* Cliente: "Proxima licitacao" no canto superior direito, acima do status */
+body.com-menu .acoes-header-cliente { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+body.com-menu .page-header:has(.acoes-header-cliente) { align-items: flex-start; }
+/* Menu recolhido: a largura do tema novo nao pode vencer o recolhimento */
+@media (min-width: 961px) {
+  html.menu-recolhido body.com-menu .menu-lateral { width: 68px; padding-left: 10px; padding-right: 10px; }
+  html.menu-recolhido body.com-menu .menu-item.ativo::before { inset: 6px auto 6px -10px; }
+}
