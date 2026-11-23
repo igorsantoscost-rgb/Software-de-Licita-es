@@ -2307,7 +2307,7 @@ body.com-menu .barra-topo-usuario span { font-size: .72rem; color: var(--s-suave
 body.com-menu .btn-lampada-mobile { display: none; }
 
 /* ── Conteúdo ── */
-body.com-menu .container { max-width: 1280px; padding: 22px 28px 40px; }
+body.com-menu .container { max-width: none; padding: 22px 28px 40px; }
 body.com-menu .container.container-full { padding: 22px 28px 40px; }
 body.com-menu .page-header { margin-bottom: 18px; align-items: flex-end; }
 body.com-menu .page-header h2 { font-size: 1.35rem; font-weight: 800; letter-spacing: -.01em; color: var(--s-texto); }
@@ -2503,3 +2503,10 @@ body.com-menu .page-header:has(.acoes-header-cliente) { align-items: flex-start;
   html.menu-recolhido body.com-menu .menu-lateral { width: 68px; padding-left: 10px; padding-right: 10px; }
   html.menu-recolhido body.com-menu .menu-item.ativo::before { inset: 6px auto 6px -10px; }
 }
+/* Logo e bolinha de versao na mesma linha */
+body.com-menu .menu-topo { display: flex; align-items: center; gap: 10px; padding: 0 8px 18px; }
+body.com-menu .menu-topo .menu-marca { padding: 0; }
+body.com-menu .menu-topo .menu-versao { margin: 0; }
+html.menu-recolhido body.com-menu .menu-topo { flex-direction: column; gap: 8px; padding: 0 0 14px; }
+/* Paginas usam a largura toda */
+body.com-menu .container, body.com-menu .container.container-full { max-width: none; }

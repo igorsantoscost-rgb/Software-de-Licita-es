@@ -44,6 +44,7 @@
           onclick="var r=document.documentElement.classList.toggle('menu-recolhido');try{localStorage.setItem('bidfy-menu',r?'recolhido':'aberto')}catch(e){}">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
   </button>
+  <div class="menu-topo">
   <a href="{{ url_for('main.painel') }}" class="menu-marca">
     <img src="{{ url_for('static', filename='img/logo-bidfy-escuro.svg') }}" alt="Bidfy" class="menu-marca-logo">
     <img src="{{ url_for('static', filename='img/bidfy-simbolo.svg') }}" alt="Bidfy" class="menu-marca-icone">
@@ -54,6 +55,7 @@
     <span class="ponto-status ponto-{{ sistema.estado }}"></span>{{ sistema.versao }}
   </a>
   {% endif %}
+  </div>
 
   <nav class="menu-grupos">
     {% if current_user.is_master() %}
