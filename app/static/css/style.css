@@ -2510,3 +2510,29 @@ body.com-menu .menu-topo .menu-versao { margin: 0; }
 html.menu-recolhido body.com-menu .menu-topo { flex-direction: column; gap: 8px; padding: 0 0 14px; }
 /* Paginas usam a largura toda */
 body.com-menu .container, body.com-menu .container.container-full { max-width: none; }
+
+/* ═══ Alturas padronizadas: botões, seletores e campos lado a lado sempre na mesma altura ═══
+   normal = 38px | pequeno = 32px | cabeçalho de página = 36px (tudo junto) */
+body.com-menu { --alt-normal: 38px; --alt-pequena: 32px; --alt-cabecalho: 36px; }
+body.com-menu .btn, body.com-menu .btn-proxima, body.com-menu .toggle-btn {
+  min-height: var(--alt-normal); height: auto; padding-top: 0; padding-bottom: 0; line-height: 1.15;
+  display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; vertical-align: middle;
+}
+body.com-menu .btn-sm { min-height: var(--alt-pequena); }
+body.com-menu .btn-upload { padding-top: 6px; padding-bottom: 6px; }
+body.com-menu .campo input:not([type=checkbox]):not([type=radio]):not([type=file]),
+body.com-menu .campo select, body.com-menu .select, body.com-menu .busca-input {
+  height: var(--alt-normal); padding-top: 0; padding-bottom: 0; box-sizing: border-box;
+}
+body.com-menu .select-status-mini { height: var(--alt-pequena); padding-top: 0; padding-bottom: 0; box-sizing: border-box; }
+/* Cabeçalho de página (ações à direita, navegação do calendário etc.): tudo com a mesma altura */
+body.com-menu .page-header .btn, body.com-menu .page-header .toggle-btn, body.com-menu .page-header .btn-proxima,
+body.com-menu .page-header select, body.com-menu .page-header .select, body.com-menu .page-header .select-status-compacto {
+  min-height: var(--alt-cabecalho); height: var(--alt-cabecalho); padding-top: 0; padding-bottom: 0; box-sizing: border-box;
+}
+body.com-menu .page-header .select-status-compacto { font-size: .84rem; }
+body.com-menu .acoes-header, body.com-menu .form-status-compacto, body.com-menu .form-inline { align-items: center; }
+body.com-menu .acoes-header form { display: inline-flex; align-items: center; gap: 8px; margin: 0; }
+/* Busca: botão com a mesma altura do campo */
+body.com-menu form:has(.busca-input) { align-items: center; }
+body.com-menu form:has(.busca-input) .btn { min-height: var(--alt-normal); height: var(--alt-normal); }
